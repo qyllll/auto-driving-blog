@@ -1,13 +1,5 @@
 {
-  "installCommand": "curl -fsSL https://github.com/gohugoio/hugo/releases/download/v0.146.0/hugo_extended_0.146.0_linux-amd64.tar.gz -o /tmp/hugo.tar.gz && tar -xzf /tmp/hugo.tar.gz -C /usr/local/bin hugo && hugo version",
-  "buildCommand": "hugo --gc --minify",
+  "buildCommand": "curl -fsSL https://github.com/gohugoio/hugo/releases/download/v0.146.0/hugo_extended_0.146.0_linux-amd64.tar.gz | tar -xz -C /tmp hugo && /tmp/hugo version && /tmp/hugo --gc --minify",
   "outputDirectory": "public",
-  "headers": [
-    {
-      "source": "/(.*)",
-      "headers": [
-        { "key": "X-Content-Type-Options", "value": "nosniff" }
-      ]
-    }
-  ]
+  "cleanUrls": true
 }
