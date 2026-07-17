@@ -1,8 +1,9 @@
 baseURL: "https://auto-driving-blog.vercel.app/"
 languageCode: "zh-cn"
 defaultContentLanguage: "zh"
-title: "Elon's 自动驾驶技术笔记"
+title: "Elon's AD Insight"
 theme: "PaperMod"
+buildFuture: true
 pagination:
   pagerSize: 10
 enableRobotsTXT: true
@@ -59,7 +60,7 @@ params:
     disableHLJS: true
 
   label:
-    text: "Elon's 自动驾驶笔记"
+    text: "Elon's AD Insight"
     iconHeight: 35
 
   homeInfoParams:

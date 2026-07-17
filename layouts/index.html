@@ -1,7 +1,17 @@
 {{- define "main" }}
 <style>
+:root {
+  --page-bg: #14141f;
+}
+html[data-theme="dark"] body {
+  background: var(--page-bg);
+}
+html[data-theme="light"] body {
+  background: #f0f2f5;
+}
+
 .custom-home {
-  max-width: 1000px;
+  max-width: 1080px;
   margin: 0 auto;
   padding: 0 1.5rem;
 }
@@ -9,10 +19,10 @@
 /* Hero */
 .custom-hero {
   text-align: center;
-  padding: 3rem 0 2.5rem;
+  padding: 3.5rem 0 1rem;
 }
 .custom-hero h1 {
-  font-size: 2rem;
+  font-size: 2.2rem;
   font-weight: 700;
   margin-bottom: 0.5rem;
   letter-spacing: -0.02em;
@@ -20,16 +30,39 @@
 .custom-hero p {
   color: var(--secondary);
   font-size: 1.05rem;
-  max-width: 480px;
+  max-width: 520px;
   margin: 0 auto;
   line-height: 1.7;
 }
 .custom-hero-line {
   width: 50px;
   height: 3px;
-  background: var(--link-color);
+  background: #818cf8;
   border-radius: 2px;
   margin: 1.2rem auto 0;
+}
+
+/* Year separator */
+.year-section-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin: 2rem 0 1.2rem;
+}
+.year-badge {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--secondary);
+  background: rgba(129, 140, 248, 0.12);
+  padding: 0.35rem 1rem;
+  border-radius: 100px;
+  border: 1px solid rgba(129, 140, 248, 0.2);
+  flex-shrink: 0;
+}
+.year-line {
+  flex: 1;
+  height: 1px;
+  background: var(--border);
 }
 
 /* Post cards */
@@ -37,13 +70,13 @@
   display: flex;
   flex-direction: column;
   gap: 0.9rem;
-  padding-bottom: 2rem;
+  padding-bottom: 3rem;
 }
 
 .post-card {
   display: flex;
-  background: rgba(30, 41, 59, 0.6);
-  border: 1px solid rgba(59, 130, 246, 0.25);
+  background: rgba(30, 35, 50, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: 16px;
   padding: 1.5rem;
   text-decoration: none;
@@ -57,24 +90,25 @@
   position: absolute;
   left: 0; top: 0; bottom: 0;
   width: 4px;
-  background: #3b82f6;
+  background: #818cf8;
   opacity: 0;
   transition: opacity 0.3s;
 }
 .post-card:hover {
-  border-color: #60a5fa;
-  background: rgba(37, 99, 235, 0.18);
+  border-color: rgba(129, 140, 248, 0.4);
+  background: rgba(129, 140, 248, 0.12);
   transform: translateY(-3px);
-  box-shadow: 0 10px 30px rgba(59, 130, 246, 0.2);
+  box-shadow: 0 10px 30px rgba(99, 102, 241, 0.15);
 }
 .post-card:hover::before { opacity: 1; }
+
 [data-theme="light"] .post-card {
-  background: #f0f6ff;
-  border-color: rgba(59, 130, 246, 0.2);
+  background: #ffffff;
+  border-color: rgba(0, 0, 0, 0.06);
 }
 [data-theme="light"] .post-card:hover {
-  background: rgba(59, 130, 246, 0.1);
-  border-color: #3b82f6;
+  background: #f5f3ff;
+  border-color: rgba(129, 140, 248, 0.4);
 }
 
 .post-card-date {
@@ -83,9 +117,9 @@
   align-items: center;
   justify-content: center;
   min-width: 60px;
-  padding-right: 1.2rem;
+  padding-right: 1.3rem;
   border-right: 1px solid var(--border);
-  margin-right: 1.2rem;
+  margin-right: 1.3rem;
   flex-shrink: 0;
 }
 .post-card-date .month {
@@ -96,9 +130,9 @@
   letter-spacing: 1px;
 }
 .post-card-date .day {
-  font-size: 1.6rem;
+  font-size: 1.7rem;
   font-weight: 700;
-  color: var(--link-color);
+  color: #818cf8;
   line-height: 1;
   margin-top: 0.2rem;
 }
@@ -111,13 +145,13 @@
   line-height: 1.4;
   transition: color 0.2s;
 }
-.post-card:hover .post-card-title { color: var(--link-color); }
+.post-card:hover .post-card-title { color: #a5b4fc; }
 
 .post-card-excerpt {
   color: var(--secondary);
   font-size: 0.9rem;
   line-height: 1.7;
-  margin-bottom: 0.6rem;
+  margin-bottom: 0.7rem;
   display: -webkit-box;
   -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
@@ -135,9 +169,13 @@
   font-size: 0.73rem;
   font-weight: 500;
   border-radius: 100px;
-  background: rgba(59, 130, 246, 0.15);
-  color: #60a5fa;
-  border: 1px solid rgba(59, 130, 246, 0.2);
+  background: rgba(129, 140, 248, 0.12);
+  color: #a5b4fc;
+  border: 1px solid rgba(129, 140, 248, 0.15);
+}
+[data-theme="light"] .card-tag {
+  background: rgba(129, 140, 248, 0.1);
+  color: #6366f1;
 }
 
 @media (max-width: 600px) {
@@ -164,6 +202,11 @@
   {{- $pages = where $pages "Params.hiddenInHomeList" "!=" "true" }}
   {{- $paginator := .Paginate $pages }}
 
+  <div class="year-section-header">
+    <span class="year-badge">📅 {{ now.Format "2006" }}</span>
+    <div class="year-line"></div>
+  </div>
+
   <div class="post-cards">
     {{- range $paginator.Pages }}
     <a href="{{ .Permalink }}" class="post-card">
@@ -175,7 +218,7 @@
         <div class="post-card-title">{{ .Title }}</div>
         <div class="post-card-excerpt">{{ .Content | plainify | htmlUnescape | truncate 300 }}</div>
         <div class="post-card-tags">
-          {{- range first 4 .Params.tags }}
+          {{- range first 5 .Params.tags }}
           <span class="card-tag">{{ . }}</span>
           {{- end }}
         </div>
