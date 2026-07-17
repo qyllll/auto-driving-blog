@@ -3,7 +3,7 @@ title: "什么是 VLA（Vision-Language-Action）模型？"
 date: 2026-07-17
 draft: false
 categories: ["知识点拆解"]
-tags: ["VLA", "VLM", "大模型", "自动驾驶"]
+tags: ["🧠 VLA", "👁️ VLM", "🤖 大模型", "🚗 自动驾驶"]
 summary: "一文搞懂 VLA 模型的核心思想、架构演进，以及它为什么成为自动驾驶的新范式。"
 weight: 1
 ---
