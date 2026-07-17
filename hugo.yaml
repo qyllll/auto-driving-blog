@@ -55,25 +55,11 @@ params:
   tocopen: true
 
   assets:
-    favicon: "/favicon.ico"
     disableHLJS: true
-    favicon16x16: "/favicon.ico"
-    favicon32x32: "/favicon.ico"
-    apple_touch_icon: "/favicon.ico"
 
   label:
     text: "Elon's 自动驾驶笔记"
-    icon: /apple-touch-icon.png
     iconHeight: 35
-
-  profileMode:
-    enabled: true
-    title: "自动驾驶技术笔记"
-    subtitle: "VLA · 世界模型 · 端到端 · 感知决策"
-    imageUrl: ""
-    imageWidth: 120
-    imageHeight: 120
-    imageTitle: "Elon"
 
   homeInfoParams:
     Title: "Hi 👋 我是 Elon"
