@@ -5,7 +5,7 @@ title: "Elon's AD Insight"
 theme: "PaperMod"
 buildFuture: true
 pagination:
-  pagerSize: 10
+  pagerSize: 20
 enableRobotsTXT: true
 enableEmoji: true
 
