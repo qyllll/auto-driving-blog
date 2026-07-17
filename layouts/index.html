@@ -1,15 +1,15 @@
 {{- define "main" }}
 <style>
 .custom-home {
-  max-width: 900px;
+  max-width: 1000px;
   margin: 0 auto;
-  padding: 0 1.2rem;
+  padding: 0 1.5rem;
 }
 
 /* Hero */
 .custom-hero {
   text-align: center;
-  padding: 2.5rem 0 2rem;
+  padding: 3rem 0 2.5rem;
 }
 .custom-hero h1 {
   font-size: 2rem;
@@ -42,10 +42,10 @@
 
 .post-card {
   display: flex;
-  background: var(--code-bg);
+  background: var(--theme);
   border: 1px solid var(--border);
-  border-radius: 14px;
-  padding: 1.3rem;
+  border-radius: 16px;
+  padding: 1.5rem;
   text-decoration: none;
   color: inherit;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -56,15 +56,16 @@
   content: '';
   position: absolute;
   left: 0; top: 0; bottom: 0;
-  width: 3px;
+  width: 4px;
   background: var(--link-color);
   opacity: 0;
   transition: opacity 0.3s;
 }
 .post-card:hover {
   border-color: var(--link-color);
-  transform: translateY(-2px);
-  box-shadow: 0 8px 20px rgba(0,0,0,0.12);
+  background: var(--code-bg);
+  transform: translateY(-3px);
+  box-shadow: 0 10px 25px rgba(0,0,0,0.15);
 }
 .post-card:hover::before { opacity: 1; }
 
@@ -164,7 +165,7 @@
       </div>
       <div class="post-card-body">
         <div class="post-card-title">{{ .Title }}</div>
-        <div class="post-card-excerpt">{{ .Summary | plainify | htmlUnescape | truncate 120 }}</div>
+        <div class="post-card-excerpt">{{ .Summary | plainify | htmlUnescape | truncate 200 }}</div>
         <div class="post-card-tags">
           {{- range first 4 .Params.tags }}
           <span class="card-tag">{{ . }}</span>
