@@ -42,8 +42,8 @@
 
 .post-card {
   display: flex;
-  background: var(--theme);
-  border: 1px solid var(--border);
+  background: rgba(30, 41, 59, 0.6);
+  border: 1px solid rgba(59, 130, 246, 0.25);
   border-radius: 16px;
   padding: 1.5rem;
   text-decoration: none;
@@ -57,17 +57,25 @@
   position: absolute;
   left: 0; top: 0; bottom: 0;
   width: 4px;
-  background: var(--link-color);
+  background: #3b82f6;
   opacity: 0;
   transition: opacity 0.3s;
 }
 .post-card:hover {
-  border-color: var(--link-color);
-  background: var(--code-bg);
+  border-color: #60a5fa;
+  background: rgba(37, 99, 235, 0.18);
   transform: translateY(-3px);
-  box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+  box-shadow: 0 10px 30px rgba(59, 130, 246, 0.2);
 }
 .post-card:hover::before { opacity: 1; }
+[data-theme="light"] .post-card {
+  background: #f0f6ff;
+  border-color: rgba(59, 130, 246, 0.2);
+}
+[data-theme="light"] .post-card:hover {
+  background: rgba(59, 130, 246, 0.1);
+  border-color: #3b82f6;
+}
 
 .post-card-date {
   display: flex;
@@ -97,9 +105,9 @@
 
 .post-card-body { flex: 1; min-width: 0; }
 .post-card-title {
-  font-size: 1.1rem;
+  font-size: 1.2rem;
   font-weight: 600;
-  margin-bottom: 0.4rem;
+  margin-bottom: 0.5rem;
   line-height: 1.4;
   transition: color 0.2s;
 }
@@ -108,10 +116,10 @@
 .post-card-excerpt {
   color: var(--secondary);
   font-size: 0.9rem;
-  line-height: 1.6;
+  line-height: 1.7;
   margin-bottom: 0.6rem;
   display: -webkit-box;
-  -webkit-line-clamp: 2;
+  -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
@@ -123,13 +131,13 @@
 }
 .card-tag {
   display: inline-block;
-  padding: 0.18rem 0.6rem;
-  font-size: 0.72rem;
+  padding: 0.2rem 0.65rem;
+  font-size: 0.73rem;
   font-weight: 500;
   border-radius: 100px;
-  background: var(--link-color);
-  color: var(--theme);
-  opacity: 0.85;
+  background: rgba(59, 130, 246, 0.15);
+  color: #60a5fa;
+  border: 1px solid rgba(59, 130, 246, 0.2);
 }
 
 @media (max-width: 600px) {
@@ -165,7 +173,7 @@
       </div>
       <div class="post-card-body">
         <div class="post-card-title">{{ .Title }}</div>
-        <div class="post-card-excerpt">{{ .Summary | plainify | htmlUnescape | truncate 200 }}</div>
+        <div class="post-card-excerpt">{{ .Content | plainify | htmlUnescape | truncate 300 }}</div>
         <div class="post-card-tags">
           {{- range first 4 .Params.tags }}
           <span class="card-tag">{{ . }}</span>
