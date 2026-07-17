@@ -1,0 +1,132 @@
+baseURL: "https://your-blog.vercel.app/"
+languageCode: "zh-cn"
+defaultContentLanguage: "zh"
+title: "Elon's 自动驾驶技术笔记"
+theme: "PaperMod"
+paginate: 10
+enableRobotsTXT: true
+enableEmoji: true
+
+markup:
+  highlight:
+    codeFences: true
+    guessSyntax: true
+    lineNos: true
+    style: "monokai"
+  goldmark:
+    renderer:
+      unsafe: true
+    parser:
+      autoHeadingID: true
+      autoHeadingIDType: "github"
+
+taxonomies:
+  category: categories
+  tag: tags
+  series: series
+
+outputs:
+  home:
+    - HTML
+    - RSS
+    - JSON
+
+minify:
+  disableXML: true
+  minifyOutput: true
+
+params:
+  env: production
+  defaultTheme: dark
+  disableThemeToggle: false
+  ShowReadingTime: true
+  ShowShareButtons: false
+  ShowPostNavLinks: true
+  ShowBreadCrumbs: true
+  ShowCodeCopyButtons: true
+  ShowWordCount: true
+  ShowToc: true
+  TocOpen: true
+  disableSpecial1stPost: true
+  comments: false
+  hidemeta: false
+  hideSummary: false
+  showtoc: true
+  tocopen: true
+
+  assets:
+    favicon: "/favicon.ico"
+    disableHLJS: true
+    favicon16x16: "/favicon.ico"
+    favicon32x32: "/favicon.ico"
+    apple_touch_icon: "/favicon.ico"
+
+  label:
+    text: "Elon's 自动驾驶笔记"
+    icon: /apple-touch-icon.png
+    iconHeight: 35
+
+  profileMode:
+    enabled: true
+    title: "自动驾驶技术笔记"
+    subtitle: "VLA · 世界模型 · 端到端 · 感知决策"
+    imageUrl: ""
+    imageWidth: 120
+    imageHeight: 120
+    imageTitle: "Elon"
+
+  homeInfoParams:
+    Title: "Hi 👋 我是 Elon"
+    Content: |
+      自动驾驶 VLA 工程师，专注视觉-语言-动作模型、世界模型与端到端自动驾驶。
+      这里分享论文精读、知识点拆解与工程实践，欢迎交流。
+
+  socialIcons:
+    - name: github
+      url: "https://github.com/qyllll"
+    - name: email
+      url: "mailto:14745277512@163.com"
+    - name: rss
+      url: "/index.xml"
+
+  cover:
+    hidden: true
+    hiddenInList: false
+    hiddenInSingle: false
+
+  editPost:
+    URL: ""
+    Text: ""
+    appendFilePath: false
+
+  fuseOpts:
+    isCaseSensitive: false
+    shouldSort: true
+    location: 0
+    distance: 1000
+    threshold: 0.4
+    minMatchCharLength: 0
+    keys: ["title", "permalink", "summary", "content"]
+
+menu:
+  main:
+    - identifier: categories
+      name: 📁 分类
+      url: /categories/
+      weight: 10
+    - identifier: tags
+      name: 🏷️ 标签
+      url: /tags/
+      weight: 20
+    - identifier: search
+      name: 🔍 搜索
+      url: /search/
+      weight: 30
+    - identifier: archives
+      name: 📚 归档
+      url: /archives/
+      weight: 40
+    - identifier: about
+      name: 👨‍💻 关于
+      url: /about/
+      weight: 50
