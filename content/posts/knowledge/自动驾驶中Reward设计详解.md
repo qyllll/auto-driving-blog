@@ -16,6 +16,8 @@ weight: 11
 
 ---
 
+![Reward Design Framework](/images/reward-design/reward-design.png)
+
 ## 🧱 Reward 的四大组成组件
 
 绝大多数驾驶 reward 都可以拆成四个维度的加权和：

@@ -33,6 +33,45 @@ weight: 15
 
 ---
 
+## 🏗️ Diffusion Planner 架构
+
+![Diffusion Planner 整体架构](/images/diffusion-planner/architecture.png)
+
+Diffusion Planner 的架构基于 **DiT（Diffusion Transformer）**，核心是将噪声轨迹 $\bm{x}^{(t)}$ 与异质条件 $\bm{C}$ 融合后逐步去噪。
+
+### 条件去噪的数学形式
+
+去噪目标 $\bm{x}^{(0)}$ 是一个将所有参与者未来轨迹摞起来的大矩阵：
+
+$$\bm{x}^{(0)}=\begin{bmatrix} x_{\text{ego}}^{1} & \cdots & x_{\text{ego}}^{\tau} \\ x_{\text{nbr}_1}^{1} & \cdots & x_{\text{nbr}_1}^{\tau} \\ \vdots & \ddots & \vdots \\ x_{\text{nbr}_M}^{1} & \cdots & x_{\text{nbr}_M}^{\tau} \end{bmatrix}$$
+
+扩散模型学习得分函数 $\bm{s}_\theta$（等价于去噪网络 $\mu_\theta$）：
+
+$$\mathcal{L}_\theta = \mathbb{E}_{t, \bm{x}^{(0)}, \bm{\epsilon}}\left[\big\|\mu_\theta(\bm{x}^{(t)}, t, \bm{C}) - \bm{x}^{(0)}\big\|^2\right]$$
+
+推理时从纯噪声 $\bm{x}^{(T)}$ 开始，按 DDIM 调度逐步去噪至 $\bm{x}^{(0)}$。
+
+### 条件注入方式
+
+![条件融合机制](/images/diffusion-planner/guidance_detail.png)
+
+| 条件类型 | 表示 | 融合方式 |
+|----------|------|----------|
+| 当前车辆状态（位姿） | 矢量拼接 | 自注意力（多车交互） |
+| 历史轨迹 + 车道 | polyline 序列 | MLP-Mixer → 交叉注意力 |
+| 静态目标（红绿灯等） | 单点特征 | MLP → 交叉注意力 |
+| 导航路由 + 时间步 | 路由序列 | MLP-Mixer → adaptive LayerNorm |
+
+一个反直觉的设计：**自车速度/加速度被刻意剔除**——实验表明这反而提升闭环表现，避免模型过度依赖瞬时速度。
+
+### 联合预测与规划
+
+![联合预测与规划](/images/diffusion-planner/joint_prediction.png)
+
+传统 pipeline 将运动预测和轨迹规划串行处理。Diffusion Planner 将它们重定义为**一次联合去噪**——自车轨迹与邻车轨迹在同一去噪过程中协同生成，交互行为自然涌现，无需额外 loss。
+
+---
+
 ## 💡 核心思想：任务重定义 + 联合生成
 
 ### 把规划和预测压成一个去噪目标
@@ -138,6 +177,46 @@ $$\tilde{\bm{s}}_\theta(\bm{x}^{(t)},t)=\bm{s}_\theta(\bm{x}^{(t)},t)-\nabla_{\b
 | 后处理 | 重度依赖规则 | **无需规则** |
 | 行为调整 | 重训 / 加 loss | **推理时引导切换** |
 | 交互建模 | 额外 loss | 联合去噪自然涌现 |
+
+---
+
+## 📊 实验与结果
+
+### nuPlan 闭环 SOTA（无规则后处理）
+
+在 nuPlan 闭环 benchmark 上，Diffusion Planner 在不使用任何规则后处理的情况下即达到学习式 SOTA：
+
+| 方法 | 闭环得分 | 碰撞率↓ | 驾驶评分↑ |
+|------|---------|---------|----------|
+| PlanTF（Transformer BC） | 中 | 高 | 中 |
+| PLUTO（多阶段规划） | 中高 | 中 | 中高 |
+| GameFormer（博弈交互） | 中 | 依赖规则 | 中 |
+| **Diffusion Planner（无refine）** | **高** | **低** | **高** |
+| **Diffusion Planner（w/ refine）** | **SOTA** | **最低** | **最高** |
+
+关键发现：Diffusion Planner 在**对抗性/罕见场景（reactive-test）** 中优势最大，因为联合生成的自车-邻车交互建模使模型能理解"我变道→他避让"的因果链。
+
+### 200 小时配送车迁移
+
+| 方法 | 私家车场景 | 配送车场景（迁移） | 下降幅度 |
+|------|-----------|-------------------|---------|
+| PDM（规则） | 高 | 显著下降 | 大 |
+| GameFormer | 中高 | 下降 | 中 |
+| **Diffusion Planner** | **高** | **几乎不变** | **小** |
+
+配送车视野、动力学、驾驶节奏与私家车迥异，Diffusion Planner 仍保持稳定闭环表现，说明模型学到了更本质的交互规则而非记忆车型特定动作分布。
+
+### 引导效果消融
+
+| 引导类型 | 碰撞率 | Jerk | 平均速度 |
+|---------|--------|------|---------|
+| 无引导 | 高 | 高 | ~12 m/s |
+| +安全引导 | **↓ 显著** | 高 | ~11 m/s |
+| +舒适引导 | 中 | **↓ 显著** | ~11.5 m/s |
+| +速度引导（10–14 m/s） | 中 | 中 | **~12.5 m/s** |
+| **全部组合** | **低** | **低** | **可控** |
+
+引导可并行计算、自由组合，无需额外训练——一个模型，万种风格。
 
 ---
 

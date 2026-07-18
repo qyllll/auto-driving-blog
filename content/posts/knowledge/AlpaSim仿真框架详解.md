@@ -24,6 +24,8 @@ weight: 9
 
 ---
 
+![AlpaSim Architecture](/images/alpabasim/alpasim-architecture.png)
+
 ## 🧱 AlpaSim 的设计目标与核心能力
 
 > **AlpaSim：A Modular, Lightweight, and Data-Driven Research Simulator for Autonomous Driving**，NVIDIA 出品，Apache 2.0 协议，由 Maximilian Igl 领衔，Sanja Fidler、Marco Pavone 等参与。

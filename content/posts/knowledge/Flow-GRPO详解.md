@@ -8,6 +8,10 @@ summary: "Flow-GRPO 将 Group Relative Policy Optimization 引入流匹配策略
 weight: 7
 ---
 
+![Flow-GRPO 整体概览：ODE-to-SDE 转换 + Denoising Reduction + 组内奖励归一化（来源：NeurIPS 2025）](/images/flow-grpo/overview.png)
+
+![Flow-GRPO 训练流程：采样 → 打分 → 组内优势计算 → 策略更新（来源：NeurIPS 2025）](/images/flow-grpo/pipeline.png)
+
 ## 一句话理解 Flow-GRPO
 
 > **Flow-GRPO = 把"扩散/流匹配的多步去噪过程"当成一条可被强化学习优化的轨迹，用最终结果的奖励信号去反向更新每一步的去噪策略。**
@@ -119,6 +123,10 @@ for prompt in unique:
 > 💡 当 reward 稀疏导致同组方差为 0 时，可设置 `config.sample.global_std=True`，用全局 std 替代组内 std，避免训练信号消失。
 
 ---
+
+![Flow-GRPO 训练循环细节：Denoising Reduction 和 ODE-to-SDE 转换示意（来源：NeurIPS 2025）](/images/flow-grpo/training_loop.png)
+
+![Flow-GRPO 实验效果：GenEval 从 63% 提升至 95%，Text Rendering 从 59% 提升至 92%（来源：NeurIPS 2025）](/images/flow-grpo/results.png)
 
 ## 🔧 Flow-GRPO 核心：从离散 token 迁移到连续去噪
 

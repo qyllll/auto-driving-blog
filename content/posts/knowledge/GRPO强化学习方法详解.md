@@ -16,6 +16,8 @@ weight: 10
 
 ---
 
+![GRPO Algorithm Flow](/images/grpo-detail/grpo-algorithm.png)
+
 ## 🧗 从 PPO 说起：为什么需要 critic？
 
 要懂 GRPO 的妙处，得先看它的前身 **PPO（Proximal Policy Optimization）**。PPO 是 RLHF 时代的主力，它的目标函数是经典的 **clipped surrogate**：
