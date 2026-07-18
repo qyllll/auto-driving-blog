@@ -6,6 +6,7 @@ categories: ["论文精读"]
 tags: ["🧠 VLA","🏭 Google","🤖 机器人","⚡ 基础模型"]
 summary: "RT-2由Google DeepMind提出，首次将互联网预训练的视觉语言模型(VLM)通过将动作编码为文本Token的方式转化为VLA模型，在6k次机器人试验中验证了零样本泛化和涌现语义推理能力。"
 weight: 36
+lastmod: 2026-07-19T18:00:00+08:00
 ---
 
 ## 🏭 论文概览
