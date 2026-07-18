@@ -4,7 +4,7 @@ date: 2026-07-19
 draft: false
 categories: ["论文精读"]
 tags: ["🎨 扩散模型", "📐 规划", "🔗 端到端", "🚗 自动驾驶"]
-summary: "Diffusion Planner 用 DiT 把自车规划与他车预测联合建模成一次条件去噪，再用免训练的分类器引导在推理时灵活注入安全与个性化偏好，刷新 nuPlan 闭环 SOTA。"
+summary: "Diffusion Planner 把自动驾驶规划重定义为未来轨迹生成任务，用 Diffusion Transformer（DiT）将自车规划与他车预测联合建模为一次条件去噪过程。它通过免训练的分类器引导机制在推理时灵活注入安全、舒适与速度偏好。在 nuPlan 闭环评测中刷新 SOTA，开创了扩散式联合预测-规划的新范式。"
 weight: 15
 ---
 

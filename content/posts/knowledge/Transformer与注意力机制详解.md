@@ -4,7 +4,7 @@ date: 2026-07-19
 draft: false
 categories: ["知识点拆解"]
 tags: ["🧠 Transformer","⚡ 注意力","👁️ 视觉","📐 架构"]
-summary: "从self-attention到multi-head attention，从ViT到VLM中的causal attention，全面理解Transformer在自动驾驶中的应用基础。"
+summary: "Transformer 凭借自注意力机制的长程依赖建模与并行计算能力，从 NLP 席卷至自动驾驶全栈。本文从缩放点积注意力的数学原理出发，系统梳理 Multi-Head Attention、ViT、BEVFormer 及 VLM 中 Causal Attention 的关键技术。为理解 Transformer 在自动驾驶感知与规划中的应用奠定理论基础。"
 weight: 15
 ---
 

@@ -4,7 +4,7 @@ date: 2026-07-17
 draft: false
 categories: ["论文精读"]
 tags: ["👁️ VLM", "🧠 VLA", "📄 DriveVLM", "🚗 自动驾驶", "💡 场景理解"]
-summary: "DriveVLM 是首个系统性地把视觉语言模型用于自动驾驶场景理解与推理的工作。本文拆解它的动机、设计与双系统架构。"
+summary: "DriveVLM 是首个系统性地把视觉语言模型用于自动驾驶场景理解与推理的工作。它提出双系统架构——VLM 慢系统做思维链推理输出高层决策，传统规划器快系统做安全执行。在 CARLA 闭环评测中大幅超越基线，为 VLA 的 Dual-System 范式奠定基础。"
 weight: 1
 ---
 

@@ -4,7 +4,7 @@ date: 2026-07-19
 draft: false
 categories: ["知识点拆解"]
 tags: ["🎮 强化学习", "📐 Reward", "🚗 自动驾驶", "⚡ 安全性"]
-summary: "Reward 是驾驶 RL 的命门：怎么平衡安全、舒适、合规、效率？稀疏 reward 怎么破？本文系统拆解自动驾驶 reward 设计的四大组件、三大范式与常见陷阱，并梳理 NAVSIM、nuPlan 的指标如何反哺 reward。"
+summary: "Reward 函数决定了驾驶强化学习的性能天花板，必须在安全、舒适、合规、效率之间艰难权衡。本文系统拆解 reward 设计的四大组件（安全、舒适、合规、效率）、三大范式与常见陷阱。同时梳理了 NAVSIM、nuPlan 等评测指标如何反哺 reward 设计，为驾驶 RL 提供实操指南。"
 weight: 11
 ---
 

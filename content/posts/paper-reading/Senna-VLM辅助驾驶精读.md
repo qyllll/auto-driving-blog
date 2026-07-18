@@ -4,7 +4,7 @@ date: 2026-07-19
 draft: false
 categories: ["论文精读"]
 tags: ["🧠 VLM", "🚗 自动驾驶", "🔗 端到端"]
-summary: "Senna 把大型视觉语言模型（Senna-VLM）与端到端模型（Senna-E2E）解耦协同：VLM 用自然语言做高层决策，E2E 负责精确轨迹预测，巧妙绕开了 LVLM 不擅长数值预测的软肋。"
+summary: "Senna 将大型视觉语言模型（Senna-VLM）与端到端规划器（Senna-E2E）解耦协同，VLM 用自然语言输出高层决策，E2E 在该决策条件下生成精确轨迹。它巧妙绕开了 LVLM 不擅长数值预测的软肋，让 VLM 干'说人话做决策'、E2E 干'算轨迹画路点'。这条 VLM 辅助端到端驾驶的路线成为后续多个工作的设计原型。"
 weight: 20
 ---
 

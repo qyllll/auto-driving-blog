@@ -4,7 +4,7 @@ date: 2026-07-18
 draft: false
 categories: ["知识点拆解"]
 tags: ["🌊 Flow Matching", "🎨 扩散模型", "📐 数学基础", "🤖 动作生成"]
-summary: "Flow Matching是扩散模型的高效替代方案，在自动驾驶轨迹生成和机器人动作生成中越来越流行。这篇从数学直觉到工程实践讲清楚。"
+summary: "Flow Matching 通过直接学习从噪声到数据的直线 ODE 路径，解决了扩散模型弯曲路径导致采样步数过多的问题。本文从数学直觉出发讲解向量场、ODE 与流的核心概念，并对比 CFM、Rectified Flow、OT路径等关键变体。Flow Matching 正快速取代扩散头成为轨迹生成与规划的首选方案。"
 weight: 4
 ---
 

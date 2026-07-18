@@ -4,7 +4,7 @@ date: 2026-07-19
 draft: false
 categories: ["论文精读"]
 tags: ["🗺️ BEV", "👁️ 感知", "📷 多摄像头", "🚗 自动驾驶"]
-summary: "BEVFormer 用可学习的 BEV queries 配合空间交叉注意力与时间自注意力，纯靠多摄像头就能在 nuScenes 上达到 56.9% NDS，逼近 LiDAR 基线——它是 BEV 感知时代的奠基之作。"
+summary: "BEVFormer 开创了基于可学习 BEV queries 的时空 Transformer 感知范式，用空间交叉注意力从多视图图像采样特征、用时间自注意力沿时序聚合信息。它纯靠多摄像头就在 nuScenes 上达到 56.9% NDS 逼近 LiDAR 基线。此后几乎所有端到端驾驶方案都沿用其 BEV query+时序融合的基本设计。"
 weight: 22
 ---
 

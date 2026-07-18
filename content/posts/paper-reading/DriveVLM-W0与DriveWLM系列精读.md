@@ -4,7 +4,7 @@ date: 2026-07-19
 draft: false
 categories: ["论文精读"]
 tags: ["🧠 VLM", "🔮 世界模型", "🚗 自动驾驶"]
-summary: "DriveVLM 家族正从语言 CoT 演进到世界模型统一建模范式：DrivingGPT 把世界建模与规划压成一条 next-token 序列，DriveVLM-RL 则用神经科学双通路 RL 给安全兜底。"
+summary: "DriveVLM 家族从语言 CoT 演进到世界模型统一建模范式，攻克了 VLM 上车面临的监督稀疏、世界与动作割裂、探索不安全三道坎。DrivingGPT 用 VQ-VAE 把图像与动作离散化为统一词表，将驾驶建模为 next-token 预测。DriveVLM-RL 借鉴神经科学双通路机制，用离线 RL 为驾驶安全兜底。"
 weight: 14
 ---
 

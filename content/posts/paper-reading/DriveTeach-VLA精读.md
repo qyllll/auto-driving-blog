@@ -4,7 +4,7 @@ date: 2026-07-19
 draft: false
 categories: ["论文精读"]
 tags: ["🧠 VLA", "🏫 教学", "🚗 自动驾驶"]
-summary: "DriveTeach-VLA 认为：驾驶 VLA 失败不是「想不清」而是「看不对」。它用三段式视觉教学——DVD 蒸馏教模型「看什么」、2D 轨迹引导提示教「往哪看」、GRPO 强化教「怎么动」——在 Qwen2.5-VL 上把视觉空间 grounding 注入端到端规划，拿下 NAVSIM 与 nuScenes 的 SOTA。"
+summary: "DriveTeach-VLA 指出驾驶 VLA 的瓶颈不在语言推理而在视觉空间 grounding，核心问题不是'想不清'而是'看不对'。它提出三段式视觉教学管线——DVD 蒸馏教模型'看什么'、2D 轨迹引导提示教'往哪看'、TGP-guided GRPO 教'怎么动'——层层递进注入驾驶感知先验。在 Qwen2.5-VL 上刷新 NAVSIM 与 nuScenes 双榜单 SOTA。"
 weight: 26
 ---
 

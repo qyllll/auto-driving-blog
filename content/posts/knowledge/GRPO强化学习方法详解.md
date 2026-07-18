@@ -4,7 +4,7 @@ date: 2026-07-19
 draft: false
 categories: ["知识点拆解"]
 tags: ["🎮 强化学习", "⚡ GRPO", "🧠 DeepSeek", "📐 策略优化"]
-summary: "GRPO（Group Relative Policy Optimization）用'组内相对优势'替代 PPO 的 critic 网络，大幅降低训练成本。本文从 PPO 讲到 GRPO 的数学原理，再到它在 DeepSeek-R1 与自动驾驶（AlphaDrive、Flow-GRPO）中的应用。"
+summary: "GRPO 用'组内相对优势'替代 PPO 的 critic 网络，大幅降低大模型强化学习的训练成本与显存开销。它通过对同一 prompt 采样一组回答并基于组内奖励均值做基线来实现策略优化。已在 DeepSeek-R1 及自动驾驶项目 AlphaDrive、Flow-GRPO 中成为首选 RL 算法。"
 weight: 10
 ---
 

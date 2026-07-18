@@ -4,7 +4,7 @@ date: 2026-07-19
 draft: false
 categories: ["论文精读"]
 tags: ["🎮 强化学习", "⚡ GRPO", "📐 策略优化", "🚗 自动驾驶"]
-summary: "AlphaDrive 把 DeepSeek R1 式的 GRPO 推理强化学习搬进自动驾驶规划，用四个面向规划设计的奖励和 SFT+RL 两阶段策略，让 2B 小模型反超 7B，并涌现出多模态规划能力。"
+summary: "AlphaDrive 把 DeepSeek R1 式的 GRPO 推理强化学习首次引入自动驾驶规划，将高层驾驶决策建模为元动作分类问题。它设计了四个面向规划的专门奖励，配合 SFT 预热+RL 探索两阶段策略。仅 2B 参数的 Qwen2VL 模型反超 7B 系列，并涌现出'一景多解'的多模态规划能力。"
 weight: 16
 ---
 

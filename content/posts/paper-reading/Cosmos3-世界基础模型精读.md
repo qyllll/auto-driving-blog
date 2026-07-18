@@ -4,7 +4,7 @@ date: 2026-07-19
 draft: false
 categories: ["论文精读"]
 tags: ["🔮 世界模型", "🏭 NVIDIA", "⚡ 物理AI", "🎬 视频生成", "🤖 具身智能"]
-summary: "NVIDIA Cosmos 3 通过 Mixture-of-Transformers 架构统一多模态，在 8 项物理 AI 基准上取得开放模型第一，以 OpenMDW-1.1 许可证开源，加速物理 AI 产业落地。"
+summary: "NVIDIA Cosmos 3 用 Mixture-of-Transformers 双塔架构将语言、图像、视频、音频、动作五模态统一进单一世界基础模型。Reasoner 塔负责语义推理，Generator 塔负责高保真生成，两塔通过共享跨模态注意力深度耦合。在 8 项物理 AI 基准上取得开放模型第一，并以 OpenMDW-1.1 宽松许可证开源。"
 weight: 6
 ---
 

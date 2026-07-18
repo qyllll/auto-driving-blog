@@ -4,7 +4,7 @@ date: 2026-07-19
 draft: false
 categories: ["知识点拆解"]
 tags: ["🌊 Flow Matching", "🎮 强化学习", "⚡ GRPO", "🎨 扩散模型", "🚗 自动驾驶"]
-summary: "Flow-GRPO 将 Group Relative Policy Optimization 引入流匹配策略训练，让扩散/流匹配模型不再只靠模仿学习，而是能通过奖励信号自主探索更优的驾驶策略。"
+summary: "Flow-GRPO 将 Group Relative Policy Optimization 引入流匹配策略训练，让扩散/流匹配模型不再只靠模仿学习，而是能通过奖励信号自主探索更优的驾驶策略。它采用 ODE-to-SDE 转换与 Denoising Reduction 技术，在 SD3、FLUX 等模型上验证了有效性。为生成式模型在自动驾驶规划中的强化学习优化提供了全新范式。"
 weight: 7
 ---
 

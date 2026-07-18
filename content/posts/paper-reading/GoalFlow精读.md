@@ -4,7 +4,7 @@ date: 2026-07-19
 draft: false
 categories: ["论文精读"]
 tags: ["🌊 Flow Matching", "📐 轨迹规划", "🎯 目标引导", "🚗 自动驾驶"]
-summary: "GoalFlow将目标点引导与Flow Matching结合，在NAVSIM上生成高质量多模态驾驶轨迹。"
+summary: "GoalFlow 用一个精准目标点词表加评分机制选出最合理的短期终点，再用 Flow Matching 一步生成多模态驾驶轨迹。它解决了纯扩散生成轨迹发散无边界、而固定锚点约束过强不真实的两难问题。在 NAVSIM 上 PDMS 达到 90.3，验证了'目标点+整流流'高效生成方案的有效性。"
 weight: 12
 ---
 

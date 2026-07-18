@@ -4,7 +4,7 @@ date: 2026-07-19
 draft: false
 categories: ["论文精读"]
 tags: ["🎮 强化学习", "⚡ GRPO", "🚗 自动驾驶", "📐 策略优化"]
-summary: "AlpaMayo-R1 将 GRPO 强化学习方法引入自动驾驶策略训练，通过奖励驱动的方式优化驾驶决策的安全性与效率，配合 AlpaSim 仿真与 AlpaAuditor 审计形成完整闭环。"
+summary: "AlpaMayo-R1 将 GRPO 强化学习引入自动驾驶策略训练，以奖励驱动方式解决模仿学习的分布偏移与因果理解不足问题。它采用 VLA 三模块架构——视觉编码器、因果推理引擎和 Flow Matching 动作解码器，配合 AlpaSim 仿真与 AlpaAuditor 审计形成完整 RL 闭环。在长尾场景中显著超越模仿学习基线，证明了 RL 后训练对策略安全性和泛化性的关键作用。"
 weight: 5
 ---
 

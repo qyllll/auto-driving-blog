@@ -4,7 +4,7 @@ date: 2026-07-19
 draft: false
 categories: ["论文精读"]
 tags: ["🧠 VLA","🌍 世界模型","🤝 协作","🚗 自动驾驶"]
-summary: "CoWorld-VLA提出多专家世界推理框架，用四种专家Token将语义、几何、动态和轨迹知识编码为可显式条件化的规划信号，在NAVSIM v1上达到89.8 PDMS。"
+summary: "CoWorld-VLA 在 VLM 隐空间中构建多专家 Latent CoT 推理框架，解决了文本 CoT 丢失空间信息而隐空间缺乏可条件化信号的根本矛盾。它通过语义交互、几何结构、动态演化与轨迹意图四种专家 Token，将互补的世界知识编码为显式可用的规划条件。在 NAVSIM v1 上达到 89.8 PDMS，证明了结构化隐式推理的有效性。"
 weight: 35
 ---
 

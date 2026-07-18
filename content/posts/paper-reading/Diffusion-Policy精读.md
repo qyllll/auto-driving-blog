@@ -4,7 +4,7 @@ date: 2026-07-19
 draft: false
 categories: ["论文精读"]
 tags: ["🎨 扩散模型", "🤖 机器人", "⚡ 动作生成", "🔮 策略学习"]
-summary: "Diffusion Policy将扩散模型引入机器人动作生成，用去噪过程输出多模态动作，是VLA动作头设计的重要灵感来源。"
+summary: "Diffusion Policy 将机器人动作生成重新定义为条件去噪过程，让策略网络从噪声中逐步雕刻出动作序列。它天然支持多模态动作分布与高维动作空间，解决了传统行为克隆的 mode averaging 和复合误差问题。经 CNN 和 Transformer 双架构验证，成为后续 π0、Qwen-VLA 等 VLA 模型动作头设计的奠基之作。"
 weight: 38
 ---
 

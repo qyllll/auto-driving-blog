@@ -4,7 +4,7 @@ date: 2026-07-19
 draft: false
 categories: ["论文精读"]
 tags: ["🧠 VLA", "🎨 扩散模型", "🎮 强化学习", "⚡ DiffGRPO", "🚗 自动驾驶"]
-summary: "华科×小米EV提出ReCogDrive，将VLM认知推理与扩散规划器统一，通过DiffGRPO强化学习提升安全性，在NAVSIM和Bench2Drive上达到SOTA。"
+summary: "华科×小米EV 提出 ReCogDrive，将 VLM 认知推理（场景理解与决策分析）、扩散规划器（连续轨迹生成）和 DiffGRPO 强化学习（安全优化）三阶段统一。它的层级化数据流水线自动生成含推理链的 VQA 标注，解决了 VLM'会想但不会开'的模态错配问题。在 NAVSIM 和 Bench2Drive 上达到 SOTA，验证了'认知-规划-优化'三分天下的 VLA 设计范式。"
 weight: 9
 ---
 
