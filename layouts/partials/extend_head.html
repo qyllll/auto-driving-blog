@@ -6,8 +6,6 @@
 
 <!-- KaTeX -->
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
-<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
-<script>
-(function(){var d=document,dd=String.fromCharCode(36,36),sd=String.fromCharCode(36),bs=String.fromCharCode(92),rx=new RegExp(bs+bs,'g');function k(){(function f(el){if(el.nodeType===3)el.textContent=el.textContent.replace(rx,bs);else if(el.nodeType===1&&!/script|style|katex/i.test(el.tagName))for(var c=el.firstChild;c;c=c.nextSibling)f(c)})(d.body);renderMathInElement(d.body,{delimiters:[{left:dd,right:dd,display:true},{left:sd,right:sd,display:false}],throwOnError:false})}if(d.readyState==='loading')d.addEventListener('DOMContentLoaded',k);else k()})();
-</script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+<script defer src="/js/katex-init.js"></script>

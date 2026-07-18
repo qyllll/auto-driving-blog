@@ -1,0 +1,1 @@
+(function(){var d=document;function init(){if(typeof renderMathInElement!=='function'){setTimeout(init,100);return}renderMathInElement(d.body,{delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false}],throwOnError:false})}if(d.readyState==='loading')d.addEventListener('DOMContentLoaded',init);else init()})();
