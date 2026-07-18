@@ -216,7 +216,7 @@ html[data-theme="light"] body {
       </div>
       <div class="post-card-body">
         <div class="post-card-title">{{ .Title }}</div>
-        <div class="post-card-excerpt">{{ .Content | plainify | htmlUnescape | truncate 300 }}</div>
+        <div class="post-card-excerpt">{{ .Params.summary | default (.Summary | plainify) | htmlUnescape }}</div>
         <div class="post-card-tags">
           {{- range first 5 .Params.tags }}
           <span class="card-tag">{{ . }}</span>
