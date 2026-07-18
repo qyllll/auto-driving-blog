@@ -21,6 +21,12 @@ markup:
     parser:
       autoHeadingID: true
       autoHeadingIDType: "github"
+    extensions:
+      passthrough:
+        enable: true
+        delimiters:
+          block: [['$$', '$$']]
+          inline: []
 
 taxonomies:
   category: categories
