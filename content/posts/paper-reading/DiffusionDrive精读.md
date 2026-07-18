@@ -33,6 +33,8 @@ weight: 8
 
 工业界传统方案（如 **EM Planner**）其实早就意识到这点——它们显式生成多条候选，再用代价函数挑最优。但端到端回归头丢了这种能力。**多候选打分路线**（先输出 $K$ 条锚定轨迹再打分）虽然恢复了多选，可候选集是**固定锚点**，覆盖范围有限，难以生成场景相关的多样化轨迹。
 
+![四种端到端规划范式对比：(a) 单模态回归、(b) 词表采样、(c) 原始扩散策略、(d) DiffusionDrive 的截断扩散策略（来源：arXiv:2411.15139 Figure 1）](/images/diffusiondrive/paradigm-comparison.png)
+
 > **DiffusionDrive 的核心判断**：与其用回归硬挤出一个"平均答案"，不如直接建模**轨迹的整个分布**，让模型学会"在这种情况下，有哪些合理走法"。这正是**生成式模型**（扩散、Flow Matching）的强项。
 
 ---
@@ -76,6 +78,8 @@ $$\mathcal{L}_{\text{diff}} = \mathbb{E}_{x_0,\, t,\, \epsilon}\left[\big\|\, \e
 DiffusionDrive 的整体数据流可以概括为"**稀疏感知理解场景，扩散头生成轨迹**"：
 
 > **多相机图像** ➜ **稀疏感知编码器**（检测智能体 + 在线建图）➜ **场景条件特征 $\mathbf{c}$** ➜ **条件扩散规划头**（含噪声轨迹 $x_t$ + 时间步 $t$）➜ **多模态轨迹分布**
+
+![DiffusionDrive 整体架构：可对接多种感知模块与传感器输入；扩散解码器以级联方式与 BEV/PV 特征及智能体、地图 query 交互，逐步去噪生成轨迹（来源：arXiv:2411.15139 Figure 4）](/images/diffusiondrive/architecture.png)
 
 ### 稀疏感知骨干
 
@@ -188,6 +192,8 @@ DiffusionDrive 的训练数据主要来自**大规模人类驾驶数据集**：
 ## 📊 在 NAVSIM / nuPlan 上的性能
 
 DiffusionDrive 主要在 **NAVSIM** 上评测。NAVSIM 采用 **PDMS（Predictive Driver Model Score）** 作为核心指标，它由多个子分（如碰撞率、可驾驶区域合规、舒适度、方向正确性等）加权而成，比单纯的 L2 误差更贴近"开得好不好"。
+
+![NAVSIM 挑战场景下的多模态轨迹生成：top-1 轨迹紧贴人类真值，top-10 候选展现出高质量的变道能力（来源：arXiv:2411.15139 Figure 2）](/images/diffusiondrive/multimodal-trajectory.png)
 
 主要结论（定性，具体数值请参照原论文表格）：
 
