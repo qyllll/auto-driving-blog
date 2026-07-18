@@ -41,6 +41,8 @@ $$Q = XW_Q, \quad K = XW_K, \quad V = XW_V$$
 
 当 d_k 很大时，Q·K 的内积方差也大，softmax 会集中在少数极大值上，梯度极小。除以 √d_k 将方差缩放到 1，保持梯度健康。
 
+![Scaled Dot-Product Attention：QKV计算流程](/images/transformer-basics/attention.png)
+
 ---
 
 ## 🔢 Multi-Head Attention：并行关注不同子空间
@@ -161,6 +163,8 @@ $$\text{Attention}(Q,K,V) = \text{softmax}\left(\frac{QK^T}{\sqrt{d_k}} + M\righ
 其中 M 是上三角掩码矩阵（$M_{ij} = -\infty$ 当 j > i）。
 
 ### Causal LM vs Encoder-Only
+
+![Transformer Encoder-Decoder整体架构](/images/transformer-basics/transformer-arch.png)
 
 | 架构 | 注意力类型 | 代表模型 | 适用任务 |
 |------|-----------|----------|----------|

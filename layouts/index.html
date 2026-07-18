@@ -200,7 +200,7 @@ html[data-theme="light"] body {
 
   {{- $pages := where site.RegularPages "Type" "in" site.Params.mainSections }}
   {{- $pages = where $pages "Params.hiddenInHomeList" "!=" "true" }}
-  {{- $paginator := .Paginate $pages }}
+  {{- $paginator := .Paginate ($pages.ByDate.Reverse) }}
 
   <div class="year-section-header">
     <span class="year-badge">📅 {{ now.Format "2006" }}</span>

@@ -10,6 +10,8 @@ weight: 38
 
 ## 📄 论文信息
 
+![Diffusion Policy框架：CNN和Transformer两种backbone的扩散策略架构](/images/diffusion-policy/framework.png)
+
 - **标题**：*Diffusion Policy: Visuomotor Policy Learning via Action Diffusion*（基于动作扩散的视觉运动策略学习）
 - **团队**：MIT（Cheng Chi, Shuran Song, Russ Tedrake 等）& Toyota Research Institute
 - **发表**：RSS 2023（Oral），扩展版 arXiv:2303.04137 v5
@@ -41,15 +43,58 @@ weight: 38
 - **前向加噪**：从真实动作 $A_0$ 逐步加高斯噪声，T 步后完全变成 $\mathcal{N}(0, I)$
 - **反向去噪**：训练网络 $\epsilon_\theta$ 预测每一步添加的噪声，逆过程恢复动作
 
-$$
-q(A_t | A_0) = \mathcal{N}(A_t; \sqrt{\bar{\alpha}_t} A_0, (1-\bar{\alpha}_t) I)
-$$
+前向过程的数学描述如下。给定真实动作序列 $A_0 \in \mathbb{R}^{T \times D_a}$（$T$为动作序列长度，$D_a$为动作维度），前向加噪过程是一个马尔可夫链：
 
-$$
-\mathcal{L} = \mathbb{E}_{A_0, t, \epsilon}\left[ \| \epsilon - \epsilon_\theta(A_t, t, \mathbf{c}) \|^2 \right]
-$$
+$$q(A_t | A_{t-1}) = \mathcal{N}(A_t; \sqrt{1-\beta_t} A_{t-1}, \beta_t I)$$
 
-条件 $\mathbf{c}$ 是视觉观测 $O_t$ 与机器人状态 $s_t$ 的联合编码。通过 **条件扩散**，去噪网络在每一步都能"看到"当前场景，从而生成**当下最合理**的动作。
+$$q(A_t | A_0) = \mathcal{N}(A_t; \sqrt{\bar{\alpha}_t} A_0, (1-\bar{\alpha}_t) I)$$
+
+其中 $\alpha_t = 1-\beta_t$，$\bar{\alpha}_t = \prod_{s=1}^t \alpha_s$。关键性质是：给定 $A_0$，可以直接得到任意时间步 $t$ 的 $A_t$，无需逐步迭代：
+
+$$A_t = \sqrt{\bar{\alpha}_t} A_0 + \sqrt{1-\bar{\alpha}_t} \epsilon, \quad \epsilon \sim \mathcal{N}(0, I)$$
+
+反向去噪过程则训练神经网络 $\epsilon_\theta$ 预测噪声。给定条件 $\mathbf{c}$（视觉观测 $O_t$ 与机器人状态 $s_t$ 的联合编码），训练目标是最小化：
+
+$$\mathcal{L} = \mathbb{E}_{A_0, t, \epsilon}\left[ \| \epsilon - \epsilon_\theta(A_t, t, \mathbf{c}) \|^2 \right]$$
+
+其中 $t \sim \text{Uniform}(1, T)$，$\epsilon \sim \mathcal{N}(0, I)$。推理（采样）时从纯噪声 $A_T \sim \mathcal{N}(0, I)$ 开始，按反向过程逐步去噪：
+
+$$A_{t-1} = \frac{1}{\sqrt{\alpha_t}} \left( A_t - \frac{1-\alpha_t}{\sqrt{1-\bar{\alpha}_t}} \epsilon_\theta(A_t, t, \mathbf{c}) \right) + \sigma_t z, \quad z \sim \mathcal{N}(0, I)$$
+
+其中 $z$ 在 $t=1$ 时为 $0$。条件 $\mathbf{c}$ 通过 **条件扩散** 的方式注入网络，使去噪过程在每一步都能"看到"当前场景，从而生成**当下最合理**的动作。
+
+#### 训练与推理算法伪代码
+
+**训练过程**：在每个训练迭代中，采样一个batch的(观测, 动作)对$(O, A_0)$，随机选择时间步$t$，从标准正态分布采样噪声$\epsilon$，计算加噪后的动作$A_t$，然后优化网络预测的噪声与真实噪声之间的MSE。伪代码如下：
+
+```
+训练算法：
+for each iteration do
+    (O, A_0) ← 从数据集中采样batch 
+    t ∼ Uniform(1, T)       // 随机时间步
+    ε ∼ N(0, I)             // 采样噪声
+    A_t = √ᾱ_t · A_0 + √(1-ᾱ_t) · ε  // 加噪
+    c = Encoder(O)          // 编码视觉观测
+    L = ||ε - ε_θ(A_t, t, c)||²        // 噪声预测损失
+    θ ← θ - η · ∇_θ L       // 梯度更新
+end for
+```
+
+**推理（采样）过程**：在推理时，从纯高斯噪声出发，使用训练好的噪声预测网络$\epsilon_\theta$逐步去噪。每一步去除预测的噪声分量，并添加随机项以保证多样性。
+
+```
+推理（采样）算法：
+A_T ∼ N(0, I)               // 初始纯噪声
+c = Encoder(O_current)      // 编码当前观测
+for t = T to 1 do
+    z ∼ N(0, I) if t > 1 else z = 0
+    ε_pred = ε_θ(A_t, t, c) // 预测噪声
+    A_{t-1} = 1/√α_t · (A_t - (1-α_t)/√(1-ᾱ_t) · ε_pred) + σ_t · z
+end for
+执行 A_0 的前 K 步动作     // 滚动时域控制
+```
+
+值得注意的是，Diffusion Policy在推理时可以使用更快的采样器（如DDIM）将步数从100降至10甚至5步，而性能几乎不受影响。这是因为DDIM将反向过程建模为**确定性ODE**的离散化，允许用大步长直接跳跃到$t=0$。
 
 ### 为什么扩散适合机器人策略？
 
@@ -206,7 +251,7 @@ Transformer 版本不只能处理变长序列，还具备一个隐藏优势：**
 
 ---
 
-## 🆚 与后续 VLA 模型动作头的关联
+## 🆚 与后续 VLA 模型动作头及扩散规划工作的关联
 
 Diffusion Policy 是**视觉-语言-动作（VLA）模型动作头设计**最重要的灵感来源之一：
 
@@ -216,8 +261,41 @@ Diffusion Policy 是**视觉-语言-动作（VLA）模型动作头设计**最重
 | **π0 (pi-zero)** | **Flow Matching 动作头** | 沿用"生成式"范式的直接继承者 |
 | **Octo** | 扩散动作头 | 直接复用 |
 | **OpenVLA** | 离散 token | 补充路线 |
+| **Diffusion-Planning** | 扩散轨迹优化 | 将扩散从"策略"扩展到"规划器" |
 
 **π0** 的工作可以看作是 "Diffusion Policy + Flow Matching + 语言条件" 的组合：把去噪换成了速度场预测（Flow Matching），保留多模态生成和时序联合建模，但采样速度更快、训练更稳定。而 **Octo** 则几乎直接沿用了 Diffusion Policy 的 CNN 扩散头，证明其设计在当时的鲁棒与成熟。
+
+### Diffusion Policy与Diffusion-Planning的关系
+
+Diffusion-Planning（Janner et al., 2022）是Diffusion Policy之前的一篇重要工作，两者虽然都使用扩散模型做决策，但在范式和目标上存在本质差异：
+
+| 维度 | Diffusion-Planning | Diffusion Policy |
+|------|-------------------|-----------------|
+| 时间线 | NeurIPS 2022 | RSS 2023 |
+| 核心范式 | 将轨迹规划视为扩散生成 | 将策略学习视为条件扩散 |
+| 训练数据 | 专家轨迹（离线RL） | 专家演示（BC） |
+| 条件信号 | 目标状态/奖励函数 | 视觉观测 + 机器人状态 |
+| 是否交互 | 规划+执行（开环规划） | 闭环策略（滚动执行） |
+| 动作分布建模 | 隐式（扩散轨迹） | 显式（条件动作分布） |
+| 与BC的关系 | 规划器（非策略） | 策略（直接行为克隆） |
+
+两者分别代表了扩散模型在机器人中的两条技术路线：**扩散规划器**（用扩散生成完整轨迹，再通过控制器跟踪）和**扩散策略**（用扩散直接生成策略的动作输出）。Diffusion-Planning更接近**Model-based RL**的范式（需要环境模型或奖励函数），而Diffusion Policy则是**Behavior Cloning**的扩展（直接从专家演示中学习条件动作分布）。后续工作中，两条路线出现了融合趋势——例如Uni-World VLA和CoWorld-VLA将扩散规划器的"世界模型预测"与扩散策略的"条件生成"结合，在自动驾驶场景中同时预测未来场景和规划自车轨迹。
+
+### 后续扩散策略工作的技术演进
+
+Diffusion Policy发表后，其设计范式在多个方向上被继承和发展：
+
+**扩散策略的即时改进方向**：
+- **EquiDiff**（2023）：将等变扩散引入策略学习，保证策略输出关于观测的对称性，在对称操作任务中提升数据效率
+- **GenAug**（2023）：利用扩散模型的数据增强能力为策略生成更多训练数据，将策略成功率提升20%+
+- **Chained-Diffuser**（2024）：将长时域任务分解为子任务链，每个子任务使用一个Diffusion Policy，实现了长时域任务规划
+
+**生成式模型替代方向**：
+- **π0 (pi-zero)**（2024）：使用Flow Matching替代DDPM，在保持多模态生成能力的同时实现更快的采样
+- **GR-1**（2024）：将Causal Transformer与扩散头结合，统一了视频预测和动作生成
+- **3D Diffusion Policy**（2024）：将扩散策略扩展到3D空间，使用点云作为观测输入
+
+Diffusion Policy的核心贡献可以总结为：它证明了**生成式模型不仅仅是内容生成工具，更是策略学习的有效框架**，开启了"生成式策略"这一研究范式。
 
 ---
 
