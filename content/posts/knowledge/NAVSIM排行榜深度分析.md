@@ -110,19 +110,19 @@ navtrain 的 103k 样本（2Hz 采样，每帧 8 路环视相机 + 可选 LiDAR 
 
 ### 一张图理清所有名词：trainval / navtrain / navval / calib / navtest / navhard 到底谁是谁
 
-先把最容易混的"基础划分"和"NAVSIM 过滤划分"两层关系理清楚：
+先把最容易混的"基础划分"和"NAVSIM 过滤划分"两层关系理清楚（用缩进表示层级，不画树形线）：
 
-```
-OpenScene (nuPlan 降采样 2Hz)
-├── trainval   ← 基础训练+验证大池（>2000GB，含全部日志）
-│      └── navtrain   ← NAVSIM 过滤出的"训练集"（103,288 帧，445GB）
-│             ├── (团队自己再划) 训练部分  ← 真正喂模型训练
-│             └── (团队自己再划) navval/calib ← 训练中途看验证损失用
-├── test       ← 基础测试池（217GB）
-│      ├── navtest        ← NAVSIM v1 过滤出的"评测集"（12,146 帧，PDMS）
-│      └── navhard_two_stage ← NAVSIM v2 过滤出的"难例评测集"（EPDMS，两阶段）
-└── mini       ← 演示小集（debug 用）
-```
+- **OpenScene**（nuPlan 降采样到 2Hz，底层数据源）
+  - **trainval**：基础训练+验证大池（>2000GB，含全部日志）
+    - **navtrain**：NAVSIM 在 trainval 上做"难例过滤"得到的训练集（103,288 帧，445GB）
+      - 训练部分（团队自己从 navtrain 切出）：真正喂模型训练
+      - navval / calib（团队自己从 navtrain 切出）：训练中途看验证损失用
+  - **test**：基础测试池（217GB）
+    - **navtest**：NAVSIM v1 过滤出的评测集（12,146 帧，指标 PDMS）
+    - **navhard_two_stage**：NAVSIM v2 过滤出的难例评测集（指标 EPDMS，两阶段）
+  - **mini**：演示小集（debug 用）
+
+一句话记忆：**trainval 是母集，navtrain 是从它滤出的训练集，navtest/navhard 是从 test 滤出的测试集；calib 是你在 navtrain 里自己切的验证集，不是独立拆分。**
 
 逐个解释：
 
