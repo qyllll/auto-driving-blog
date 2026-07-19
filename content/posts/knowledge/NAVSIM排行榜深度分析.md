@@ -108,6 +108,62 @@ navtrain 的 103k 样本（2Hz 采样，每帧 8 路环视相机 + 可选 LiDAR 
 
 关键认知：**navtrain 之所以"够训"是因为它是"难例过滤"后的子集**——官方用阈值把常量速度基线分数压到 22%、人类 95% 的场景留下，天然剔除了大量无聊直行场景，所以 10 万条里"信息密度"很高，训 10~25 个 epoch 就能收敛，不像原始 nuPlan 需要刷几百 epoch。这也是为什么榜单上很多方法光用 navtrain 就能冲到 90+ PDMS，而不必依赖外部大规模数据（除非像 EponaV2 那样主动追求 perception-free 的 data scaling）。
 
+### 一张图理清所有名词：trainval / navtrain / navval / calib / navtest / navhard 到底谁是谁
+
+先把最容易混的"基础划分"和"NAVSIM 过滤划分"两层关系理清楚：
+
+```
+OpenScene (nuPlan 降采样 2Hz)
+├── trainval   ← 基础训练+验证大池（>2000GB，含全部日志）
+│      └── navtrain   ← NAVSIM 过滤出的"训练集"（103,288 帧，445GB）
+│             ├── (团队自己再划) 训练部分  ← 真正喂模型训练
+│             └── (团队自己再划) navval/calib ← 训练中途看验证损失用
+├── test       ← 基础测试池（217GB）
+│      ├── navtest        ← NAVSIM v1 过滤出的"评测集"（12,146 帧，PDMS）
+│      └── navhard_two_stage ← NAVSIM v2 过滤出的"难例评测集"（EPDMS，两阶段）
+└── mini       ← 演示小集（debug 用）
+```
+
+逐个解释：
+
+- **trainval**：OpenScene 的底层标准划分，是 navtrain 的"母集"。它包含全部日志和传感器（>2000GB），一般不整机下载，只用来抽 navtrain。
+- **navtrain**：NAVSIM 在 trainval 上做"难例过滤"得到的**训练集（103,288）**。这是你模型训练时**唯一**应该用的数据。注意它和 navtest 场景允许重叠（NAVSIM 故意这么设计，见前文）。
+- **navval / calib（校验集）**：**NAVSIM 官方没有单独的 navval 文件夹**。团队拿 navtrain 后，自己切一小部分（比如 85k 训练 + 18k 验证，这是 issue #177 里提到的内部划分）当 validation，用来监控训练 loss、选最优 checkpoint、调超参。你听人说的"calib 1000"其实就是这个内部验证切分，只是量级是万级而非千级。一句话：**calib = 从 navtrain 里划出来的验证集，不是独立拆分**。
+- **navtest**：NAVSIM v1 的**测试/评测集（12,146）**，指标 PDMS。**禁止用于训练**。论文里报的"PDMS 94.5"就是在这上面算的。
+- **navhard（navhard_two_stage）**：NAVSIM v2 的**难例测试集**，指标 EPDMS，两阶段（450 真实 + 5462 合成）。同样禁止训练。
+
+所以回答你的核心疑问：**评估（看训练好不好）用的是 navtrain 内部划的 calib/val；测试跑分（报给排行榜/论文）用的是 navtest（v1）或 navhard（v2）**。NAVSIM 没有"train/val/test 三独立集"的标准 ML 范式，而是"一个大训练池 navtrain + 一个独立测试池 navtest"，验证集由你自己从 navtrain 里抠。
+
+### 端到端流程：别人到底怎么训、怎么评、怎么测
+
+以 Scoring-based 代表 Hydra-MDP（CVPR/NeurIPS 挑战赛冠军）和主流做法为例，完整流水线如下：
+
+**① 准备阶段（离线，一次性）**
+- 下载 navtrain 传感器 + 日志，建 cache。
+- Scoring 类方法会**预计算 PDM 分数当监督标签**：对 navtrain 里每条场景，用规则评估器（PDM-Closed 等）对一组候选轨迹算 NC/DAC/TTC/EP/C 等子分数，存成训练 target。这一步 Hydra-MDP 报告约 30 小时 / 32 核。
+- 划分 navtrain → 训练集 + calib（val）。
+
+**② 训练阶段（train on navtrain）**
+- 输入：navtrain 训练集的环视图像（前视+左右前裁切拼成 256×1024）+ 可选 LiDAR BEV + ego 状态 + 导航命令。
+- 输出：候选轨迹（或轨迹打分）。
+- 监督：轨迹回归 L1 + 评估器分数蒸馏（多 head 各学一个子指标）。
+- 配置（Hydra-MDP 官方）：**8×A100，总 batch 256，20 epochs，lr 1e-4，AdamW，无数据增强**。DrivoR 等后续工作用 4×A100、batch 16、25 epoch。
+- 每个 epoch 后在 calib 上算验证 loss，挑最优 checkpoint。
+
+**③ 本地评估（evaluate on calib 或 navtest 本地版）**
+- 训练中途/结束后，在 calib（或自己留的 navtest 副本）上跑非反应式仿真算 PDMS，确认没过拟合、调超参。
+- 注意：本地评 navtest 只能自己看，不能当官方成绩。
+
+**④ 提交测试 / 跑分（test on navtest / navhard）**
+- 官方排行榜方式：把模型对 navtest 全部 12,146 个场景输出的轨迹存成 `.pkl`，上传到 HuggingFace 排行榜空间，由**官方服务器用统一脚本算 PDMS/EPDMS**——保证所有人分数定义一致、可复现。
+- navhard 同理：提交轨迹 `.pkl`，服务器在 450 真实 + 5462 合成场景上算 EPDMS。
+- 你论文里写的分数，就是这步服务器返回的结果。
+
+**⑤ 不同论文里数字不一致的原因（避坑）**
+- 旧挑战赛版（Hydra-MDP 原文）写"Navtrain 1192 / Navtest 136 scenarios"——那是 **2024 挑战赛按 log 数、且过滤更严**的旧口径。
+- 现在公开的 navtrain=103,288 / navtest=12,146 是**按 2Hz 帧**的新口径（issue #139 用户核对过：下全量是 103288 / 12146，下漏了会少一半）。
+- 所以读到论文里"1192/136"别慌，那是 log 数；"103k/12k"是帧数，二者都对，只是计数单位不同。
+
 ### NAVTEST 是什么
 
 **NAVTEST（通常写作 navtest）就是 NAVSIM v1 的标准测试拆分**——基于 OpenScene 的 `test` 划分、经困难场景过滤后得到的 **12,146 个场景**。它的评测指标是 **PDMS**（v1）。榜单上所有"PDMS 94.5 / 93.7 / 92.1..."之类的数字，都是模型对这 12,146 个场景各输出一条轨迹，丢进非反应式仿真算 PDMS 后取平均得到的。所以当你看到论文说"在 NAVSIM 上 PDMS 94.5"，等价于"在 navtest 的 12,146 个场景上 PDMS 均值 94.5"。
