@@ -53,7 +53,7 @@
 
   <line x1="240" y1="304" x2="240" y2="350" stroke="#d97706" stroke-width="2" stroke-dasharray="5 4" marker-end="url(#arrow2)"/>
   <rect x="120" y="356" width="240" height="56" rx="8" class="cut"/>
-  <text x="240" y="378" class="t">团队自行切分（非官方）</text>
-  <text x="240" y="396" class="st">~85k 训练 + ~18k calib/val</text>
-  <text x="240" y="410" class="st" fill="#b45309">calib 是从 navtrain 里抠的</text>
+  <text x="240" y="378" class="t">官方固定切分 val_logs</text>
+  <text x="240" y="396" class="st">train 13180 + val 2730 logs</text>
+  <text x="240" y="410" class="st" fill="#b45309">val 从 navtrain 里抠（非独立）</text>
 </svg>

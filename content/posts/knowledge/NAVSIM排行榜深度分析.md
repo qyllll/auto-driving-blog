@@ -118,9 +118,49 @@ navhard 的分数整体很低（Human Expert 也才 51.3），因为 Stage 2 的
 
 - **"2146" 是 "12,146" 少看了一位** —— 这正是 navtest 的真实总量，不是它的一个子集。
 - **"9000 训练" 对应的是 navtrain，但 navtrain 是 103k 而不是 9k** —— 你记的数量级偏小（可能把 10 万级的"10"看漏了）。
-- **"1000 calib" 在 NAVSIM 官方拆分里不存在**，但方向上有个影子：NAVSIM v1.1 的 `navtrain` 在内部其实被分成了 `train_logs`（约 85k 用于训练）和 `val_logs`（约 18k 用于验证），合计 103k。也就是说团队**确实会在训练集内部划出一部分做验证（calibration）**，但这是从 navtrain 里划的，不是从 navtest 里划的，量级也是万级而非千级。
+- **"1000 calib" 在 NAVSIM 官方拆分里不存在**，但方向上有个影子：**官方其实在 `navtrain` 内部提供了一份固定的验证集 `val_logs`**（见下一节代码实证）。需要澄清的是，之前流传的"85k 训练 / 18k calib"口径并不准确——`val_logs` 是按**日志（log）数**切的 2730 条 log，而非按帧数的万级划分；团队**确实会在训练集内部划出一部分做验证（calibration）**，这是从 navtrain 里划的、是官方固定划分，不是从 navtest 里划的。
 
 所以正确的标准用法是：**navtrain（~103,288）全程训练、navtest（~12,146）全程评测**，二者场景允许重叠（官方文档明说 "the NAVSIM splits include overlapping scenes"），且 navtest 明文禁止用于训练。任何把 navtest 当训练集的做法，一旦提交官方排行榜都会被判违规（且分数不可比）。
+
+### 🔬 代码实证：别人到底用 navtrain 的哪一部分训练、怎么切验证（扒开源 repo 得出）
+
+前面都是从文档和论文层面讲"navtrain 训练、navtest 测试"。但"navtrain 训练"到底是不是**整个 navtrain 一把梭、完全不验证**？论文不写这种工程细节，所以我去扒了几个开源仓库的**实际训练代码**，结论很明确：**几乎所有走官方训练流程的方法，都会从 navtrain 内部切出一个固定验证集 `val_logs`，而不是整个 navtrain 全训。**
+
+**官方训练流程的核心逻辑**。NAVSIM 官方训练入口 `navsim/planning/script/run_training.py` 并不是直接拿全部 navtrain 当训练集，而是先按一份固定的 log 名单做过滤：
+
+```python
+# navsim/planning/script/run_training.py（官方）
+train_scene_filter.log_names = [l for l in train_scene_filter.log_names if l in cfg.train_logs]
+val_scene_filter.log_names   = [l for l in val_scene_filter.log_names   if l in cfg.val_logs]
+```
+
+配套的划分文件 `navsim/planning/script/config/training/default_train_val_test_log_split.yaml` 里写死了两份 log 名单：
+
+- **`train_logs`：13,180 条 log** —— 真正喂模型训练的部分
+- **`val_logs`：2,730 条 log** —— 验证集，**且是 `train_logs` 的超集的补集、完全从 navtrain 的 log 池里切出**（不碰 navtest）
+
+也就是说，**navtrain 整体 = train_logs ∪ val_logs**，验证集是 navtrain 的子集，规模约占总 navtrain 的 1/6。注意这里的单位是 **log（场景序列）数**，不是帧数——navtrain 的 103,288 帧分布在这 13,180 + 2,730 条 log 里，要拿精确验证帧数得实际跑 `SceneLoader` 统计。
+
+> **一句话结论**：所谓"calib / val"不是你凭空从 navtrain 里乱切的，而是**官方早就给你切好了一份 `val_logs`（2730 logs）**——只要走官方 `run_training.py`，就自动带上它做验证。
+
+**开源仓库实测（只要代码公开，全切）**：
+
+| 仓库 | 是否切 val | val 规模 | 代码依据 |
+|:----:|:----------:|:--------:|----------|
+| **autonomousvision/navsim**（官方） | ✅ | 2730 logs | `run_training.py` + `default_train_val_test_log_split.yaml` |
+| **SparseDriveV2**（swc-17） | ✅ | 2730 logs | 直接复用官方 `run_training.py` |
+| **DiffusionDrive**（hustvl） | ✅ | 2730 logs | 直接复用官方 `run_training.py` |
+| **DrivoR**（valeoai） | ✅ | 2730 logs | 直接复用官方 `run_training.py` |
+| Hydra-MDP / Metis / AutoDrive-P³ / Centaur | 代码未公开，无法证实 | — | README 未放训练代码 |
+
+**关键发现**：SparseDriveV2、DiffusionDrive、DrivoR 的训练脚本都只是 `train_test_split=navtrain` + 调用官方 `run_training.py`，因此它们和官方用**同一份 `val_logs` 划分文件**，验证集规模完全一致（2730 logs）。**没有任何一个可见的开源实现是"整个 navtrain 全训、零验证集"**——只要走官方训练流程，就必然带 `val_logs` 验证集。只有那些完全未公开训练代码的仓库（Hydra-MDP、Metis、AutoDrive-P³、Centaur）无法从代码证实，但它们的论文都写"trained on navtrain"。
+
+**完整训练协议（代码层面总结）**：
+
+- **训练用啥**：navtrain 中属于官方 `train_logs`（13,180 logs）的那部分场景，约占总 navtrain 的 5/6。
+- **验证用啥**：navtrain 中属于官方 `val_logs`（2,730 logs）的那部分场景，约占总 navtrain 的 1/6，训练中途看验证 loss、选最优 checkpoint、调超参。
+- **跑分用啥**：评测阶段提交轨迹到官方服务器，在 **navtest（12,146 帧，PDMS）** 或 **navhard（EPDMS，两阶段）** 上算分——这两份**禁止用于训练**。
+- **为什么这样合法**：训练集和验证集都来自 navtrain（同一母集 trainval 滤出的子集），彼此不交叠；而测试集 navtest/navhard 来自 OpenScene 的 test 池，与 navtrain 来源不同，因此评测结果能真实反映泛化。这也正是为什么"把 navtest 拆 9000/1000/2146 训+验+测"既违规又自欺——你该用的是 navtrain 里的官方 `val_logs`，而不是去动 navtest。
 
 ### navtrain 那 10 万样本，别人到底怎么训？
 
@@ -142,31 +182,31 @@ navtrain 的 103k 样本（2Hz 采样，每帧 8 路环视相机 + 可选 LiDAR 
 
 ![NAVSIM数据集拆分关系：OpenScene母集→trainval/test→navtrain/navtest/navhard，calib从navtrain切出](/images/navsim/dataset_split.svg)
 
-*图2：NAVSIM 数据集拆分关系图。关键记住三点——（1）trainval 是母集，navtrain 从它滤出；（2）navtest/navhard 从 test 滤出，禁止用于训练；（3）calib 是你自己在 navtrain 里抠的验证集，不是官方独立拆分。*
+*图2：NAVSIM 数据集拆分关系图。关键记住三点——（1）trainval 是母集，navtrain 从它滤出；（2）navtest/navhard 从 test 滤出，禁止用于训练；（3）calib/val 来自 navtrain 内部的官方固定 `val_logs`（2730 logs），不是独立拆分。*
 
 层级细节（用缩进表示，不画树形线）：
 
 - **OpenScene**（nuPlan 降采样到 2Hz，底层数据源）
   - **trainval**：基础训练+验证大池（>2000GB，含全部日志）
-    - **navtrain**：NAVSIM 在 trainval 上做"难例过滤"得到的训练集（103,288 帧，445GB）
-      - 训练部分（团队自己从 navtrain 切出）：真正喂模型训练
-      - navval / calib（团队自己从 navtrain 切出）：训练中途看验证损失用
+  - **navtrain**：NAVSIM 在 trainval 上做"难例过滤"得到的训练集（103,288 帧，445GB）
+       - 训练部分（官方 `train_logs`，13,180 logs）：真正喂模型训练
+       - navval / calib（官方 `val_logs`，2,730 logs）：训练中途看验证损失用
   - **test**：基础测试池（217GB）
     - **navtest**：NAVSIM v1 过滤出的评测集（12,146 帧，指标 PDMS）
     - **navhard_two_stage**：NAVSIM v2 过滤出的难例评测集（指标 EPDMS，两阶段）
   - **mini**：演示小集（debug 用）
 
-一句话记忆：**trainval 是母集，navtrain 是从它滤出的训练集，navtest/navhard 是从 test 滤出的测试集；calib 是你在 navtrain 里自己切的验证集，不是独立拆分。**
+一句话记忆：**trainval 是母集，navtrain 是从它滤出的训练集，navtest/navhard 是从 test 滤出的测试集；calib/val 来自 navtrain 内部的官方固定 `val_logs`（2730 logs），不是独立拆分。**
 
 逐个解释：
 
 - **trainval**：OpenScene 的底层标准划分，是 navtrain 的"母集"。它包含全部日志和传感器（>2000GB），一般不整机下载，只用来抽 navtrain。
 - **navtrain**：NAVSIM 在 trainval 上做"难例过滤"得到的**训练集（103,288）**。这是你模型训练时**唯一**应该用的数据。注意它和 navtest 场景允许重叠（NAVSIM 故意这么设计，见前文）。
-- **navval / calib（校验集）**：**NAVSIM 官方没有单独的 navval 文件夹**。团队拿 navtrain 后，自己切一小部分（比如 85k 训练 + 18k 验证，这是 issue #177 里提到的内部划分）当 validation，用来监控训练 loss、选最优 checkpoint、调超参。你听人说的"calib 1000"其实就是这个内部验证切分，只是量级是万级而非千级。一句话：**calib = 从 navtrain 里划出来的验证集，不是独立拆分**。
+- **navval / calib（校验集）**：**NAVSIM 官方没有单独的 `navval` 文件夹，但官方在 navtrain 内部提供了一份固定的验证集 `val_logs`（2730 条 log，见前文代码实证）**。训练流程会自动把 navtrain 按 `train_logs`（13,180 logs）/`val_logs`（2,730 logs）切成训练与验证两部分，用来监控训练 loss、选最优 checkpoint、调超参。你听人说的"calib 1000"本质上就是指这个内部验证切分，只是真实口径是按 log 数切的 2730 条、而非千级帧数。一句话：**calib = navtrain 里官方切好的 `val_logs` 验证集，不是独立拆分**。
 - **navtest**：NAVSIM v1 的**测试/评测集（12,146）**，指标 PDMS。**禁止用于训练**。论文里报的"PDMS 94.5"就是在这上面算的。
 - **navhard（navhard_two_stage）**：NAVSIM v2 的**难例测试集**，指标 EPDMS，两阶段（450 真实 + 5462 合成）。同样禁止训练。
 
-所以回答你的核心疑问：**评估（看训练好不好）用的是 navtrain 内部划的 calib/val；测试跑分（报给排行榜/论文）用的是 navtest（v1）或 navhard（v2）**。NAVSIM 没有"train/val/test 三独立集"的标准 ML 范式，而是"一个大训练池 navtrain + 一个独立测试池 navtest"，验证集由你自己从 navtrain 里抠。
+所以回答你的核心疑问：**评估（看训练好不好）用的是 navtrain 内部官方切好的 `val_logs`（calib/val）；测试跑分（报给排行榜/论文）用的是 navtest（v1）或 navhard（v2）**。NAVSIM 没有"train/val/test 三独立集"的标准 ML 范式，而是"一个训练池 navtrain（内含官方 train/val 切分）+ 一个独立测试池 navtest"，验证集由官方从 navtrain 里切好、你直接拿来用。
 
 ### 端到端流程：别人到底怎么训、怎么评、怎么测
 
