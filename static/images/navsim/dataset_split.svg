@@ -1,0 +1,59 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 440" font-family="'Helvetica Neue',Arial,'PingFang SC','Microsoft YaHei',sans-serif">
+  <defs>
+    <marker id="arrow2" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L8,3 L0,6 Z" fill="#64748b"/>
+    </marker>
+    <style>
+      .root{fill:#1e293b;stroke:#1e293b;}
+      .base{fill:#e2e8f0;stroke:#475569;stroke-width:1.5;}
+      .train{fill:#dbeafe;stroke:#2563eb;stroke-width:1.5;}
+      .test{fill:#fee2e2;stroke:#dc2626;stroke-width:1.5;}
+      .cut{fill:#fef3c7;stroke:#d97706;stroke-width:1.5;stroke-dasharray:5 4;}
+      .t{font-size:14px;fill:#0f172a;text-anchor:middle;}
+      .wt{font-size:14px;fill:#ffffff;text-anchor:middle;}
+      .st{font-size:11px;fill:#475569;text-anchor:middle;}
+      .cap{font-size:12px;fill:#334155;}
+    </style>
+  </defs>
+
+  <text x="450" y="28" class="wt" font-size="16" fill="#0f172a">OpenScene（nuPlan 降采样 2Hz，底层数据源）</text>
+  <rect x="330" y="40" width="240" height="40" rx="8" class="root"/>
+  <text x="450" y="65" class="wt">OpenScene 母集</text>
+
+  <line x1="380" y1="80" x2="240" y2="120" stroke="#64748b" stroke-width="2" marker-end="url(#arrow2)"/>
+  <line x1="520" y1="80" x2="660" y2="120" stroke="#64748b" stroke-width="2" marker-end="url(#arrow2)"/>
+
+  <rect x="120" y="130" width="240" height="60" rx="8" class="base"/>
+  <text x="240" y="156" class="t">trainval（训练+验证池）</text>
+  <text x="240" y="176" class="st">&gt;2000GB，含全部日志</text>
+
+  <rect x="540" y="130" width="240" height="60" rx="8" class="base"/>
+  <text x="660" y="156" class="t">test（测试池）</text>
+  <text x="660" y="176" class="st">217GB</text>
+
+  <line x1="240" y1="190" x2="240" y2="230" stroke="#64748b" stroke-width="2" marker-end="url(#arrow2)"/>
+  <line x1="660" y1="190" x2="660" y2="230" stroke="#64748b" stroke-width="2" marker-end="url(#arrow2)"/>
+  <text x="240" y="222" class="cap" text-anchor="middle">NAVSIM 难例过滤</text>
+  <text x="660" y="222" class="cap" text-anchor="middle">NAVSIM 难例过滤</text>
+
+  <rect x="120" y="240" width="240" height="64" rx="8" class="train"/>
+  <text x="240" y="266" class="t">navtrain（训练集）</text>
+  <text x="240" y="286" class="st">103,288 帧 · 445GB</text>
+  <text x="240" y="302" class="st" fill="#1d4ed8">✅ 唯一允许用于训练</text>
+
+  <rect x="540" y="240" width="115" height="64" rx="8" class="test"/>
+  <text x="597" y="266" class="t">navtest</text>
+  <text x="597" y="286" class="st">12,146 帧</text>
+  <text x="597" y="302" class="st" fill="#b91c1c">🚫 禁止训练</text>
+
+  <rect x="665" y="240" width="115" height="64" rx="8" class="test"/>
+  <text x="722" y="262" class="t">navhard</text>
+  <text x="722" y="280" class="st">450+5462</text>
+  <text x="722" y="298" class="st" fill="#b91c1c">🚫 禁止训练</text>
+
+  <line x1="240" y1="304" x2="240" y2="350" stroke="#d97706" stroke-width="2" stroke-dasharray="5 4" marker-end="url(#arrow2)"/>
+  <rect x="120" y="356" width="240" height="56" rx="8" class="cut"/>
+  <text x="240" y="378" class="t">团队自行切分（非官方）</text>
+  <text x="240" y="396" class="st">~85k 训练 + ~18k calib/val</text>
+  <text x="240" y="410" class="st" fill="#b45309">calib 是从 navtrain 里抠的</text>
+</svg>

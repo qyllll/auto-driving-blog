@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 320" font-family="'Helvetica Neue',Arial,'PingFang SC','Microsoft YaHei',sans-serif">
+  <defs>
+    <style>
+      .t{font-size:14px;fill:#0f172a;text-anchor:middle;}
+      .st{font-size:11px;fill:#475569;text-anchor:middle;}
+      .lbl{font-size:13px;fill:#334155;}
+      .head{font-size:15px;fill:#0f172a;font-weight:bold;}
+    </style>
+  </defs>
+  <text x="450" y="26" class="head" text-anchor="middle">四大技术路线在 NAVSIM 上的定位</text>
+
+  <rect x="40" y="60" width="190" height="210" rx="10" fill="#eff6ff" stroke="#2563eb" stroke-width="1.5"/>
+  <text x="135" y="86" class="t">Scoring-based</text>
+  <text x="135" y="106" class="st">生成候选 + 打分排序</text>
+  <line x1="135" y1="116" x2="135" y2="140" stroke="#2563eb" stroke-width="1.5"/>
+  <text x="135" y="160" class="st">最高 PDMS 94.5</text>
+  <text x="135" y="178" class="st">常规场景最稳</text>
+  <text x="135" y="196" class="st">推理快</text>
+  <text x="135" y="214" class="st">CLOVER</text>
+  <text x="135" y="230" class="st">SparseDriveV2</text>
+  <text x="135" y="246" class="st">Hydra-MDP</text>
+
+  <rect x="250" y="60" width="190" height="210" rx="10" fill="#f5f3ff" stroke="#7c3aed" stroke-width="1.5"/>
+  <text x="345" y="86" class="t">VLA + 世界模型</text>
+  <text x="345" y="106" class="st">语言推理 + RL 后训</text>
+  <line x1="345" y1="116" x2="345" y2="140" stroke="#7c3aed" stroke-width="1.5"/>
+  <text x="345" y="160" class="st">PDMS 93.7</text>
+  <text x="345" y="178" class="st">上升最快</text>
+  <text x="345" y="196" class="st">可解释</text>
+  <text x="345" y="214" class="st">ExploreVLA</text>
+  <text x="345" y="230" class="st">AutoDrive-P³</text>
+  <text x="345" y="246" class="st">DriveVLA-W0</text>
+
+  <rect x="460" y="60" width="190" height="210" rx="10" fill="#ecfdf5" stroke="#059669" stroke-width="1.5"/>
+  <text x="555" y="86" class="t">纯 World Model</text>
+  <text x="555" y="106" class="st">未来条件化 / WAM</text>
+  <line x1="555" y1="116" x2="555" y2="140" stroke="#059669" stroke-width="1.5"/>
+  <text x="555" y="160" class="st">navhard 55.5 #1</text>
+  <text x="555" y="178" class="st">难例最鲁棒</text>
+  <text x="555" y="196" class="st">需未来帧</text>
+  <text x="555" y="214" class="st">DriveFuture</text>
+  <text x="555" y="230" class="st">Metis</text>
+  <text x="555" y="246" class="st">EponaV2</text>
+
+  <rect x="670" y="60" width="190" height="210" rx="10" fill="#fff7ed" stroke="#ea580c" stroke-width="1.5"/>
+  <text x="765" y="86" class="t">Diffusion / Flow</text>
+  <text x="765" y="106" class="st">去噪生成轨迹</text>
+  <line x1="765" y1="116" x2="765" y2="140" stroke="#ea580c" stroke-width="1.5"/>
+  <text x="765" y="160" class="st">EPDMS ~88</text>
+  <text x="765" y="178" class="st">多模态天然</text>
+  <text x="765" y="196" class="st">中速</text>
+  <text x="765" y="214" class="st">DiffusionDrive</text>
+  <text x="765" y="230" class="st">GuideFlow</text>
+
+  <text x="450" y="304" class="lbl" text-anchor="middle">横轴：常规场景精度 → 难例鲁棒性　｜　纵轴：工程简单度 → 理论深度</text>
+</svg>

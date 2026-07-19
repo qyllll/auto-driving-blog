@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 260" font-family="'Helvetica Neue',Arial,'PingFang SC','Microsoft YaHei',sans-serif">
+  <defs>
+    <marker id="arrow3" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L8,3 L0,6 Z" fill="#475569"/>
+    </marker>
+    <style>
+      .mul{fill:#fee2e2;stroke:#dc2626;stroke-width:1.5;}
+      .w{fill:#fef9c3;stroke:#ca8a04;stroke-width:1.5;}
+      .out{fill:#dcfce7;stroke:#16a34a;stroke-width:1.5;}
+      .t{font-size:13px;fill:#0f172a;text-anchor:middle;}
+      .wt{font-size:12px;fill:#7f1d1d;text-anchor:middle;}
+      .cap{font-size:12px;fill:#334155;}
+    </style>
+  </defs>
+  <text x="460" y="24" font-size="15" fill="#0f172a" font-weight="bold" text-anchor="middle">PDMS 计算链：乘性惩罚 × 加权平均</text>
+
+  <rect x="30" y="60" width="150" height="56" rx="8" class="mul"/>
+  <text x="105" y="82" class="wt">NC 无责碰撞</text>
+  <text x="105" y="100" class="wt">乘性 · 0 则归零</text>
+
+  <rect x="30" y="130" width="150" height="56" rx="8" class="mul"/>
+  <text x="105" y="152" class="wt">DAC 可行驶区</text>
+  <text x="105" y="170" class="wt">乘性 · 0 则归零</text>
+
+  <text x="105" y="212" class="cap" text-anchor="middle">↑ 任一为 0，整场景分数直接归零</text>
+
+  <rect x="240" y="60" width="150" height="50" rx="8" class="w"/>
+  <text x="315" y="82" class="t">TTC (w=5)</text>
+  <rect x="240" y="118" width="150" height="50" rx="8" class="w"/>
+  <text x="315" y="140" class="t">EP (w=5)</text>
+  <rect x="240" y="176" width="150" height="50" rx="8" class="w"/>
+  <text x="315" y="198" class="t">C (w=2)</text>
+
+  <text x="315" y="246" class="cap" text-anchor="middle">↑ 加权 (5·TTC+5·EP+2·C)/12</text>
+
+  <line x1="180" y1="88" x2="235" y2="85" stroke="#475569" stroke-width="2" marker-end="url(#arrow3)"/>
+  <line x1="180" y1="158" x2="235" y2="160" stroke="#475569" stroke-width="2" marker-end="url(#arrow3)"/>
+  <line x1="105" y1="186" x2="105" y2="228" stroke="#475569" stroke-width="0"/>
+  <line x1="180" y1="100" x2="235" y2="200" stroke="#475569" stroke-width="2" marker-end="url(#arrow3)"/>
+  <line x1="180" y1="158" x2="235" y2="200" stroke="#475569" stroke-width="0"/>
+
+  <rect x="430" y="95" width="120" height="56" rx="8" fill="#f1f5f9" stroke="#64748b" stroke-width="1.5"/>
+  <text x="490" y="120" class="t">乘性乘积</text>
+  <text x="490" y="138" class="t">×</text>
+
+  <rect x="430" y="170" width="120" height="56" rx="8" fill="#f1f5f9" stroke="#64748b" stroke-width="1.5"/>
+  <text x="490" y="195" class="t">加权均值</text>
+  <text x="490" y="213" class="t">÷</text>
+
+  <line x1="390" y1="85" x2="428" y2="110" stroke="#475569" stroke-width="2" marker-end="url(#arrow3)"/>
+  <line x1="390" y1="200" x2="428" y2="195" stroke="#475569" stroke-width="2" marker-end="url(#arrow3)"/>
+
+  <rect x="600" y="120" width="120" height="70" rx="8" class="out"/>
+  <text x="660" y="148" class="t">单场景</text>
+  <text x="660" y="166" class="t">PDMS</text>
+  <line x1="550" y1="123" x2="598" y2="138" stroke="#475569" stroke-width="2" marker-end="url(#arrow3)"/>
+  <line x1="550" y1="198" x2="598" y2="172" stroke="#475569" stroke-width="2" marker-end="url(#arrow3)"/>
+
+  <rect x="770" y="120" width="120" height="70" rx="8" class="out"/>
+  <text x="830" y="148" class="t">全部场景</text>
+  <text x="830" y="166" class="t">取均值</text>
+  <line x1="720" y1="155" x2="768" y2="155" stroke="#475569" stroke-width="2" marker-end="url(#arrow3)"/>
+  <text x="830" y="218" class="cap" text-anchor="middle">= 排行榜上的 PDMS</text>
+</svg>
