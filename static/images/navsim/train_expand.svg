@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 330" font-family="'Helvetica Neue',Arial,'PingFang SC','Microsoft YaHei',sans-serif">
+  <defs>
+    <marker id="ar2" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L8,3 L0,6 Z" fill="#475569"/>
+    </marker>
+    <style>
+      .box{fill:#e0f2fe;stroke:#0284c7;stroke-width:1.5;}
+      .scene{fill:#dcfce7;stroke:#16a34a;stroke-width:1.5;}
+      .batch{fill:#fef9c3;stroke:#ca8a04;stroke-width:1.5;}
+      .t{font-size:13px;fill:#0f172a;text-anchor:middle;}
+      .st{font-size:11px;fill:#475569;text-anchor:middle;}
+      .cap{font-size:12px;fill:#334155;}
+      .tt{font-size:14px;fill:#0f172a;font-weight:bold;text-anchor:middle;}
+    </style>
+  </defs>
+
+  <text x="460" y="26" class="tt">navtrain 训练数据展开：切分看 log，训练吃 scene</text>
+
+  <rect x="40" y="56" width="220" height="60" rx="8" class="box"/>
+  <text x="150" y="80" class="t">train_logs（13,180）</text>
+  <text x="150" y="100" class="st">切分粒度：整段行车记录</text>
+
+  <rect x="40" y="140" width="220" height="120" rx="8" fill="#f8fafc" stroke="#94a3b8" stroke-width="1.5"/>
+  <text x="150" y="162" class="st">一段 log 展开为多个 scene</text>
+  <rect x="56" y="174" width="80" height="34" rx="6" class="scene"/>
+  <text x="96" y="196" class="t">scene A</text>
+  <rect x="148" y="174" width="80" height="34" rx="6" class="scene"/>
+  <text x="188" y="196" class="t">scene B</text>
+  <rect x="56" y="214" width="80" height="34" rx="6" class="scene"/>
+  <text x="96" y="236" class="t">scene C</text>
+  <rect x="148" y="214" width="80" height="34" rx="6" class="scene"/>
+  <text x="188" y="236" class="t">scene D</text>
+
+  <rect x="360" y="56" width="220" height="60" rx="8" class="box"/>
+  <text x="470" y="80" class="t">val_logs（2,730）</text>
+  <text x="470" y="100" class="st">切分粒度：整段行车记录</text>
+
+  <rect x="360" y="140" width="220" height="120" rx="8" fill="#fef2f2" stroke="#fca5a5" stroke-width="1.5"/>
+  <text x="470" y="162" class="st">一段 log 展开为多个 scene</text>
+  <rect x="376" y="174" width="80" height="34" rx="6" fill="#fee2e2" stroke="#dc2626" stroke-width="1.5"/>
+  <text x="416" y="196" class="t">scene</text>
+  <rect x="468" y="174" width="80" height="34" rx="6" fill="#fee2e2" stroke="#dc2626" stroke-width="1.5"/>
+  <text x="508" y="196" class="t">scene</text>
+  <rect x="376" y="214" width="80" height="34" rx="6" fill="#fee2e2" stroke="#dc2626" stroke-width="1.5"/>
+  <text x="416" y="236" class="t">scene</text>
+
+  <line x1="260" y1="86" x2="358" y2="86" stroke="#475569" stroke-width="2" marker-end="url(#ar2)"/>
+  <text x="310" y="78" class="cap">圈定范围</text>
+  <line x1="260" y1="200" x2="358" y2="200" stroke="#475569" stroke-width="2" marker-end="url(#ar2)"/>
+
+  <rect x="640" y="120" width="240" height="80" rx="8" class="batch"/>
+  <text x="760" y="146" class="t">训练 batch</text>
+  <text x="760" y="166" class="st">装的是一个一个 scene</text>
+  <text x="760" y="186" class="st">（非整段 log）</text>
+
+  <line x1="580" y1="160" x2="638" y2="160" stroke="#475569" stroke-width="2" marker-end="url(#ar2)"/>
+  <line x1="580" y1="200" x2="640" y2="180" stroke="#475569" stroke-width="2" marker-end="url(#ar2)"/>
+  <text x="600" y="220" class="cap">SceneLoader 展开</text>
+
+  <text x="460" y="300" class="cap" text-anchor="middle">切分边界在 log 之间（防泄漏） · 实际训练样本是 scene（batch 维度） · navtrain 共 103,288 scene 分布在 15,910 log 上</text>
+</svg>

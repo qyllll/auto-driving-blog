@@ -162,6 +162,18 @@ val_scene_filter.log_names   = [l for l in val_scene_filter.log_names   if l in 
 - **跑分用啥**：评测阶段提交轨迹到官方服务器，在 **navtest（12,146 帧，PDMS）** 或 **navhard（EPDMS，两阶段）** 上算分——这两份**禁止用于训练**。
 - **为什么这样合法**：训练集和验证集都来自 navtrain（同一母集 trainval 滤出的子集），彼此不交叠；而测试集 navtest/navhard 来自 OpenScene 的 test 池，与 navtrain 来源不同，因此评测结果能真实反映泛化。这也正是为什么"把 navtest 拆 9000/1000/2146 训+验+测"既违规又自欺——你该用的是 navtrain 里的官方 `val_logs`，而不是去动 navtest。
 
+**模型训练用的是 scene 还是 log？——答案是 scene，log 只是"切分粒度"。** 这是最容易混淆的点，必须拆开讲：
+
+- **切分（split）按 log**：`train_logs` / `val_logs` 决定的是"哪些行车记录进训练、哪些进验证"。这一步用 log 是为了**防泄漏**——同一段 log 里的相邻帧场景高度相似，若按帧随机切，train 和 val 会共享同一段记录，验证分虚高。所以切分边界必须落在 log 之间。
+- **训练（train）按 scene**：真正喂给模型、算 loss、反向传播的**最小样本单位是 scene（一个规划片段）**，不是整段 log。代码里 `SceneLoader` 会对 `train_logs` 圈定的每段 log，按场景过滤器（难例过滤 + 以某帧为中心的窗口）展开成一堆 scene，每个 scene 独立做一次前向/反向。你看到的 `len(train_data)`（日志里打印的 "Num training samples"）就是 **scene 数**，不是 log 数。
+- **所以 navtrain 内部的两层关系是**：先按 log 圈范围（13,180 训练 log + 2,730 验证 log）→ 每段 log 再展开成若干 scene → 训练时 batch 里装的是 scene。103,288 这个总数就是 navtrain 全部 scene 的展开结果，它分布在 15,910 段 log 上。
+
+一句话记忆：**log 决定"能不能用这段记录"，scene 决定"模型实际吃了哪一口数据"——切分看 log，训练吃 scene。**
+
+![NAVSIM训练数据展开：train_logs/val_logs按log圈定→每段log展开为多个scene→batch装入scene训练](/images/navsim/train_expand.svg)
+
+*图2c：navtrain 训练数据展开流程。切分边界在 log 层级（防泄漏），实际训练样本是 scene 层级——batch 里装的是一个一个 scene，而非整段 log。*
+
 ### navtrain 那 10 万样本，别人到底怎么训？
 
 navtrain 的 103k 样本（2Hz 采样，每帧 8 路环视相机 + 可选 LiDAR + ego 状态 + 导航命令）体量其实比 nuPlan 原版小很多（NAVSIM 故意降采样、只要相关标注），所以单机多卡就能训。从官方补充材料和 CVPR 2026 论文（DrivoR）的实现细节可以看到典型配置：
