@@ -119,28 +119,28 @@ DiffusionDrive 是**生成式规划**：它不从固定候选集里选，而是*
 
 模型首先要「看懂」周围。它有两路输入：相机拍的图、激光雷达扫的点云。两者都先用 ResNet-34 提取特征。配置里写得很直白：
 
-```python
 
-image_architecture: str = "resnet34"
-lidar_architecture: str = "resnet34"
-```
+
+- image_architecture: str = "resnet34"
+- lidar_architecture: str = "resnet34"
+
 
 **什么是 ResNet-34？** 简单说，它是一个「把图片压缩成一串有意义数字」的成熟神经网络，有 34 层深。给它一张 `[3, 256, 1024]` 的图（3 是 RGB 三通道，256 是高，1024 是宽），它输出一串「这张图里有什么」的特征向量。图像用 ResNet-34，激光雷达的 BEV 图也用 ResNet-34，两路各提各的。
 
 **关键在「多视角环视的处理方式」**——不是逐相机分别编码，而是把左/前/右三路裁剪后横向拼成一张 4:1 全景图再送 encoder。为什么这么做？因为自动驾驶车一般装多个相机（左、前、右），如果分别过 backbone 再融合，要写一套跨相机融合逻辑，麻烦。作者图省事（也是一种工程取舍），直接把三张图拼成一张超宽全景图，一次 backbone 搞定：
 
-```python
 
-cameras = agent_input.cameras[-1]
 
-l0 = cameras.cam_l0.image[28:-28, 416:-416]
-f0 = cameras.cam_f0.image[28:-28]
-r0 = cameras.cam_r0.image[28:-28, 416:-416]
+- cameras = agent_input.cameras[-1]
 
-stitched_image = np.concatenate([l0, f0, r0], axis=1)
-resized_image = cv2.resize(stitched_image, (1024, 256))
-tensor_image = transforms.ToTensor()(resized_image)
-```
+- l0 = cameras.cam_l0.image[28:-28, 416:-416]
+- f0 = cameras.cam_f0.image[28:-28]
+- r0 = cameras.cam_r0.image[28:-28, 416:-416]
+
+- stitched_image = np.concatenate([l0, f0, r0], axis=1)
+- resized_image = cv2.resize(stitched_image, (1024, 256))
+- tensor_image = transforms.ToTensor()(resized_image)
+
 
 > **工程要点**：把多相机拼成单张全景图，省掉了逐相机独立 backbone + 跨相机融合的复杂度，代价是相机间几何关系被「压扁」进 2D 拼接，依赖后续 transformer 自己学回来。在 NAVSIM 这种以前视为主的场景里够用；若要做到全向感知，这种拼接会损失侧视信息。
 
@@ -152,49 +152,49 @@ tensor_image = transforms.ToTensor()(resized_image)
 
 **anchor 定义**：20 个 k-means 聚类锚轨迹（预生成 `kmeans_navsim_traj_20.npy`），作为不可训练参数（冻结）。这 20 个 anchor 对应 20 种驾驶模式（直行/左转/跟车……）。它们怎么来的？作者在训练集的全部真实轨迹上跑 k-means，聚成 20 类，每类的中心轨迹存成一个 `.npy` 文件。加载时把它变成 `nn.Parameter` 但 `requires_grad=False`，意思是「这是常量，训练时别改它」：
 
-```python
 
-self.diffusion_scheduler = DDIMScheduler(
-    num_train_timesteps=1000, beta_schedule="scaled_linear", prediction_type="sample",
-)
-plan_anchor = np.load(plan_anchor_path)
-self.plan_anchor = nn.Parameter(
-    torch.tensor(plan_anchor, dtype=torch.float32), requires_grad=False,
-)
-```
+
+- self.diffusion_scheduler = DDIMScheduler(
+-     num_train_timesteps=1000, beta_schedule="scaled_linear", prediction_type="sample",
+- )
+- plan_anchor = np.load(plan_anchor_path)
+- self.plan_anchor = nn.Parameter(
+-     torch.tensor(plan_anchor, dtype=torch.float32), requires_grad=False,
+- )
+
 
 **训练：从 anchor 加「截断噪声」**。标准扩散从标准高斯 `N(0,1)`（完全随机的噪声）出发、timestep 取满 1000；DiffusionDrive 改成从 anchor 出发、timestep **截断到 50**（也就是说，训练时只模拟「噪声加到中等程度」的情况，不模拟「完全变成纯噪声」的极端情况，因为推理时也不会走到那）：
 
-```python
 
 
-plan_anchor = self.plan_anchor.unsqueeze(0).repeat(bs, 1, 1, 1)
-odo_info_fut = self.norm_odo(plan_anchor)
-timesteps = torch.randint(0, 50, (bs,), device=device)
-noise = torch.randn(odo_info_fut.shape, device=device)
-noisy_traj_points = self.diffusion_scheduler.add_noise(
-    original_samples=odo_info_fut, noise=noise, timesteps=timesteps,
-).float()
-noisy_traj_points = torch.clamp(noisy_traj_points, min=-1, max=1)
-noisy_traj_points = self.denorm_odo(noisy_traj_points)
-```
+
+- plan_anchor = self.plan_anchor.unsqueeze(0).repeat(bs, 1, 1, 1)
+- odo_info_fut = self.norm_odo(plan_anchor)
+- timesteps = torch.randint(0, 50, (bs,), device=device)
+- noise = torch.randn(odo_info_fut.shape, device=device)
+- noisy_traj_points = self.diffusion_scheduler.add_noise(
+-     original_samples=odo_info_fut, noise=noise, timesteps=timesteps,
+- ).float()
+- noisy_traj_points = torch.clamp(noisy_traj_points, min=-1, max=1)
+- noisy_traj_points = self.denorm_odo(noisy_traj_points)
+
 
 **推理：只去噪 2 步**，初始样本 = anchor 加固定截断时刻 `t=8` 的噪声（而非纯高斯）。也就是说推理时根本不让轨迹变成纯噪声，只「轻扰」一下：
 
-```python
 
-def forward_test(...):
-    step_num = 2
-    self.diffusion_scheduler.set_timesteps(1000, device)
-    step_ratio = 20 / step_num
-    roll_timesteps = (np.arange(0, step_num) * step_ratio).round()[::-1] ...
 
-    plan_anchor = self.plan_anchor.unsqueeze(0).repeat(bs, 1, 1, 1)
-    img = self.norm_odo(plan_anchor)
-    noise = torch.randn(img.shape, device=device)
-    trunc_timesteps = torch.ones((bs,), device=device, dtype=torch.long) * 8
-    img = self.diffusion_scheduler.add_noise(original_samples=img, noise=noise, timesteps=trunc_timesteps)
-```
+- def forward_test(...):
+-     step_num = 2
+-     self.diffusion_scheduler.set_timesteps(1000, device)
+-     step_ratio = 20 / step_num
+-     roll_timesteps = (np.arange(0, step_num) * step_ratio).round()[::-1] ...
+
+-     plan_anchor = self.plan_anchor.unsqueeze(0).repeat(bs, 1, 1, 1)
+-     img = self.norm_odo(plan_anchor)
+-     noise = torch.randn(img.shape, device=device)
+-     trunc_timesteps = torch.ones((bs,), device=device, dtype=torch.long) * 8
+-     img = self.diffusion_scheduler.add_noise(original_samples=img, noise=noise, timesteps=trunc_timesteps)
+
 
 **为什么「从 anchor 出发 + 截断 timestep」能大幅提速？** 因为 anchor 已经把轨迹拉到了「合理驾驶模式」附近，扩散只需要做小幅修正，不需要从纯噪声一步步生成——所以 2 步就够。这是 DiffusionDrive 相比标准 DDPM 扩散（几十步）的**核心加速来源**。
 
@@ -202,10 +202,10 @@ def forward_test(...):
 
 **去噪网络是 `CustomTransformerDecoder`**（2 层，非标准 UNet1D），每层做：轨迹点在 BEV 上 grid_sample 交叉注意力 → 与 agent/ego query 交叉注意力 → 时间步 FiLM 调制 → 回归 offset（偏移量）。这里的「offset」是「应该对当前轨迹点加多少修正」：
 
-```python
 
-poses_reg[..., :2] = poses_reg[..., :2] + noisy_traj_points
-```
+
+- poses_reg[..., :2] = poses_reg[..., :2] + noisy_traj_points
+
 
 注意这里用「**残差回归**」：网络不直接预测最终轨迹，而是预测「相对当前 noisy 轨迹的修正量」，加到当前轨迹上。这比直接预测绝对轨迹更容易学，因为修正量通常很小。
 
@@ -213,19 +213,19 @@ poses_reg[..., :2] = poses_reg[..., :2] + noisy_traj_points
 
 20 个 anchor 一一对应 20 个模式（`ego_fut_mode = 20`），每个模式回归 `num_poses×3 (x,y,θ)`（8 个时刻，每时刻 x、y、朝向 θ 共 3 个数）：
 
-```python
 
-plan_reg = traj_delta.reshape(bs, ego_fut_mode, self.ego_fut_ts, 3)
-```
+
+- plan_reg = traj_delta.reshape(bs, ego_fut_mode, self.ego_fut_ts, 3)
+
 
 **没有独立 scorer 模块**；选择由分类头 `plan_cls`（每模式一个置信度）承担，取 argmax 即最终轨迹：
 
-```python
 
-mode_idx = poses_cls.argmax(dim=-1)
-mode_idx = mode_idx[..., None, None, None].repeat(1, 1, self._num_poses, 3)
-best_reg = torch.gather(poses_reg, 1, mode_idx).squeeze(1)
-```
+
+- mode_idx = poses_cls.argmax(dim=-1)
+- mode_idx = mode_idx[..., None, None, None].repeat(1, 1, self._num_poses, 3)
+- best_reg = torch.gather(poses_reg, 1, mode_idx).squeeze(1)
+
 
 > **多模态是什么意思？** 简单说，同一个场景可能有多种合理开法（比如「直接超车」或「先跟车再超」）。DiffusionDrive 一次给出 20 条不同风格的候选（对应 20 个 anchor 模式），最后用分类头挑一条最靠谱的。这就是「多模态输出」——比只输出一条死板轨迹更灵活。
 
@@ -235,29 +235,22 @@ best_reg = torch.gather(poses_reg, 1, mode_idx).squeeze(1)
 
 为了清晰，下面用「纯英文代码块 + 代码块外中文解说」的方式来串这 7~8 步。代码块里只放英文/数字/符号（不含任何中文，避免中英文混排对齐错位），每一步的中文含义紧跟在代码块下方的列表里。
 
-```text
-compute_trajectory(agent_input)
-  build_features(agent_input)
-    img       = [B, 3, 256, 1024]
-    lidar     = [B, C, H, W]
-    ego_map   = vector tokens
-  V2TransfuserModel.forward(features)
-    TransFuser_backbone(img, lidar)
-      fused_feat = [B, N_token, d]
-    build_20_anchor_queries(frozen)
-      anchor_embed = [B, 20, 8, 2]
-    TrajectoryHead.forward_test(anchor_embed)
-      noisy = add_noise(anchor, noise, t=8)
-      noisy = [B, 20, 8, 2]
-      for step in range(2):
-        offset = denoiser(noisy, fused_feat, timestep)
-        poses_reg = poses_reg + offset
-      plan_reg = [B, 20, 8, 3]
-      plan_cls = [B, 20]
-    mode_idx = plan_cls.argmax(dim=-1)
-    best_reg = plan_reg.gather(1, mode_idx)
-    output = [B, 1, 8, 3]
-```
+- `compute_trajectory(agent_input)`
+  - `build_features(agent_input)`
+    - `img = [B, 3, 256, 1024]`
+    - `lidar = [B, C, H, W]`
+    - `ego_map = vector tokens`
+  - `V2TransfuserModel.forward(features)`
+    - `TransFuser_backbone(img, lidar)` → `fused_feat = [B, N_token, d]`
+    - `build_20_anchor_queries(frozen)` → `anchor_embed = [B, 20, 8, 2]`
+    - `TrajectoryHead.forward_test(anchor_embed)`
+      - `noisy = add_noise(anchor, noise, t=8)` → `noisy = [B, 20, 8, 2]`
+      - `for step in range(2): offset = denoiser(noisy, fused_feat, timestep); poses_reg = poses_reg + offset`
+      - `plan_reg = [B, 20, 8, 3]`
+      - `plan_cls = [B, 20]`
+    - `mode_idx = plan_cls.argmax(dim=-1)`
+    - `best_reg = plan_reg.gather(1, mode_idx)`
+    - `output = [B, 1, 8, 3]`
 
 上面每一步对应的中文含义（逐行对照）：
 
@@ -281,15 +274,13 @@ compute_trajectory(agent_input)
 
 #### 步骤 ②：构建输入特征（把传感器变成张量）
 
-伪代码：
+伪代码（用行内代码表示，避免代码块竖排）：
 
-```
-输入: agent_input (navsim 原始输入，含相机图、LiDAR、地图、自车状态)
-img      = stitch_3_cameras(agent_input.cameras)
-lidar_bev = project_lidar_to_bev(agent_input.lidar)
-ego_token, map_token = encode_ego_map(agent_input)
-输出: features = {img, lidar_bev, ego_token, map_token}
-```
+输入 `agent_input`（navsim 原始输入，含相机图、LiDAR、地图、自车状态）
+- `img = stitch_3_cameras(agent_input.cameras)` ：三相机拼成全景图
+- `lidar_bev = project_lidar_to_bev(agent_input.lidar)` ：激光雷达压成 BEV
+- `ego_token, map_token = encode_ego_map(agent_input)` ：自车与地图编码成向量
+- 输出：`features = {img, lidar_bev, ego_token, map_token}`
 
 **大白话**：这一步是「翻译」。navsim 给的原始数据是人类友好的（图片文件、点云数组），模型只吃「张量（一堆数字）」。所以这里把三相机拼成全景图、把激光雷达压成俯视图、把自车速度和地图信息编码成向量。输出就是一堆规整的数字块，准备喂给网络。
 
@@ -299,15 +290,15 @@ ego_token, map_token = encode_ego_map(agent_input)
 
 伪代码：
 
-```
-img_feat  = ResNet34(img)
-bev_feat  = ResNet34(lidar_bev)
 
-fused_feat = cross_attention(img_feat, bev_feat)
+- img_feat  = ResNet34(img)
+- bev_feat  = ResNet34(lidar_bev)
 
-fused_feat = fused_feat + ego_token + map_token
-输出: fused_feat
-```
+- fused_feat = cross_attention(img_feat, bev_feat)
+
+- fused_feat = fused_feat + ego_token + map_token
+- 输出: fused_feat
+
 
 **大白话**：这一步是「理解场景」。想象你同时看照片（相机）和雷达（激光），脑子里把两者对上：「照片里那团白色，雷达也说那里有东西，那应该是一辆车」。ResNet 负责各自提取特征，交叉注意力负责「图像和雷达互相确认」，最后加上「我现在以多少速度在开、前方地图长啥样」这种全局信息。输出的 `fused_feat` 就是模型对「当前这一帧场景」的整体理解，后面去噪修正轨迹时，anchor 就靠它来「看路」。
 
@@ -317,12 +308,12 @@ fused_feat = fused_feat + ego_token + map_token
 
 伪代码：
 
-```
-plan_anchor = self.plan_anchor
-anchor = plan_anchor.unsqueeze(0).repeat(B,1,1,1)
-anchor = norm_odo(anchor)
-输出: anchor_embed = anchor
-```
+
+- plan_anchor = self.plan_anchor
+- anchor = plan_anchor.unsqueeze(0).repeat(B,1,1,1)
+- anchor = norm_odo(anchor)
+- 输出: anchor_embed = anchor
+
 
 **大白话**：这一步是「拿出 20 张驾驶草稿」。那 20 条 k-means 聚类出来的模板轨迹，被复制成 batch 里每个场景都有一份（因为不同场景只是「场景不同」，但都从同一套驾驶模式草稿出发）。注意此时每条草稿还是「模板原样」，还没结合具体场景——它只是「直行模板」「左转模板」这种通用姿势。
 
@@ -332,12 +323,12 @@ anchor = norm_odo(anchor)
 
 伪代码：
 
-```
-noise = randn_like(anchor_embed)
-t = 8  (固定截断时间步，对所有样本一样)
-noisy = diffusion_scheduler.add_noise(anchor_embed, noise, t)
-输出: noisy
-```
+
+- noise = randn_like(anchor_embed)
+- t = 8  (固定截断时间步，对所有样本一样)
+- noisy = diffusion_scheduler.add_noise(anchor_embed, noise, t)
+- 输出: noisy
+
 
 **大白话**：这一步是「故意把草稿弄糊一点点」。为什么？因为去噪网络需要「从模糊到清晰」这个过程来发挥作用。但注意，这里只加到 `t=8`（扩散时间步很小），意味着只加了一丁点噪声，草稿还是「直行模板略歪」这种状态，远没到「纯随机噪声」。这就是「截断」的真意：**起点离答案极近，所以后面只要修两笔**。
 
@@ -349,20 +340,20 @@ noisy = diffusion_scheduler.add_noise(anchor_embed, noise, t)
 
 伪代码：
 
-```
-current = noisy
-for step in range(2):
 
-    offset = denoiser(
-        traj=current,
-        scene=fused_feat,
-        t=current_timestep,
-    )
-    current = current + offset
+- current = noisy
+- for step in range(2):
 
-plan_reg = concat([current, theta_head(current)], dim=-1)
-输出: plan_reg
-```
+-     offset = denoiser(
+-         traj=current,
+-         scene=fused_feat,
+-         t=current_timestep,
+-     )
+-     current = current + offset
+
+- plan_reg = concat([current, theta_head(current)], dim=-1)
+- 输出: plan_reg
+
 
 **大白话**：这一步是「反复看路、反复修」。循环只跑 2 次（step_num=2）。每次循环里，去噪网络（2 层 transformer）做三件事：(1) 让 20 条轨迹点去场景特征上「做交叉注意力」，相当于每条轨迹问场景「我前面有车吗、我出车道了吗」；(2) 用当前时间步 `t` 通过 FiLM 告诉网络「这是第几步去噪」；(3) 输出一个「offset 修正量」，加到当前轨迹上。两次循环后，20 条草稿就从「略歪的模板」变成「贴合当前场景的具体轨迹」了。最后补上朝向角，得到 20 条完整轨迹 `plan_reg`。
 
@@ -374,10 +365,10 @@ plan_reg = concat([current, theta_head(current)], dim=-1)
 
 伪代码：
 
-```
-plan_cls = cls_head(plan_reg, fused_feat)
-输出: plan_cls
-```
+
+- plan_cls = cls_head(plan_reg, fused_feat)
+- 输出: plan_cls
+
 
 **大白话**：这一步是「给 20 条候选打分」。每条轨迹经过一个小的分类头，结合场景特征，输出一个 0~1 之间的置信度，表示「在当前场景下，这条开法有多合理」。注意分类头和去噪网络共享场景理解，所以它打分是「因地制宜」的——同一个「左转模板」，在「前方是左转路口」时分数高，在「直道」时分数低。
 
@@ -387,11 +378,11 @@ plan_cls = cls_head(plan_reg, fused_feat)
 
 伪代码：
 
-```
-mode_idx = plan_cls.argmax(dim=-1)
-best_reg = plan_reg.gather(1, mode_idx)
-输出: best_reg
-```
+
+- mode_idx = plan_cls.argmax(dim=-1)
+- best_reg = plan_reg.gather(1, mode_idx)
+- 输出: best_reg
+
 
 **大白话**：这一步是「拍板」。20 个分数里取最大的那个（`argmax`），然后去 `plan_reg` 里把对应那条轨迹拿出来。比如第 3 个模式分数最高，就输出第 3 条轨迹。最终形状 `[B, 8, 3]`——batch 里每个场景一条 8 点 3 属性的轨迹，交给 navsim 评测。
 
@@ -424,22 +415,22 @@ best_reg = plan_reg.gather(1, mode_idx)
 
 DiffusionDrive **不写自己的训练入口**，直接复用 navsim 官方 `run_training.py`（PyTorch-Lightning），只通过 Hydra 配置 `agent=diffusiondrive_agent` 挂载自己的模型：
 
-```bash
 
-python $NAVSIM_DEVKIT_ROOT/navsim/planning/script/run_training.py \
-    agent=diffusiondrive_agent experiment_name=training_diffusiondrive_agent \
-    train_test_split=navtrain split=trainval trainer.params.max_epochs=100 ...
-```
+
+- python $NAVSIM_DEVKIT_ROOT/navsim/planning/script/run_training.py \
+-     agent=diffusiondrive_agent experiment_name=training_diffusiondrive_agent \
+-     train_test_split=navtrain split=trainval trainer.params.max_epochs=100 ...
+
 
 agent 配置 `navsim/planning/script/config/common/agent/diffusiondrive_agent.yaml`：
 
-```yaml
-_target_: navsim.agents.diffusiondrive.transfuser_agent.TransfuserAgent
-config:
-  _target_: navsim.agents.diffusiondrive.transfuser_config.TransfuserConfig
-checkpoint_path: null
-lr: 6e-4
-```
+
+- _target_: navsim.agents.diffusiondrive.transfuser_agent.TransfuserAgent
+- config:
+-   _target_: navsim.agents.diffusiondrive.transfuser_config.TransfuserConfig
+- checkpoint_path: null
+- lr: 6e-4
+
 
 Agent 类继承 `AbstractAgent`（`transfuser_agent.py:32`），优化器用 `AdamW + WarmupCosLR`，图像 encoder 学习率 ×0.5。
 
@@ -447,12 +438,12 @@ Agent 类继承 `AbstractAgent`（`transfuser_agent.py:32`），优化器用 `Ad
 
 在讲 loss 之前，必须先讲清 anchor 的来源，因为它直接决定分类标签怎么定。流程是：
 
-```
-1. 收集训练集 navtrain 里所有场景的"真值未来轨迹"（每条都是 [8, 2] 或 [8,3]）
-2. 把所有轨迹的点展平，跑 k-means，聚成 K=20 类
-3. 每类的中心轨迹 -> 存成 kmeans_navsim_traj_20.npy
-4. 训练/推理时加载该文件，作为冻结的 plan_anchor [20, 8, 2]
-```
+
+- 1. 收集训练集 navtrain 里所有场景的"真值未来轨迹"（每条都是 [8, 2] 或 [8,3]）
+- 2. 把所有轨迹的点展平，跑 k-means，聚成 K=20 类
+- 3. 每类的中心轨迹 -> 存成 kmeans_navsim_traj_20.npy
+- 4. 训练/推理时加载该文件，作为冻结的 plan_anchor [20, 8, 2]
+
 
 **大白话**：作者先把训练集里人类司机实际怎么开车的几万条轨迹收集起来，用聚类算法自动分成 20 类（比如一类是「平稳直行」、一类是「中等左转」……）。每类的「平均样子」就是一条 anchor。这样 20 个 anchor 天然覆盖了训练集里最常见的 20 种驾驶姿势，作为扩散起点非常合理。
 
@@ -466,26 +457,26 @@ Agent 类继承 `AbstractAgent`（`transfuser_agent.py:32`），优化器用 `Ad
 
 顶层聚合在 `transfuser_loss.py:11-53`：
 
-```python
-loss = (
-    config.trajectory_weight * trajectory_loss
-    + config.diff_loss_weight * diffusion_loss
-    + config.agent_class_weight * agent_class_loss
-    + config.agent_box_weight * agent_box_loss
-    + config.bev_semantic_weight * bev_semantic_loss
-)
-```
+
+- loss = (
+-     config.trajectory_weight * trajectory_loss
+-     + config.diff_loss_weight * diffusion_loss
+-     + config.agent_class_weight * agent_class_loss
+-     + config.agent_box_weight * agent_box_loss
+-     + config.bev_semantic_weight * bev_semantic_loss
+- )
+
 
 真正的**多模态监督**在模型内部逐 decoder 层计算（深监督），本体在 `modules/multimodal_loss.py`：用 GT 轨迹到 20 个 anchor 的 L2 距离找最近模式作为分类标签 → focal loss 分类 + 对该模式做 L1 回归：
 
-```python
 
-dist = torch.linalg.norm(target_traj.unsqueeze(1)[..., :2] - plan_anchor, dim=-1).mean(dim=-1)
-mode_idx = torch.argmin(dist, dim=-1)
-loss_cls = self.cls_loss_weight * py_sigmoid_focal_loss(poses_cls, target_classes_onehot, gamma=2.0, alpha=0.25)
-reg_loss = self.reg_loss_weight * F.l1_loss(best_reg, target_traj)
-ret_loss = loss_cls + reg_loss
-```
+
+- dist = torch.linalg.norm(target_traj.unsqueeze(1)[..., :2] - plan_anchor, dim=-1).mean(dim=-1)
+- mode_idx = torch.argmin(dist, dim=-1)
+- loss_cls = self.cls_loss_weight * py_sigmoid_focal_loss(poses_cls, target_classes_onehot, gamma=2.0, alpha=0.25)
+- reg_loss = self.reg_loss_weight * F.l1_loss(best_reg, target_traj)
+- ret_loss = loss_cls + reg_loss
+
 
 **这段用大白话解释**：对于每条训练样本，我们先看「真值轨迹（人类实际怎么开）离 20 个 anchor 里哪一个最近」，最近的那个就被标记为「正确模式」（正样本）。然后：
 - 分类损失（focal loss）：让模型学会「这个场景下，正确的驾驶模式应该是那个正样本模式」——相当于教分类头打分打对。
@@ -511,11 +502,11 @@ $$ \mathcal{L}_{reg} = \frac{1}{N}\sum_{i=1}^{N} | \hat{y}_i - y_i | $$
 
 DiffusionDrive 直接复用 navsim 官方 `run_create_submission_pickle.py` 生成 `submission.pkl`（未自定义）。该脚本对每个 token 调 agent 的 `compute_trajectory`：
 
-```python
 
-agent.initialize()
-trajectory = agent.compute_trajectory(agent_input)
-```
+
+- agent.initialize()
+- trajectory = agent.compute_trajectory(agent_input)
+
 
 `compute_trajectory` 本身继承 `AbstractAgent`（`abstract_agent.py:62`），内部 build features → `forward` → 取 `predictions["trajectory"]`。真正的「采样几步 + 选轨迹」落在 `TrajectoryHead.forward_test`：
 
@@ -525,19 +516,19 @@ trajectory = agent.compute_trajectory(agent_input)
 
 **推理去噪循环的具体迭代过程**（补全 1.2 节的简写），用伪代码展开：
 
-```
 
-anchor = plan_anchor.repeat(B,1,1,1)
-x = add_noise(anchor, noise, t=8)
 
-timesteps = [8, 4]   (示意，实际由 step_ratio 算)
-for t in timesteps:
-    noise_pred = denoiser(x, fused_feat, t)
-    x = ddim_step(x, noise_pred, t, t_prev)
+- anchor = plan_anchor.repeat(B,1,1,1)
+- x = add_noise(anchor, noise, t=8)
 
-plan_reg = concat([x, theta_head(x)], -1)
-best = plan_reg.gather(1, plan_cls.argmax(-1))
-```
+- timesteps = [8, 4]   (示意，实际由 step_ratio 算)
+- for t in timesteps:
+-     noise_pred = denoiser(x, fused_feat, t)
+-     x = ddim_step(x, noise_pred, t, t_prev)
+
+- plan_reg = concat([x, theta_head(x)], -1)
+- best = plan_reg.gather(1, plan_cls.argmax(-1))
+
 
 **大白话**：推理时不再随机加噪（训练才随机），而是固定从 `t=8` 的轻微噪声起点出发，然后按 DDIM 的跳步规则走 2 步（比如从 t=8 到 t=4 再到 t=0），每步都拿场景特征做交叉注意力修正。2 步结束，轨迹就清晰了，最后分类头挑最好的那条。
 

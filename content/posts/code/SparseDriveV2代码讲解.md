@@ -88,15 +88,15 @@ Agent 定义：`navsim/agents/sparsedrive/sparsedrive_agent.py:22` `class Sparse
 
 注意一个常见误解：原版 SparseDrive 用 instance query 同时做检测和规划；**SparseDriveV2 是纯规划（planning-only）**——查询是**静态的轨迹词汇表**（path × velocity 候选），没有检测 head。模型入口：
 
-```python
 
-class SparseDriveModel:
-    self._backbone = SparseBackbone(config)
-    self._status_encoding = nn.Linear(4 + 2 + 2, config.d_model)
-    self._trajectory_head = TrajectoryHead(
-        num_poses=config.trajectory_sampling.num_poses,
-        d_ffn=config.d_ffn, d_model=config.d_model, config=config)
-```
+
+- class SparseDriveModel:
+-     self._backbone = SparseBackbone(config)
+-     self._status_encoding = nn.Linear(4 + 2 + 2, config.d_model)
+-     self._trajectory_head = TrajectoryHead(
+-         num_poses=config.trajectory_sampling.num_poses,
+-         d_ffn=config.d_ffn, d_model=config.d_model, config=config)
+
 
 `TrajectoryHead` 加载**冻结的** path/velocity/trajectory 词汇表（`requires_grad=False`），作为 query 送入 `CustomTransformerDecoder`。这里要记住：模型查表得到的「轨迹嵌入」是固定的，模型只是拿它们当问题去图像里找答案，并不会改这些轨迹本身。
 
@@ -109,34 +109,34 @@ class SparseDriveModel:
 - **path 候选**：对训练集所有轨迹的「形状」（忽略速度，只看几何路径）做 KMeans，`K_PATH = 1024`；
 - **velocity 候选**：对所有轨迹的「速度剖面」做 KMeans，`K_VELOCITY = 256`；
 
-```python
 
-path_cluster = KMeans(n_clusters=K_PATH).fit(paths_flatten).cluster_centers_
-path_cluster = path_cluster.reshape(K_PATH, num_pts, 3)
-velocity_cluster = KMeans(n_clusters=K_VELOCITY).fit(velocities).cluster_centers_
-```
+
+- path_cluster = KMeans(n_clusters=K_PATH).fit(paths_flatten).cluster_centers_
+- path_cluster = path_cluster.reshape(K_PATH, num_pts, 3)
+- velocity_cluster = KMeans(n_clusters=K_VELOCITY).fit(velocities).cluster_centers_
+
 
 **组合**：遍历 `i in K_PATH × j in K_VELOCITY`，把第 j 个速度剖面沿第 i 条路径的弧长积分插值，得到 `(1024, 256, 8, 3)` 的轨迹张量（8 个 pose，每个 x/y/θ）：
 
-```python
 
-trajectory = np.zeros((K_PATH, K_VELOCITY, num_velocity, 3))
-trajectory_mask = np.ones((K_PATH, K_VELOCITY, num_velocity))
 
-np.savez(f"{CKPT_DIR}/trajectory_{K_PATH}_{K_VELOCITY}.npz",
-         trajectory=trajectory, trajectory_mask=trajectory_mask)
-```
+- trajectory = np.zeros((K_PATH, K_VELOCITY, num_velocity, 3))
+- trajectory_mask = np.ones((K_PATH, K_VELOCITY, num_velocity))
+
+- np.savez(f"{CKPT_DIR}/trajectory_{K_PATH}_{K_VELOCITY}.npz",
+-          trajectory=trajectory, trajectory_mask=trajectory_mask)
+
 
 **Vocab 大小 = 1024 × 256 = 262,144 条组合轨迹**（README 所谓「32× denser」，是相对于 Hydra-MDP 的 8K 词表）。运行时加载：
 
-```python
 
-self.path_vocab = nn.Parameter(torch.from_numpy(np.load(config.path_anchor)).float(), requires_grad=False)
-self.vel_vocab  = nn.Parameter(torch.from_numpy(np.load(config.velocity_anchor)).float(), requires_grad=False)
-trajectory_data = np.load(config.trajectory_anchor)
-self.traj_vocab = nn.Parameter(torch.from_numpy(trajectory_data["trajectory"]).float(), requires_grad=False)
-self.traj_mask  = nn.Parameter(torch.from_numpy(trajectory_data["trajectory_mask"]).float(), requires_grad=False)
-```
+
+- self.path_vocab = nn.Parameter(torch.from_numpy(np.load(config.path_anchor)).float(), requires_grad=False)
+- self.vel_vocab  = nn.Parameter(torch.from_numpy(np.load(config.velocity_anchor)).float(), requires_grad=False)
+- trajectory_data = np.load(config.trajectory_anchor)
+- self.traj_vocab = nn.Parameter(torch.from_numpy(trajectory_data["trajectory"]).float(), requires_grad=False)
+- self.traj_mask  = nn.Parameter(torch.from_numpy(trajectory_data["trajectory_mask"]).float(), requires_grad=False)
+
 
 > **为什么因子化？** 直接枚举 26 万条完整轨迹当固定 query 太浪费参数；拆成 path(往哪走) × velocity(多快走) 两个因子，组合时只需把两个嵌入相加即可指数级覆盖动作空间，vocab 尺寸只是两者之和。这是「在动作空间结构上做归纳偏置」。
 
@@ -148,45 +148,45 @@ self.traj_mask  = nn.Parameter(torch.from_numpy(trajectory_data["trajectory_mask
 
 **第一级（粗粒度，因子化）**：在 decoder 的每一层，分别对 path 与 velocity 打分，各自 top-k 后同步过滤组合词汇表。比如第 0 层保留 64 条 path、第 1 层保留 20 条 velocity（配置 `path_filter_num=[64, 20]`、`velocity_filter_num=[64, 20]`）：
 
-```python
 
-topk_path_scores, topk_path_indices = torch.topk(path_scores, self._config.path_filter_num[self.decoder_idx], dim=1)
-filter_traj_vocab = torch.gather(filter_traj_vocab, 1, topk_path_indices[:, :, None, None, None].expand(...))
 
-topk_vel_scores, topk_vel_indices = torch.topk(vel_scores, self._config.velocity_filter_num[self.decoder_idx], dim=1)
-filter_traj_vocab = torch.gather(filter_traj_vocab, 2, topk_vel_indices[:, :, :, None, None].expand(...))
-```
+- topk_path_scores, topk_path_indices = torch.topk(path_scores, self._config.path_filter_num[self.decoder_idx], dim=1)
+- filter_traj_vocab = torch.gather(filter_traj_vocab, 1, topk_path_indices[:, :, None, None, None].expand(...))
+
+- topk_vel_scores, topk_vel_indices = torch.topk(vel_scores, self._config.velocity_filter_num[self.decoder_idx], dim=1)
+- filter_traj_vocab = torch.gather(filter_traj_vocab, 2, topk_vel_indices[:, :, :, None, None].expand(...))
+
 
 经过两层粗筛，组合候选从 26 万压到 `64 × 20 = 1280`（或接近 200，取决于配置）条。
 
 **组合在 decoder 中的实现**（最后一层）：path 嵌入 ⊕ velocity 嵌入逐元素相加，展平成组合轨迹 query：
 
-```python
 
-traj_emed = filter_path_embed.unsqueeze(2) + filter_vel_embed.unsqueeze(1)
-traj_emed = traj_emed.flatten(1, 2)
-```
+
+- traj_emed = filter_path_embed.unsqueeze(2) + filter_vel_embed.unsqueeze(1)
+- traj_emed = traj_emed.flatten(1, 2)
+
 
 这里 `⊕` 就是逐元素相加（广播加法）。`filter_path_embed` 形状是 `[B, 64, d]`，`unsqueeze(2)` 后变成 `[B, 64, 1, d]`；`filter_vel_embed` 形状是 `[B, 20, d]`，`unsqueeze(1)` 后变成 `[B, 1, 20, d]`；两者相加会广播成 `[B, 64, 20, d]`，再 `flatten(1,2)` 展平成 `[B, 1280, d]`。这就是「加法组合」——把每条路径和每种速度配对，得到 1280 条组合轨迹的嵌入。注意这只是嵌入层面的组合，对应的真实轨迹坐标由冻结的 `filter_traj_vocab` 同步筛选得到（见下文前向传播第 ⑦ 步）。
 
 **第二级（细粒度，组合）**：仅最后一层，对粗筛后的组合轨迹用多个 metric head 打分（每个 PDMS 指标一个 head）：
 
-```python
 
-if self.decoder_idx == self.decoder_num_layers - 1:
-    traj_scores = self.traj_mlp(...)
-```
+
+- if self.decoder_idx == self.decoder_num_layers - 1:
+-     traj_scores = self.traj_mlp(...)
+
 
 ### 1.4 主干与多视角图像
 
 Backbone 是 **ResNet-34**（timm）+ FPN，注意**未复用**原 SparseDrive 的 Swin 编码器，这里是轻量 ResNet-34。多视角默认 `cam_l0/cam_f0/cam_r0` 三路（左、前、右三个相机），forward 时压平送 backbone 再 reshape 回相机维度，供 deformable attention 按内外参采样：
 
-```python
 
-img = img.flatten(end_dim=1)
-feat = self.backbone(img)
-feat = feat.reshape(B, N_cam, C, h, w)
-```
+
+- img = img.flatten(end_dim=1)
+- feat = self.backbone(img)
+- feat = feat.reshape(B, N_cam, C, h, w)
+
 
 **什么叫 deformable attention（可变形注意力）？** 通俗讲：普通注意力让每个查询去看图像的所有像素，计算量巨大；可变形注意力让每个查询只去「它最该看的那几个位置」采样（位置由相机内外参和当前查询推测），省算力又贴合几何。SparseDriveV2 让候选轨迹嵌入作为查询，去三相机特征图上「按相机参数找对应的图像区域」，从而知道「这条路前面有没有车/路口」。
 
@@ -194,41 +194,41 @@ feat = feat.reshape(B, N_cam, C, h, w)
 
 把上面所有模块串成一次 `forward`。输入是 navsim 的 `AgentInput`，输出是 `(B, 8, 3)` 的轨迹（8 个 pose）。下面用「纯英文代码块 + 代码块外中文解说」逐行跟一遍推理时的 forward（代码块内只放英文/数字/符号，中文含义全部在下方列表里，避免中英文混排对齐错位）。
 
-```text
-compute_trajectory(agent_input)
-  build_features(agent_input)
-    img  = [B, 3, H, W]
-    ego  = [B, 8]
-  SparseDriveModel.forward(features)
-    img_feat = SparseBackbone(img)
-    img_feat = [B, N_cam, C, h, w]
-    status_emb = status_encoding(ego)
-    status_emb = [B, d_model]
-    path_embed = traj_vocab_lookup("path")
-    path_embed = [B, 1024, d]
-    vel_embed  = traj_vocab_lookup("vel")
-    vel_embed  = [B, 256, d]
-    CustomTransformerDecoder(path_embed, vel_embed, img_feat, status_emb)
-      layer0:
-        path_scores = score(path_embed)
-        path_embed  = top_k(path_embed, 64)
-        vel_scores  = score(vel_embed)
-        vel_embed   = top_k(vel_embed, 20)
-        candidates  = 64 x 20 = 1280
-      layer1:
-        path_embed = top_k(path_embed, path_filter_num)
-        vel_embed  = top_k(vel_embed, vel_filter_num)
-        traj_embed = path_embed.unsqueeze(2) + vel_embed.unsqueeze(1)
-        traj_embed = [B, ~200, d]
-      final_layer:
-        metric_logit = metric_head(traj_embed)
-        metric_logit = [B, ~200, num_metrics]
-        scores = combine_pdms(metric_logit)
-        scores = [B, ~200]
-    mode_idx = scores.argmax(dim=-1)
-    trajectory = flatten_traj_vocab()[mode_idx]
-    output = [B, 1, 8, 3]
-```
+
+- compute_trajectory(agent_input)
+-   build_features(agent_input)
+-     img  = [B, 3, H, W]
+-     ego  = [B, 8]
+-   SparseDriveModel.forward(features)
+-     img_feat = SparseBackbone(img)
+-     img_feat = [B, N_cam, C, h, w]
+-     status_emb = status_encoding(ego)
+-     status_emb = [B, d_model]
+-     path_embed = traj_vocab_lookup("path")
+-     path_embed = [B, 1024, d]
+-     vel_embed  = traj_vocab_lookup("vel")
+-     vel_embed  = [B, 256, d]
+-     CustomTransformerDecoder(path_embed, vel_embed, img_feat, status_emb)
+-       layer0:
+-         path_scores = score(path_embed)
+-         path_embed  = top_k(path_embed, 64)
+-         vel_scores  = score(vel_embed)
+-         vel_embed   = top_k(vel_embed, 20)
+-         candidates  = 64 x 20 = 1280
+-       layer1:
+-         path_embed = top_k(path_embed, path_filter_num)
+-         vel_embed  = top_k(vel_embed, vel_filter_num)
+-         traj_embed = path_embed.unsqueeze(2) + vel_embed.unsqueeze(1)
+-         traj_embed = [B, ~200, d]
+-       final_layer:
+-         metric_logit = metric_head(traj_embed)
+-         metric_logit = [B, ~200, num_metrics]
+-         scores = combine_pdms(metric_logit)
+-         scores = [B, ~200]
+-     mode_idx = scores.argmax(dim=-1)
+-     trajectory = flatten_traj_vocab()[mode_idx]
+-     output = [B, 1, 8, 3]
+
 
 上面每一步对应的中文含义（逐行对照）：
 
@@ -255,39 +255,39 @@ compute_trajectory(agent_input)
 
 navsim 给模型的原始输入 `AgentInput` 是个复杂对象，里面塞了相机图像、自车状态、地图等。这一步把它拆成模型真正要的两样东西：
 
-```
-img : [B, 3, H, W]
-ego : [B, 8]
-```
+
+- img : [B, 3, H, W]
+- ego : [B, 8]
+
 
 为什么要拆？因为图像要送进视觉网络，自车状态要送进一个简单的小网络，二者处理方式完全不同。
 
 **第 ④ 步：图像变特征（SparseBackbone）**
 
-```
-img        : [B, 3, H, W]
-img_flat   = img.flatten(end_dim=1)
-feat       = ResNet34_FPN(img_flat)
-img_feat   = feat.reshape(B, 3, C, h, w)
-```
+
+- img        : [B, 3, H, W]
+- img_flat   = img.flatten(end_dim=1)
+- feat       = ResNet34_FPN(img_flat)
+- img_feat   = feat.reshape(B, 3, C, h, w)
+
 
 为什么用 ResNet-34 这么"老"的网络？因为 SparseDriveV2 主打"快"和"轻"，推理要实时，用大模型反而拖慢。FPN（特征金字塔）是把不同尺度的特征都保留下来，近处细节和远处轮廓都能看到。
 
 **第 ⑤ 步：自车状态编码（status_encoding）**
 
-```
-ego       : [B, 8]
-status_emb = Linear(8 -> d_model)(ego)
-```
+
+- ego       : [B, 8]
+- status_emb = Linear(8 -> d_model)(ego)
+
 
 为什么要把"我现在开多快、朝哪、在哪"也编码进去？因为规划不能脱离"当前处境"。比如你现在已经在高速最左道且时速 100，那"猛打右转"这种动作就该被压低分。这个向量作为 decoder 的全局上下文，相当于告诉模型"我现在的处境"。
 
 **第 ⑥ 步：冻结词汇表查表（这是 SparseDriveV2 的灵魂）**
 
-```
-path_embed : [B, 1024, d]
-vel_embed  : [B, 256,  d]
-```
+
+- path_embed : [B, 1024, d]
+- vel_embed  : [B, 256,  d]
+
 
 注意：这些嵌入是直接从 `.npz` 文件加载的，**不经过任何网络计算，也不更新**。这步就是"查字典"——把预先聚类好的 path 和 velocity 原型取出来当查询。
 
@@ -299,54 +299,54 @@ vel_embed  : [B, 256,  d]
 
 第 0 层（粗筛 path 和 vel 两个因子）：
 
-```
-
-path_scores = decoder_layer_0(path_embed, img_feat, status_emb)
-topk_path   = topk(path_scores, k=64)
-filter_path_embed = gather(path_embed, topk_path)
 
 
-vel_scores  = decoder_layer_0(vel_embed, img_feat, status_emb)
-topk_vel    = topk(vel_scores, k=20)
-filter_vel_embed = gather(vel_embed, topk_vel)
+- path_scores = decoder_layer_0(path_embed, img_feat, status_emb)
+- topk_path   = topk(path_scores, k=64)
+- filter_path_embed = gather(path_embed, topk_path)
 
 
-```
+- vel_scores  = decoder_layer_0(vel_embed, img_feat, status_emb)
+- topk_vel    = topk(vel_scores, k=20)
+- filter_vel_embed = gather(vel_embed, topk_vel)
+
+
+
 
 为什么要先粗筛？因为 26 万条全做细粒度打分，显存直接爆。先各砍一刀，把"明显不靠谱"的 path（比如当前该直行却选了急左转）和 vel（比如该慢却选了全速）砍掉，剩下的才值得精算。这是推荐系统里经典的"先召回后排序"两阶段思路。
 
 第 1 层（再做一次粗筛 + 加法组合）：
 
-```
-
-filter_path_embed = topk_path_again(filter_path_embed)
-filter_vel_embed  = topk_vel_again(filter_vel_embed)
 
 
-traj_embed = filter_path_embed.unsqueeze(2) + filter_vel_embed.unsqueeze(1)
+- filter_path_embed = topk_path_again(filter_path_embed)
+- filter_vel_embed  = topk_vel_again(filter_vel_embed)
 
-```
+
+- traj_embed = filter_path_embed.unsqueeze(2) + filter_vel_embed.unsqueeze(1)
+
+
 
 **path⊕vel 加法组合的实现细节（务必搞懂）**：`unsqueeze` 是在指定维度插一个大小为 1 的维度。path 是 `[B, 64, d]`，在第 2 维插 1 变成 `[B, 64, 1, d]`；vel 是 `[B, 20, d]`，在第 1 维插 1 变成 `[B, 1, 20, d]`。PyTorch 的广播机制会把这两个张量自动扩成 `[B, 64, 20, d]` 再做逐元素加法——结果就是"第 i 条 path 和第 j 种 vel 的嵌入相加"，得到第 (i,j) 个组合轨迹的嵌入。最后 `flatten(1,2)` 把 64×20 压成一维 1280，方便后面统一处理。这就是"因子化"在代码里的落地：用一次加法代替存 26 万个独立向量。
 
 末层（细粒度精排，只在这一层做）：
 
-```
-if decoder_idx == num_layers - 1:
-    metric_logit = traj_mlp(traj_embed)
 
-    scores = combine_by_PDMS_formula(metric_logit)
-```
+- if decoder_idx == num_layers - 1:
+-     metric_logit = traj_mlp(traj_embed)
+
+-     scores = combine_by_PDMS_formula(metric_logit)
+
 
 为什么只在最后一层做细粒度打分？因为前面已经把候选从 26 万砍到 1280，现在才"值得"对每条都跑一遍多个指标的 MLP 精算。这就是"粗到细（coarse-to-fine）"省算力的精髓。
 
 **第 ⑧ 步：argmax 选最优**
 
-```
-mode_idx   = scores.argmax(1)
-trajectory = filter_traj_vocab.flatten(1,2)[batch_idx, mode_idx]
-output     : [B, 1, 8, 3]
-```
+
+- mode_idx   = scores.argmax(1)
+- trajectory = filter_traj_vocab.flatten(1,2)[batch_idx, mode_idx]
+- output     : [B, 1, 8, 3]
+
 
 注意这里取的是**冻结词汇表里对应的真实轨迹坐标**，而不是模型"生成"的坐标。模型只负责打分，轨迹本身永远是字典里的原样。
 
@@ -367,17 +367,17 @@ output     : [B, 1, 8, 3]
 
 训练入口直接复用 navsim `run_training.py`：
 
-```bash
 
-python $NAVSIM_DEVKIT_ROOT/navsim/planning/script/run_training.py \
-    --config-name default_training \
-    agent=sparsedrive_agent experiment_name=$agent \
-    train_test_split=navtrain use_cache_without_dataset=True \
-    cache_path=exp/data_cache_navtrain \
-    dataloader.params.batch_size=16 trainer.params.max_epochs=10 \
-    agent.lr=0.0001 +agent.config.dataset_version=v1 \
-    +agent.config.metrics=[...] +agent.config.velocity_filter_num=[64,20]
-```
+
+- python $NAVSIM_DEVKIT_ROOT/navsim/planning/script/run_training.py \
+-     --config-name default_training \
+-     agent=sparsedrive_agent experiment_name=$agent \
+-     train_test_split=navtrain use_cache_without_dataset=True \
+-     cache_path=exp/data_cache_navtrain \
+-     dataloader.params.batch_size=16 trainer.params.max_epochs=10 \
+-     agent.lr=0.0001 +agent.config.dataset_version=v1 \
+-     +agent.config.metrics=[...] +agent.config.velocity_filter_num=[64,20]
+
 
 注意它用 `use_cache_without_dataset=True`（走 `CacheOnlyDataset`，直接按 `train_logs` 索引 cache），`batch_size=16`、`max_epochs=10`——比 navtrain 全量训练轻很多。
 
@@ -397,26 +397,26 @@ python $NAVSIM_DEVKIT_ROOT/navsim/planning/script/run_training.py \
 损失全在 `custom_decoder.py:236-288`，分三族：
 
 - **Path 分类损失**（soft target，对最近 GT path 做 softmax 距离）：
-  ```python
 
-  dist = (path_vocab - target_path[:, None])[..., :2].pow(2).sum(-1) * mask
-  dist = dist.sum(-1) / valid_cnt * path_sigmas * len_path
-  path_loss = F.cross_entropy(path_scores, (-dist).softmax(1))
-  ```
+
+-   dist = (path_vocab - target_path[:, None])[..., :2].pow(2).sum(-1) * mask
+-   dist = dist.sum(-1) / valid_cnt * path_sigmas * len_path
+-   path_loss = F.cross_entropy(path_scores, (-dist).softmax(1))
+
   大白话：Ground Truth（专家真实轨迹）对应的 path 应该分数最高。这里不是硬 label，而是用"到各 path 中心的距离"做 soft 标签——离 GT 越近的 path 越该高分。
 
 - **Velocity 分类损失**、**组合轨迹分类损失（IMI imitation）** 同理，都是让模型给"像专家"的候选打高分。
 
 - **Score 蒸馏损失（核心）**：用 **PDM 模拟器**对组合轨迹打分当 GT，训练每个 metric head（BCE with logits）：
-  ```python
 
-  sub_scores = get_pdm_score_v2(trajectory, pdm_token_paths)
-  for metric in self._config.metrics:
-      metric_gt = torch.tensor(np.stack([s[metric] for s in sub_scores]))
-      metric_gt[metric_gt == 0.5] = 0.0
-      metric_loss = F.binary_cross_entropy_with_logits(metric_pred, metric_gt)
-      loss_dict[f'{metric}_loss_{self.decoder_idx}'] = metric_loss * metric_loss_weight
-  ```
+
+-   sub_scores = get_pdm_score_v2(trajectory, pdm_token_paths)
+-   for metric in self._config.metrics:
+-       metric_gt = torch.tensor(np.stack([s[metric] for s in sub_scores]))
+-       metric_gt[metric_gt == 0.5] = 0.0
+-       metric_loss = F.binary_cross_entropy_with_logits(metric_pred, metric_gt)
+-       loss_dict[f'{metric}_loss_{self.decoder_idx}'] = metric_loss * metric_loss_weight
+
   PDM 打分函数在 `scorer/get_pdm_score_v2.py`，权重 `metric_loss_weight=5.0`。
 
   **什么叫"蒸馏（distillation）"？** 通俗讲：有一个很强但不便部署的"老师"（这里就是 NAVSIM 的 PDM 仿真器，它能精确模拟车开下去的后果并打分），让它对每条候选轨迹给出各项分数，然后训练一个轻量的"学生"网络（metric head）去模仿老师的分数。这样推理时学生就可以自己打分，不用再跑笨重的 PDM 仿真器——又快又贴榜。
@@ -431,24 +431,24 @@ python $NAVSIM_DEVKIT_ROOT/navsim/planning/script/run_training.py \
 
 `compute_trajectory` 继承 `AbstractAgent`，真正「选轨迹」逻辑在 `custom_decoder.py:291-317`（推理最后一层）：
 
-```python
 
-scores = (
-    metric_logit["no_at_fault_collisions"].sigmoid() *
-    metric_logit["drivable_area_compliance"].sigmoid() *
-    metric_logit["driving_direction_compliance"].sigmoid() *
-    metric_logit["traffic_light_compliance"].sigmoid()
-) * (
-    5 * metric_logit["time_to_collision_within_bound"].sigmoid() +
-    5 * metric_logit["ego_progress"].sigmoid() +
-    2 * metric_logit["lane_keeping"].sigmoid() +
-    2 * metric_logit["history_comfort"].sigmoid()
-)
-bs_indices  = torch.arange(scores.shape[0], device=scores.device)
-mode_indices = scores.argmax(1)
-trajectory = filter_traj_vocab.flatten(1, 2)[bs_indices, mode_indices]
-output["trajectory"] = trajectory
-```
+
+- scores = (
+-     metric_logit["no_at_fault_collisions"].sigmoid() *
+-     metric_logit["drivable_area_compliance"].sigmoid() *
+-     metric_logit["driving_direction_compliance"].sigmoid() *
+-     metric_logit["traffic_light_compliance"].sigmoid()
+- ) * (
+-     5 * metric_logit["time_to_collision_within_bound"].sigmoid() +
+-     5 * metric_logit["ego_progress"].sigmoid() +
+-     2 * metric_logit["lane_keeping"].sigmoid() +
+-     2 * metric_logit["history_comfort"].sigmoid()
+- )
+- bs_indices  = torch.arange(scores.shape[0], device=scores.device)
+- mode_indices = scores.argmax(1)
+- trajectory = filter_traj_vocab.flatten(1, 2)[bs_indices, mode_indices]
+- output["trajectory"] = trajectory
+
 
 **推理和训练的差异**：
 - 训练时，模型需要 PDM 仿真器来提供"老师分数"做蒸馏损失；推理时**完全不需要 PDM**，直接用训练好的 metric head 自己算分数。
