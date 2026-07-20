@@ -79,8 +79,6 @@ DiffusionDrive 是**生成式规划**：它不从固定候选集里选，而是*
 
 - **新增的模型代码**（作者写的部分）：全部在 `navsim/agents/diffusiondrive/` 下，作为 navsim 的一个 `Agent` 插件接入。
 
-```python
-```
 
 
 下面用普通 Markdown 列表（不是代码块）展示目录结构，避免代码块内中文被逐字符换行的问题：
@@ -102,8 +100,6 @@ DiffusionDrive 是**生成式规划**：它不从固定候选集里选，而是*
 逐个文件用一句话说明它干嘛：
 
 
-```python
-```
 
 
 > **注意**：文件名沿用 `transfuser_*`，但类 `V2TransfuserModel` / `TransfuserAgent` 实际实现的是 DiffusionDrive——这是历史遗留命名（从 TransFuser 改过来的），读源码时别被名字误导。挂载关系一句话：**`run_training.py`（官方）→ `agent=diffusiondrive_agent` → `TransfuserAgent` → `V2TransfuserModel`（内含扩散 TrajectoryHead）**。
@@ -303,8 +299,6 @@ best_reg = torch.gather(poses_reg, 1, mode_idx).squeeze(1)
 
 输入 `agent_input`（navsim 原始输入，含相机图、LiDAR、地图、自车状态）
 
-```python
-```
 
 
 **大白话**：这一步是「翻译」。navsim 给的原始数据是人类友好的（图片文件、点云数组），模型只吃「张量（一堆数字）」。所以这里把三相机拼成全景图、把激光雷达压成俯视图、把自车速度和地图信息编码成向量。输出就是一堆规整的数字块，准备喂给网络。
@@ -432,14 +426,10 @@ best_reg = plan_reg.gather(1, mode_idx)
 **每一步在干啥（大白话版小结）**：
 - **②④**：把相机+LiDAR 融成一套「懂场景」的特征，和 SparseDriveV2 的 backbone 角色一样。
 
-```python
-```
 
 
 **输入 / 输出维度小结**：
 
-```python
-```
 
 
 **和 SparseDriveV2 的对照表**（一眼看懂两条路线差异）：
@@ -487,8 +477,6 @@ Agent 类继承 `AbstractAgent`（`transfuser_agent.py:32`），优化器用 `Ad
 
 - 1. 收集训练集 navtrain 里所有场景的"真值未来轨迹"（每条都是 [8, 2] 或 [8,3]）
 
-```python
-```
 
 
 
