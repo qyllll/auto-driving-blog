@@ -64,6 +64,9 @@ params:
 
   assets:
     disableHLJS: true
+    favicon: "/favicon.svg"
+
+  images: ["/images/share.png"]
 
   label:
     text: "Elon's AD Insight"
@@ -102,6 +105,10 @@ params:
 
 menu:
   main:
+    - identifier: projects
+      name: 🚀 项目
+      url: /posts/projects/
+      weight: 5
     - identifier: categories
       name: 📁 分类
       url: /categories/
@@ -121,4 +128,5 @@ menu:
     - identifier: about
       name: 👨‍💻 关于
       url: /about/
+      weight: 50
       weight: 50
