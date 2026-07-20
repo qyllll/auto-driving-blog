@@ -79,8 +79,6 @@ DiffusionDrive 是**生成式规划**：它不从固定候选集里选，而是*
 
 - **新增的模型代码**（作者写的部分）：全部在 `navsim/agents/diffusiondrive/` 下，作为 navsim 的一个 `Agent` 插件接入。
 
-
-
 下面用普通 Markdown 列表（不是代码块）展示目录结构，避免代码块内中文被逐字符换行的问题：
 
 - navsim/
@@ -99,7 +97,16 @@ DiffusionDrive 是**生成式规划**：它不从固定候选集里选，而是*
 
 逐个文件用一句话说明它干嘛：
 
-
+- `transfuser_agent.py`：Agent 接口层。继承 navsim 的 `AbstractAgent`，对外暴露 `compute_trajectory(agent_input)`（给输入、吐轨迹）和 `get_sensor_config` 等标准方法；内部把原始 `AgentInput` 交给 `transfuser_features.py` 做特征构建，再送给 `V2TransfuserModel` 前向，最后把模型输出整理成 navsim 要的轨迹格式。
+- `transfuser_model_v2.py`：核心模型文件。定义了 `V2TransfuserModel`（主干 + TrajectoryHead）以及 `TrajectoryHead`（截断扩散解码器，含 denoiser、分类头 plan_cls、回归头 plan_reg）。这是你读源码最该盯紧的文件。
+- `transfuser_backbone.py`：实现 TransFuser 的「图像 + LiDAR 融合主干」。包含两个 ResNet-34 编码器（一个吃图像、一个吃 BEV），以及把两者特征融合的交叉注意力层，输出统一的「场景 token 特征」。
+- `transfuser_features.py`：负责把 navsim 的 `AgentInput`（原始相机图、激光雷达点云、地图、自车状态）转成模型能吃的张量。三相机横向拼接成全景图就在这里做。
+- `transfuser_loss.py`：顶层 loss 聚合处。把轨迹损失、agent 检测损失、BEV 语义损失等按权重相加，得到总 loss 返回给 PyTorch-Lightning。
+- `transfuser_config.py`：所有超参数的「集中营」。图像/LiDAR 用的网络结构、anchor 文件路径、各项 loss 权重、模式数 `ego_fut_mode=20` 等都在这里定义。
+- `modules/multimodal_loss.py`：实现多模态监督的核心。它用「真实轨迹离哪个 anchor 最近」来定分类标签，再算 focal 分类损失 + 对该模式的 L1 回归损失。
+- `modules/conditional_unet1d.py`：条件 1D UNet 去噪网络的实现（论文原版设计）。注意本项目实际推理用的是 `TrajectoryHead` 里内联的 `CustomTransformerDecoder`，这个文件更多是保留的对照实现。
+- `modules/scheduler.py`：对 `diffusers.DDIMScheduler` 的轻量封装，集中管理「加噪 / 去噪步数 / 时间步选取」逻辑。
+- `planning/script/run_training.py`：navsim 官方训练入口，DiffusionDrive 直接复用，不修改。
 
 
 > **注意**：文件名沿用 `transfuser_*`，但类 `V2TransfuserModel` / `TransfuserAgent` 实际实现的是 DiffusionDrive——这是历史遗留命名（从 TransFuser 改过来的），读源码时别被名字误导。挂载关系一句话：**`run_training.py`（官方）→ `agent=diffusiondrive_agent` → `TransfuserAgent` → `V2TransfuserModel`（内含扩散 TrajectoryHead）**。
@@ -295,11 +302,26 @@ best_reg = torch.gather(poses_reg, 1, mode_idx).squeeze(1)
 
 #### 步骤 ②：构建输入特征（把传感器变成张量）
 
-伪代码（用行内代码表示，避免代码块竖排）：
+实际代码在 `transfuser_features.py` 的 `_build_features`（伪代码，已把中文说明移到块外）：
 
-输入 `agent_input`（navsim 原始输入，含相机图、LiDAR、地图、自车状态）
+```python
+def _build_features(self, agent_input):
+    cameras = agent_input.cameras[-1]
+    l0 = cameras.cam_l0.image[28:-28, 416:-416]
+    f0 = cameras.cam_f0.image[28:-28]
+    r0 = cameras.cam_r0.image[28:-28, 416:-416]
+    stitched = np.concatenate([l0, f0, r0], axis=1)
+    img = cv2.resize(stitched, (1024, 256))
+    img = transforms.ToTensor()(img)
+    lidar_bev = project_lidar_to_bev(agent_input.lidar)
+    ego_token, map_token = encode_ego_map(agent_input)
+    return {"img": img, "lidar_bev": lidar_bev,
+            "ego_token": ego_token, "map_token": map_token}
+```
 
-
+- `img`：三相机 cam_l0/f0/r0 拼成的全景图，形状 `[3, 256, 1024]`
+- `lidar_bev`：激光雷达压成的 BEV 特征，形状 `[C, H, W]`（可选）
+- `ego_token, map_token`：自车状态与地图编码成的向量 token
 
 **大白话**：这一步是「翻译」。navsim 给的原始数据是人类友好的（图片文件、点云数组），模型只吃「张量（一堆数字）」。所以这里把三相机拼成全景图、把激光雷达压成俯视图、把自车速度和地图信息编码成向量。输出就是一堆规整的数字块，准备喂给网络。
 
@@ -307,21 +329,14 @@ best_reg = torch.gather(poses_reg, 1, mode_idx).squeeze(1)
 
 #### 步骤 ④：TransFuser 融合主干（让模型「看懂」场景）
 
-伪代码：
-
-
+实际主干在 `transfuser_backbone.py`（伪代码）：
 
 ```python
-img_feat  = ResNet34(img)
-bev_feat  = ResNet34(lidar_bev)
+img_feat = ResNet34(img)
+bev_feat = ResNet34(lidar_bev)
+fused_feat = cross_attention(img_feat, bev_feat)
+fused_feat = fused_feat + ego_token + map_token
 ```
-
-
-- fused_feat = cross_attention(img_feat, bev_feat)
-
-- fused_feat = fused_feat + ego_token + map_token
-- 输出: fused_feat
-
 
 **大白话**：这一步是「理解场景」。想象你同时看照片（相机）和雷达（激光），脑子里把两者对上：「照片里那团白色，雷达也说那里有东西，那应该是一辆车」。ResNet 负责各自提取特征，交叉注意力负责「图像和雷达互相确认」，最后加上「我现在以多少速度在开、前方地图长啥样」这种全局信息。输出的 `fused_feat` 就是模型对「当前这一帧场景」的整体理解，后面去噪修正轨迹时，anchor 就靠它来「看路」。
 
@@ -366,26 +381,20 @@ noisy = diffusion_scheduler.add_noise(anchor_embed, noise, t)
 
 #### 步骤 ⑥-b：循环去噪 2 步（核心生成循环）
 
-伪代码：
-
-
-- current = noisy
-- for step in range(2):
-
--     offset = denoiser(
+实际去噪循环在 `TrajectoryHead.forward_test`（伪代码）：
 
 ```python
+current = noisy
+for step in range(2):
+    offset = denoiser(
         traj=current,
         scene=fused_feat,
         t=current_timestep,
     )
     current = current + offset
+theta = theta_head(current)
+plan_reg = concat([current, theta], dim=-1)
 ```
-
-
-- plan_reg = concat([current, theta_head(current)], dim=-1)
-- 输出: plan_reg
-
 
 **大白话**：这一步是「反复看路、反复修」。循环只跑 2 次（step_num=2）。每次循环里，去噪网络（2 层 transformer）做三件事：(1) 让 20 条轨迹点去场景特征上「做交叉注意力」，相当于每条轨迹问场景「我前面有车吗、我出车道了吗」；(2) 用当前时间步 `t` 通过 FiLM 告诉网络「这是第几步去噪」；(3) 输出一个「offset 修正量」，加到当前轨迹上。两次循环后，20 条草稿就从「略歪的模板」变成「贴合当前场景的具体轨迹」了。最后补上朝向角，得到 20 条完整轨迹 `plan_reg`。
 
@@ -626,6 +635,43 @@ best = plan_reg.gather(1, plan_cls.argmax(-1))
 **4. 和 SparseDriveV2 的对比给人的启发。** SparseDriveV2 是「检索式」——在 26 万字典里选，推理无迭代、贴合榜单指标；DiffusionDrive 是「生成式」——从 anchor 扩散出轨迹，擅长覆盖字典外的多模态。两者都挂在 navsim 上、都复用官方管线，但哲学相反：**前者相信「好答案在被枚举的候选里」，后者相信「好答案该被生成出来」**。作为 VLA 方向工程师，我认为实车部署更看重 SparseDriveV2 式的可解释与确定性（输出必在可行集），而算法探索阶段 DiffusionDrive 式的生成灵活性更有想象空间。值得补充的是，DiffusionDrive 的「生成」其实也被 anchor 强烈约束，所以它并非完全自由生成，而是「受限生成」——这恰好是它能在实车场景里保底安全的原因，也模糊了「生成 vs 检索」的界线：它更像「在 20 个检索到的模板附近做生成式精修」。
 
 **5. 一个延伸想法：anchor 数量是不是越多越好？** 本文用 20 个。更多 anchor（比如 50）能覆盖更细的驾驶模式，但推理时每条都要走 2 步去噪，计算量线性增长；更少（比如 6）则多模态表达力下降。20 是作者在「覆盖度 vs 算力」间的折中。未来若上更强去噪网络或更长 horizon，这个超参值得重新扫一遍。
+
+## 附：自己跑起来（最小实操）
+
+读完代码，最好亲手跑一遍验证理解。下面是最小可行路径（基于官方 README 整理）：
+
+1. **clone 并装环境**：DiffusionDrive 是 navsim 的 fork，直接装它的 navsim 开发套件即可。
+
+```bash
+git clone https://github.com/hustvl/DiffusionDrive.git
+cd DiffusionDrive
+pip install -e .
+```
+
+2. **准备数据**：按 navsim 官方文档下载 NAVSIM `navtrain` / `navtest` 数据集，并设置环境变量 `NAVSIM_DEVKIT_ROOT` 指向数据根目录（anchor 文件 `kmeans_navsim_traj_20.npy` 需在配置指定的路径下，缺了会报 `FileNotFoundError`）。
+
+3. **训练**（复用官方入口 + Hydra 切换 agent）：
+
+```bash
+python $NAVSIM_DEVKIT_ROOT/navsim/planning/script/run_training.py \
+    agent=diffusiondrive_agent experiment_name=my_diffusiondrive \
+    train_test_split=navtrain split=trainval trainer.params.max_epochs=100
+```
+
+4. **推理出 submission**：
+
+```bash
+python $NAVSIM_DEVKIT_ROOT/navsim/planning/script/run_create_submission_pickle.py \
+    agent=diffusiondrive_agent experiment_name=my_diffusiondrive
+```
+
+5. **本地算分 / 上榜**：用官方 `run_pdm_score.py` 在本地看 PDMS；正式上榜把 `submission.pkl` 传 HuggingFace 官方空间。
+
+**新手最常踩的 3 个坑**：
+
+- anchor 文件缺失或路径不对 → 一启动就 `FileNotFoundError`。先确认 `transfuser_config.py` 里 `plan_anchor_path` 指向真实存在的 `.npy`。
+- 显存不够 → 把 `batch_size` 调小，或减少 `ego_fut_mode`（但会牺牲多模态）。
+- 想改 anchor 数量（比如 50）→ 重新跑 k-means 生成新的 `.npy`，并把配置里的 `ego_fut_mode` 同步改掉，否则形状对不上会报错。
 
 ## 延伸阅读
 
