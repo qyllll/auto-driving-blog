@@ -21,40 +21,13 @@ DiffusionDrive 是**生成式规划**：它不从固定候选集里选，而是*
 
 为把源码里的数据流向讲清楚，我画了一张**数据流图**：
 
-```
-                输入 (navsim AgentInput)
-  ┌───────────────────────────────────────────────┐
-  │ 多视角相机 cam_l0/cam_f0/cam_r0 → 拼接全景图    │
-  │ + LiDAR（BEV 特征，可选）                      │
-  │ + ego 状态 / 高精度地图元素                     │
-  └───────────────────────┬───────────────────────┘
-                          │
-                          ▼
-        ┌─────────────────────────────────┐
-        │ TransFuser 融合主干              │  图像 ResNet-34
-        │ (img + LiDAR BEV → 统一特征)     │  LiDAR ResNet-34
-        └─────────────────┬───────────────┘
-                          │
-                          ▼
-        ┌─────────────────────────────────┐
-        │ TrajectoryHead (扩散解码器)      │  ★ 核心
-        │  query = 20 个冻结 anchor 轨迹    │
-        │  denoiser = 2 层 CustomTransformer│
-        └─────────────────┬───────────────┘
-            ┌─────────────┴──────────────┐
-            │ 训练: anchor+噪声 → 回归 GT  │
-            │ 推理: anchor+截断噪声→2步去噪 │
-            └─────────────┬──────────────┘
-                          │ 分类头 argmax
-                          ▼
-            输出轨迹 (4s, 8 poses, x/y/θ)
-```
+![DiffusionDrive 推理数据流：navsim输入 → TransFuser融合主干 → 冻结20 anchor作query → 截断扩散2步去噪 → cls argmax输出最优轨迹](/images/diffusiondrive/dataflow.svg)
 
 > **关键认知**：和 SparseDriveV2（检索式）相反，DiffusionDrive 是**生成式**——它能在 20 个 anchor 附近"生成"字典外的轨迹，泛化更灵活；代价是推理要走去噪循环（虽已压到 2 步）。两篇对照读，能看清 NAVSIM 榜单上"生成 vs 检索"两条路线的分野。
 
 ## 项目结构：它如何挂在 navsim 上（先厘清边界）
 
-和 SparseDriveV2 一样，DiffusionDrive 也是 navsim 的一个 fork，挂载关系分两层：
+和 SparseDriveV2 一样，DiffusionDrive 也是 navsim 的一个 fork，但**作者只动了 `navsim/agents/diffusiondrive/` 这一个角落**，其余训练/评测管线全是 navsim 原装。挂载关系只有一层（没有 SparseDriveV2 那种"仓库根目录独立脚本"），所以反而更干净：
 
 - **新增的模型代码**（作者写的部分）：全部在 `navsim/agents/diffusiondrive/` 下，作为 navsim 的一个 `Agent` 插件接入。
 - **训练 / 评测入口**：完全复用 navsim 官方的 `run_training.py`、`run_create_submission_pickle.py`，通过 Hydra 的 `agent=diffusiondrive_agent` 把自研模型"挂"上去。
@@ -186,28 +159,67 @@ best_reg = torch.gather(poses_reg, 1, mode_idx).squeeze(1)
 
 ## 二、前向传播：一张图对应的代码路径
 
-把上面所有模块串成一次 `forward`。输入是 navsim 的 `AgentInput`，输出是 `(B, 8, 3)` 的轨迹（8 个 pose）。完整时序：
+把上面所有模块串成一次 `forward`。输入是 navsim 的 `AgentInput`，输出是 `(B, 8, 3)` 的轨迹（8 个 pose）。下面**逐行跟一遍**推理时的 forward，并标注每一步张量形状——注意它和 SparseDriveV2 的"检索式"完全相反，是"生成式"。
 
 ```
-compute_trajectory(agent_input)                 # AbstractAgent 接口（推理）
-  └─> _build_features(agent_input)              # 相机拼接 + LiDAR/BEV + ego/map
-  └─> V2TransfuserModel.forward(features)
-        ├─ TransFuser 主干(img, lidar) → fused_feat
-        ├─ 构造 20 个 anchor query (冻结)
-        └─ TrajectoryHead.forward / forward_test
-             训练: anchor + randint(0,50) 噪声 → denoiser → reg offset → GT
-             推理: anchor + t=8 噪声 → 2 步 DDIM → reg offset → 20 模式
-        └─> plan_cls (20 置信度) + plan_reg (20 模式轨迹)
-  └─> argmax(plan_cls) → 选 1 条
+① compute_trajectory(agent_input)              # navsim 的 AbstractAgent 接口，每个评测场景调一次
+│
+└─> ② _build_features(agent_input)             # 相机拼接 + LiDAR/BEV + ego/map
+│       · img      : [B, 3, 256, 1024]          # 三相机 cam_l0/f0/r0 拼成的全景图
+│       · lidar    : [B, C, H, W]               # BEV 特征（可选）
+│       · ego/map  : 若干向量 token
+│
+└─> ③ V2TransfuserModel.forward(features)
+     │
+     ├─ ④ TransFuser 主干(img, lidar)            # 图像 ResNet-34 + LiDAR ResNet-34 融合
+     │       → fused_feat : [B, N_token, d]      # 统一的多模态场景特征
+     │
+     ├─ ⑤ 构造 20 个 anchor query（冻结）          # plan_anchor [20,8,2] 经 norm 后作初始样本
+     │       anchor_embed : [B, 20, 8, 2]        # 20 种驾驶模式原型（直行/左转/跟车…）
+     │
+     └─ ⑥ TrajectoryHead.forward_test(anchor_embed)   # ★ 截断扩散解码，推理专用
+           │
+           ├─ a. 给 anchor 加截断噪声：t=8 的固定时刻
+           │       noisy = scheduler.add_noise(anchor, noise, t=8)   # 不是纯高斯，起点已接近合理轨迹
+           │       noisy : [B, 20, 8, 2]
+           │
+           ├─ b. 循环去噪 2 步（step_num=2）
+           │       每步：denoiser( 当前noisy + fused_feat 通过 deformable/cross-attn,
+           │                          timestep 作 FiLM 调制 ) → 预测 offset
+           │       poses_reg = poses_reg + offset         # 残差回归形式
+           │       → 第2步后得到 plan_reg : [B, 20, 8, 3]   # 20 条已"雕"好的轨迹
+           │
+           └─ c. 分类头 plan_cls 对 20 条模式各打一个置信度
+                   plan_cls : [B, 20]
+     │
+     └─> ⑦ argmax(plan_cls) → 选 1 条
+             mode_idx = plan_cls.argmax(dim=-1)
+             best_reg = plan_reg.gather(1, mode_idx)   # 按模式索引取出对应轨迹
+             → 输出 : [B, 1, 8, 3]                     # 最终选中的最优轨迹
 ```
 
-**输入维度小结**：
-- 图像：`[B, 3, 256, 1024]`（三相机拼接后的全景图）
-- LiDAR/BEV：`[B, C, H, W]`（BEV 特征，可选）
-- anchor：`[20, 8, 2]`（冻结，20 模式×8 pose×x/y）
-- ego/map  token：若干向量 token
+**每一步在干啥（大白话版）**：
+- **②④**：把相机+LiDAR 融成一套"懂场景"的特征，和 SparseDriveV2 的 backbone 角色一样。
+- **⑤**：准备好 20 个"驾驶模式模板"（anchor）——这是扩散的**起点**，不是最终答案。
+- **⑥-a**：在 anchor 上加一点噪声（截断到 t=8，不是从纯噪声开始），等于"故意把模板弄糊一点，等下再修"。这就是为什么只要 2 步去噪——起点已经很接近答案。
+- **⑥-b**：去噪网络（2 层 CustomTransformer）反复"看场景特征 + 看当前糊轨迹"，预测"该往哪修"，逐步把轨迹雕清晰。2 步后得 20 条具体轨迹。
+- **⑥-c / ⑦**：分类头判断"这 20 条里哪条最靠谱"，argmax 选出最终 1 条。
 
-**输出**：`plan_reg [B, 20, 8, 3]`（20 条候选轨迹）+ `plan_cls [B, 20]`（每条置信度），推理时 argmax 取 1 条。
+**输入 / 输出维度小结**：
+- 输入图像：`[B, 3, 256, 1024]`（全景拼接）；LiDAR/BEV：`[B, C, H, W]`（可选）；anchor：`[20, 8, 2]`（冻结）。
+- 中间：20 个 anchor 模式 × 2 步去噪 → 20 条候选轨迹。
+- 输出：`plan_reg [B, 20, 8, 3]`（20 条候选）+ `plan_cls [B, 20]`（置信度），推理时 argmax 取 1 条。
+
+**和 SparseDriveV2 的对照表**（一眼看懂两条路线差异）：
+
+| 维度 | SparseDriveV2（检索式） | DiffusionDrive（生成式） |
+|:---|:---|:---|
+| 候选来源 | 冻结 26 万词表查表 | 20 anchor + 扩散生成 |
+| decoder 干啥 | 打分 + 筛选 | 去噪 + 生成 |
+| 候选数量 | 26万 → 粗筛 ~200 → 1 | 20（生成）→ 1 |
+| 选轨迹 | argmax(PDMS式分数) | argmax(plan_cls) |
+| 推理是否迭代 | 否（一次前馈） | 是（2 步去噪） |
+| 擅长 | 贴合榜单指标、快、确定 | 覆盖词表外多模态 |
 
 ## 三、训练：怎么挂上 navsim
 

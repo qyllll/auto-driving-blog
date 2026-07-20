@@ -1,0 +1,65 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 940 420" font-family="'Helvetica Neue',Arial,'PingFang SC','Microsoft YaHei',sans-serif">
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L8,3 L0,6 Z" fill="#475569"/>
+    </marker>
+    <style>
+      .box{fill:#f1f5f9;stroke:#64748b;stroke-width:1.5;}
+      .boxA{fill:#e0f2fe;stroke:#0284c7;stroke-width:1.5;}
+      .boxB{fill:#dcfce7;stroke:#16a34a;stroke-width:1.5;}
+      .boxC{fill:#fef9c3;stroke:#ca8a04;stroke-width:1.5;}
+      .boxD{fill:#fae8ff;stroke:#a21caf;stroke-width:1.5;}
+      .t{font-size:14px;fill:#0f172a;text-anchor:middle;}
+      .st{font-size:11px;fill:#475569;text-anchor:middle;}
+      .cap{font-size:13px;fill:#334155;}
+    </style>
+  </defs>
+
+  <text x="470" y="26" class="cap" text-anchor="middle">SparseDriveV2 推理数据流（检索式规划：26万词表 → 两级筛选 → argmax）</text>
+
+  <!-- 输入 -->
+  <rect x="20" y="60" width="160" height="70" rx="8" class="boxA"/>
+  <text x="100" y="88" class="t">navsim AgentInput</text>
+  <text x="100" y="106" class="st">多视角相机 cam_l0/f0/r0</text>
+  <text x="100" y="122" class="st">+ ego 状态 (vx,vy,yaw)</text>
+
+  <!-- backbone -->
+  <rect x="240" y="60" width="170" height="70" rx="8" class="box"/>
+  <text x="325" y="88" class="t">SparseBackbone</text>
+  <text x="325" y="106" class="st">ResNet-34 + FPN</text>
+  <text x="325" y="122" class="st">多尺度特征 [B,N_cam,C,h,w]</text>
+
+  <!-- 冻结词表 -->
+  <rect x="240" y="170" width="170" height="70" rx="8" class="boxD"/>
+  <text x="325" y="198" class="t">冻结轨迹词表</text>
+  <text x="325" y="216" class="st">path(1024) × vel(256)</text>
+  <text x="325" y="232" class="st">= 262,144 条 (requires_grad=False)</text>
+
+  <!-- decoder -->
+  <rect x="470" y="60" width="200" height="70" rx="8" class="boxB"/>
+  <text x="570" y="88" class="t">CustomTransformerDecoder</text>
+  <text x="570" y="106" class="st">query = 冻结词表嵌入</text>
+  <text x="570" y="122" class="st">deformable attn 采图像特征</text>
+
+  <!-- 第一级 -->
+  <rect x="470" y="170" width="200" height="64" rx="8" class="boxC"/>
+  <text x="570" y="196" class="t">第一级（粗）path/vel 各 top-k</text>
+  <text x="570" y="214" class="st">26万 → 64×20 ≈ 1280 条</text>
+
+  <!-- 第二级 -->
+  <rect x="470" y="270" width="200" height="64" rx="8" class="boxC"/>
+  <text x="570" y="296" class="t">第二级（细）组合 metric head</text>
+  <text x="570" y="314" class="st">PDMS 式分数（同构）</text>
+
+  <!-- 输出 -->
+  <rect x="720" y="170" width="180" height="64" rx="8" class="boxA"/>
+  <text x="810" y="196" class="t">argmax 选 1 条</text>
+  <text x="810" y="214" class="st">输出 (B,8,3) 最优轨迹</text>
+
+  <line x1="180" y1="95" x2="235" y2="95" stroke="#475569" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <line x1="410" y1="95" x2="465" y2="95" stroke="#475569" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <line x1="325" y1="170" x2="325" y2="130" stroke="#475569" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <line x1="670" y1="95" x2="670" y2="165" stroke="#475569" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <line x1="570" y1="234" x2="570" y2="265" stroke="#475569" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <line x1="670" y1="302" x2="715" y2="202" stroke="#475569" stroke-width="1.5" marker-end="url(#arrow)"/>
+</svg>

@@ -1,0 +1,59 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 940 420" font-family="'Helvetica Neue',Arial,'PingFang SC','Microsoft YaHei',sans-serif">
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L8,3 L0,6 Z" fill="#475569"/>
+    </marker>
+    <style>
+      .box{fill:#f1f5f9;stroke:#64748b;stroke-width:1.5;}
+      .boxA{fill:#e0f2fe;stroke:#0284c7;stroke-width:1.5;}
+      .boxB{fill:#dcfce7;stroke:#16a34a;stroke-width:1.5;}
+      .boxC{fill:#fef9c3;stroke:#ca8a04;stroke-width:1.5;}
+      .boxD{fill:#fae8ff;stroke:#a21caf;stroke-width:1.5;}
+      .t{font-size:14px;fill:#0f172a;text-anchor:middle;}
+      .st{font-size:11px;fill:#475569;text-anchor:middle;}
+      .cap{font-size:13px;fill:#334155;}
+    </style>
+  </defs>
+
+  <text x="470" y="26" class="cap" text-anchor="middle">DiffusionDrive 推理数据流（生成式规划：anchor + 截断扩散 → 2步去噪 → cls argmax）</text>
+
+  <!-- 输入 -->
+  <rect x="20" y="60" width="160" height="70" rx="8" class="boxA"/>
+  <text x="100" y="88" class="t">navsim AgentInput</text>
+  <text x="100" y="106" class="st">相机拼全景 1024×256</text>
+  <text x="100" y="122" class="st">+ LiDAR/BEV + ego</text>
+
+  <!-- TransFuser 主干 -->
+  <rect x="240" y="60" width="180" height="70" rx="8" class="box"/>
+  <text x="330" y="88" class="t">TransFuser 主干</text>
+  <text x="330" y="106" class="st">img+LiDAR ResNet-34</text>
+  <text x="330" y="122" class="st">融合特征 fused_feat</text>
+
+  <!-- 冻结 anchor -->
+  <rect x="240" y="170" width="180" height="70" rx="8" class="boxD"/>
+  <text x="330" y="198" class="t">冻结 anchor 轨迹</text>
+  <text x="330" y="216" class="st">20 个 k-means 模式</text>
+  <text x="330" y="232" class="st">[20,8,2] (requires_grad=False)</text>
+
+  <!-- TrajectoryHead -->
+  <rect x="480" y="60" width="210" height="70" rx="8" class="boxB"/>
+  <text x="585" y="88" class="t">TrajectoryHead</text>
+  <text x="585" y="106" class="st">截断扩散解码器</text>
+  <text x="585" y="122" class="st">训练 t∈[0,50) / 推理 t=8</text>
+
+  <!-- 去噪 -->
+  <rect x="480" y="170" width="210" height="64" rx="8" class="boxC"/>
+  <text x="585" y="196" class="t">去噪 2 步 (DDIM)</text>
+  <text x="585" y="214" class="st">anchor + 截断噪声 → reg offset</text>
+
+  <!-- 输出 -->
+  <rect x="740" y="170" width="170" height="64" rx="8" class="boxA"/>
+  <text x="825" y="196" class="t">cls argmax 选 1 条</text>
+  <text x="825" y="214" class="st">输出 (B,8,3) 轨迹</text>
+
+  <line x1="180" y1="95" x2="235" y2="95" stroke="#475569" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <line x1="420" y1="95" x2="475" y2="95" stroke="#475569" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <line x1="330" y1="170" x2="330" y2="130" stroke="#475569" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <line x1="585" y1="234" x2="585" y2="265" stroke="#475569" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <line x1="690" y1="202" x2="735" y2="202" stroke="#475569" stroke-width="1.5" marker-end="url(#arrow)"/>
+</svg>
