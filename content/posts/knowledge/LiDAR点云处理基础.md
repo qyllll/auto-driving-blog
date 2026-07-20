@@ -4,7 +4,7 @@ date: 2026-07-19
 draft: false
 summary: "系统讲解LiDAR工作原理（ToF、机械/固态）、点云表示方法（xyz、intensity、ring）、三类主流点云检测方法（voxel-based、point-based、range-view），以及在端到端检测中的典型方案（CenterPoint、TransFusion-L）。"
 tags: ["LiDAR", "点云", "3D检测", "感知"]
-categories: ["知识精讲"]
+categories: ["知识点拆解"]
 ---
 
 ## 📌 概述

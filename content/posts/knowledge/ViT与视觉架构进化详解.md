@@ -2,7 +2,7 @@
 title: "知识精讲｜ViT与视觉架构进化详解"
 date: 2026-07-19
 draft: false
-categories: ["知识精讲"]
+categories: ["知识点拆解"]
 tags: ["👁️ ViT", "🖼️ 视觉架构", "🧠 Transformer", "📐 特征金字塔"]
 summary: "从 ViT 到 ConvNeXt，视觉架构在 Transformer 与卷积之间完成了一个轮回。本文系统梳理 ViT 的核心机制（patch embedding、position encoding、class token），详解 DeiT、Swin、ConvNeXt 等关键演进，并分析多尺度特征金字塔与 VLA 视觉编码器的选型逻辑与缩放定律。"
 weight: 10

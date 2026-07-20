@@ -2,7 +2,7 @@
 title: "知识精讲｜Occupancy网络详解"
 date: 2026-07-19
 draft: false
-categories: ["知识精讲"]
+categories: ["知识点拆解"]
 tags: ["🧊 Occupancy", "🗺️ 占据网络", "👁️ 感知", "🌐 世界模型", "🚗 规划"]
 summary: "Occupancy 网络通过稠密的 3D 体素网格表示场景，突破了 3D 目标检测对\u201c物体\u201d范畴的限制，可表征任意形状的障碍物与自由空间。本文详解其与检测的差异、OccFormer/FlashOcc/OpenOccupancy 等代表架构，以及在 NIFF 等世界模型中 occupancy 如何作为核心场景表示驱动未来预测与规划决策。"
 weight: 13

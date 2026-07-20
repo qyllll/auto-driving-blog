@@ -4,7 +4,7 @@ date: 2026-07-19
 draft: false
 author: "AutoDriving Blog"
 tags: ["评测", "开环", "闭环", "NAVSIM", "仿真"]
-categories: ["知识库"]
+categories: ["知识点拆解"]
 ---
 
 ## 一、引言

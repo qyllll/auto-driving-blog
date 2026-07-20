@@ -4,7 +4,7 @@ date: 2026-07-19
 draft: false
 author: "AutoDriving Blog"
 tags: ["数据集", "nuScenes", "评测", "自动驾驶"]
-categories: ["知识库"]
+categories: ["知识点拆解"]
 ---
 
 ## 一、概述
