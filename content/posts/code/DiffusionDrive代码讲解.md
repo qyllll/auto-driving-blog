@@ -81,23 +81,21 @@ DiffusionDrive 是**生成式规划**：它不从固定候选集里选，而是*
 - **训练 / 评测入口**：完全复用 navsim 官方的 `run_training.py`、`run_create_submission_pickle.py`，通过 Hydra 的 `agent=diffusiondrive_agent` 把自研模型「挂」上去。
 - **官方管线文件**（fork 内联，基本不动）：`navsim/planning/script/run_training.py` 等。
 
-下面用纯缩进列表展示目录结构（不用任何树状连接符，只靠空格缩进，避免等宽字体下错位）：
+下面用普通 Markdown 列表（不是代码块）展示目录结构，避免代码块内中文被逐字符换行的问题：
 
-```
-navsim/
-  agents/diffusiondrive/
-    transfuser_agent.py
-    transfuser_model_v2.py
-    transfuser_backbone.py
-    transfuser_features.py
-    transfuser_loss.py
-    transfuser_config.py
-    modules/
-      multimodal_loss.py
-      conditional_unet1d.py
-      scheduler.py
-  planning/script/run_training.py
-```
+- navsim/
+  - agents/diffusiondrive/ （作者新增的模型代码，挂在 navsim 上的插件）
+    - transfuser_agent.py
+    - transfuser_model_v2.py
+    - transfuser_backbone.py
+    - transfuser_features.py
+    - transfuser_loss.py
+    - transfuser_config.py
+    - modules/
+      - multimodal_loss.py
+      - conditional_unet1d.py
+      - scheduler.py
+  - planning/script/run_training.py （复用官方训练入口，不修改）
 
 逐个文件用一句话说明它干嘛：
 
