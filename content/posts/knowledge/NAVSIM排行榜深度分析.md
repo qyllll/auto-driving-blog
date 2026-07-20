@@ -174,6 +174,61 @@ val_scene_filter.log_names   = [l for l in val_scene_filter.log_names   if l in 
 
 *图2c：navtrain 训练数据展开流程。切分边界在 log 层级（防泄漏），实际训练样本是 scene 层级——batch 里装的是一个一个 scene，而非整段 log。*
 
+### 🛠️ 实操：你的自研模型怎么训、怎么验证、怎么跑分（官方脚本指向）
+
+前面讲了协议，这里给出**真正落地跑分**的步骤。所有入口脚本都在官方仓库 `autonomousvision/navsim` 的 `navsim/planning/script/` 下，我亲自核对过它们的存在与用法。
+
+**第一步：训练（用 navtrain，按官方 log 切分）**
+
+复用官方训练入口，它会自动按 `train_logs` / `val_logs` 切分——你**不需要自己写切分逻辑**：
+
+```bash
+# 官方脚本 scripts/training/run_xxx_agent_training.sh 内部就是调这个
+python navsim/planning/script/run_training.py \
+    experiment_name=my_model \
+    train_test_split=navtrain \
+    agent=my_agent          # 你继承 AbstractAgent 实现的模型
+```
+
+- 训练集 = `train_logs`（13,180 logs）展开后的 scene
+- 验证集 = `val_logs`（2,730 logs）展开后的 scene，每个 epoch 后自动算验证 loss
+- **不要**碰 `navtest` / `navhard` 做训练，否则提交排行榜会被判违规
+
+**第二步：本地验证（用 val_logs，自己看分数）**
+
+训练中途/结束后，用官方 PDM 打分在 `val_logs` 上算 PDMS/EPDMS 自检（脚本 `run_pdm_score.py`）。这一步**只在本地看、不对外**，用来调超参、选 checkpoint。
+
+**第三步：生成提交文件（在 navtest / navhard 上跑推理）**
+
+评估阶段**不训练、只推理**。用官方提交脚本，把模型对测试集每个场景输出的轨迹存成 `submission.pkl`：
+
+```bash
+# 脚本：navsim/planning/script/run_create_submission_pickle.py
+python navsim/planning/script/run_create_submission_pickle.py \
+    agent=my_agent \
+    train_test_split=navtest          # v1：输出 PDMS；换成 navhard_two_stage 即 v2 EPDMS
+    team_name=... authors=... email=...
+```
+
+该脚本内部会：
+- 对每个 token 调你的 `agent.compute_trajectory(agent_input)` 得到轨迹；
+- 分 **first_stage**（原始场景）+ **second_stage**（3DGS 偏移场景）两轮输出；
+- 打包成 `submission.pkl`（含 team 信息 + 两阶段预测）。
+
+**第四步：算分（本地用 pickle，或提交官方服务器）**
+
+- **本地先验分**（不用等排行榜排队）：用 `run_pdm_score_from_submission.py` 加载你刚生成的 `submission.pkl` + 官方 metric cache，直接算出 PDMS/EPDMS 并打印 `extended_pdm_score_combined`。
+- **正式上榜**：把 `submission.pkl` 上传到 HuggingFace 官方排行榜空间（[navtest 榜](https://huggingface.co/spaces/AGC2024-P/e2e-driving-navtest) / [navhard 榜](https://huggingface.co/spaces/AGC2025/e2e-driving-navhard)），由官方服务器用统一脚本算分——保证和所有人定义一致、可复现。
+
+> **一句话流程**：`run_training.py`（navtrain 训，val_logs 验）→ `run_create_submission_pickle.py`（navtest/navhard 推理出 pkl）→ `run_pdm_score_from_submission.py`（本地算分，或传 HF 上榜）。**训练和验证只在 navtrain 内部，跑分只在 navtest/navhard——测试集永远不进训练。**
+
+| 阶段 | 官方脚本（路径都在 `navsim/planning/script/`） | 数据 |
+|:----:|:----|:----|
+| 训练 | `run_training.py` | navtrain（train_logs 训 / val_logs 验） |
+| 本地验分 | `run_pdm_score.py` | val_logs |
+| 生成提交 | `run_create_submission_pickle.py` | navtest / navhard |
+| 提交算分 | `run_pdm_score_from_submission.py`（本地）或 HF 空间（正式） | navtest / navhard |
+
 ### navtrain 那 10 万样本，别人到底怎么训？
 
 navtrain 的 103k 样本（2Hz 采样，每帧 8 路环视相机 + 可选 LiDAR + ego 状态 + 导航命令）体量其实比 nuPlan 原版小很多（NAVSIM 故意降采样、只要相关标注），所以单机多卡就能训。从官方补充材料和 CVPR 2026 论文（DrivoR）的实现细节可以看到典型配置：
