@@ -41,19 +41,27 @@ DiffusionDrive（CVPR 2025 Highlight）用 anchor 截断扩散把多样轨迹生
 
 DiffusionDriveV2（hustvl × Horizon Robotics，arXiv 2512.07745）在同一个生成器上加了 **RL 微调**——不是简单加奖励，而是精确地设计了「不让 anchor 间互相比较导致坍缩」的 GRPO 改版。它用 Intra-Anchor GRPO 维持多模态（同 anchor 内比、不同 anchor 不比），用 Inter-Anchor Truncated GRPO 加上全局惩罚（碰撞的杀无赦、正优势保留）。最终在 NAVSIM v1 上拿到 91.2 PDMS 新 SOTA。
 
-下图对比了三种方法的多模态轨迹质量（论文 Figure 1）：
-![DiffusionDriveV2 对比 vanilla diffusion 和 DiffusionDrive 的多模态轨迹质量](/images/diffusiondrivev2/model_comparison.png)
+下图对比了三种方法的多模态轨迹质量（论文 Figure 1，三张子图依次为 a/b/c）：
+![Figure 1：三种方法多模态轨迹质量对比——(a) Vanilla Diffusion 模式坍缩到单条轨迹，(b) DiffusionDrive 多样性好但碰撞轨迹多，(c) DiffusionDriveV2 用 RL 约束后既多样又安全](/images/diffusiondrivev2/model_comparison.png)
 
-(a) Vanilla diffusion：模式坍缩到一条轨迹，缺乏多样性 (b) DiffusionDrive：多样但产生大量碰撞轨迹（红色圈出） (c) DiffusionDriveV2：RL 约束后既多样又安全
+**图片讲解**：这是从 NAVSIM 验证集中选的一个多模态场景（交叉路口，存在左转/直行/右转多种合理走法）。每张子图都是一个俯视 BEV 视角，蓝色线是规划轨迹簇，颜色深浅代表轨迹密度。
+
+- **子图 (a) Vanilla Diffusion**：标准扩散模型不加 anchor，直接从一个纯高斯噪声去噪生成轨迹。由于没有显式的多模态先验，模型在推理时把所有可能性「平均」成一条保守直线——左转和右转都被抹平了，多样性完全丧失。这就是论文说的 **mode collapse（模式坍缩）**。
+- **子图 (b) DiffusionDrive**：加了 20 个 anchor 做截断扩散，每条轨迹从不同 anchor 出发，所以能生成左转、直行、右转等多样轨迹。但其中多条轨迹直接扎进对面车道——它们会碰撞（图中红色高亮标注）。这是 IL 监督只覆盖正样本 anchor 的后果：其余 19 个 anchor 没被约束，爱怎么走怎么走。
+- **子图 (c) DiffusionDriveV2**：用同样的生成器但加了 RL 微调。碰撞轨迹被 GRPO 的优势函数打上负分、从参数上「推开」，安全轨迹的正优势鼓励模型走得更果断。结果是该左转的左转、该直行的直行，没有碰撞，且轨迹更贴合道路曲率。
 
 > **一句话结论**：DiffusionDriveV2 = DiffusionDrive 生成器（完全不变，冷启动加载）+ 19 个负样本 anchor 终于也被 RL 管住了（Intra-Anchor GRPO 不坍缩 + Inter-Anchor 碰撞惩罚）+ 两级 Mode Selector 精排，在 NAVSIM v1 拿下 91.2 PDMS 新 SOTA。
 
 ## 架构总览
 
 整体架构见论文 Figure 2：
-![DiffusionDriveV2 整体架构](/images/diffusiondrivev2/architecture_overview.png)
+![Figure 2：DiffusionDriveV2 整体架构——输入传感器数据 → Encoder → Anchored Truncated GRPO → Mode Selector 输出精修轨迹](/images/diffusiondrivev2/architecture_overview.png)
 
-DiffusionDriveV2 的整体流水线，分三大块：
+**图片讲解**：这张图是理解 DiffusionDriveV2 最关键的一张，建议配合下文「推理链路」列表一起看。架构分三大区域，从左往右读：
+
+1. **左半（Encoder）**：和 DiffusionDrive 完全共享。多传感器数据（图像 + LiDAR BEV）先各自过 ResNet-34，再用 Cross-Attention 融合成场景特征 `fused_feat`。右下角的 N× 表示 20 个 anchor 各自独立展开一条扩散链。
+2. **中间（Truncated Diffusion Decoder + Multi Noise）**：灰色框里的 `A_11`...`A_NG` 矩阵代表 N 个 anchor × G 条探索轨迹。每一条轨迹都是从 anchor 出发，先加乘性噪声（Multiplicative Noise，图中 Multi Noise 标注），再用截断扩散 decoder 走 2 步生成。彩色实线 vs 虚线表示同一条 anchor 内 G 次探索的不同结果（实线 = 高质量，虚线 = 低质量）。
+3. **右半（Anchored Truncated GRPO + Mode Selector）**：这就是 V2 的核心新增。G 条探索轨迹先在 Intra-Anchor 组内归一化算优势（同 anchor 的轨迹互相比较、不同 anchor 不比），再经 Inter-Anchor 碰撞截断（负的没撞的截为 0，撞的直接 -1）。最后策略梯度更新 decoder 参数。Mode Selector 是一个独立的两级 scorer，从 N×G 条候选里精选出最终一条轨迹输出（Refined Trajectories）。
 
 - **感知主干（Perception Backbone）**：和 DiffusionDrive 一模一样的 ResNet-34 双路编码器。图像（三相机拼接全景 1024×256）过一个 ResNet-34，LiDAR BEV 图过另一个 ResNet-34，两者做 cross-attention 融合，输出场景特征 fused_feat。这是 TransFuser 主干，没改任何结构。
 - **截断扩散生成器（Truncated Diffusion Generator）**：和 DiffusionDrive 一模一样的 TrajectoryHead（20 anchor + 2 步 DDIM 去噪 + 分类头）。**完全复用 DiffusionDrive 的预训练权重**，不随机初始化。
@@ -150,9 +158,12 @@ self.scheduler_explore = DDIMScheduler(num_train_timesteps=1000, ..., eta=1)
 这是 RL 探索阶段的关键改动。为什么不用标准加性噪声？因为轨迹的近端和远端尺度差异大——近端坐标变化 0.1 米和远端变化 5 米，用同一个 σ 加噪声会让远端抖动远大于近端，轨迹变成「折断的线」，失去运动学合理性。
 
 论文 Figure 3 清楚展示了加性噪声和乘性噪声的区别：
-![加性 vs 乘性噪声对比](/images/diffusiondrivev2/noise_comparison.png)
+![Figure 3：加性噪声 vs 乘性噪声对比——(a) 加性噪声使轨迹锯齿状断裂，(b) 乘性噪声保持轨迹几何形状不变](/images/diffusiondrivev2/noise_comparison.png)
 
-加性噪声的写法（会导致不平滑）：
+**图片讲解**：图中绿色实线是原始轨迹（某 anchor 生成的标准走法），蓝色和红色虚线是加噪声后的探索轨迹。
+
+- **子图 (a) Additive Noise**：对每个 (x,y) 点独立加高斯噪声 `N(0, σ²)`。由于轨迹近端坐标变化小（如 0→0.1m）、远端变化大（如 5→15m），相同的 σ 对远端产生的抖动远超近端，结果就是蓝色/红色线呈现出锯齿状「折断线」——这种轨迹在运动学上不合理，会进入 PDM 仿真器里被碰撞/舒适度指标严厉惩罚，无法提供有价值的探索信号。
+- **子图 (b) Multiplicative Noise**：不逐点加噪声，而是生成两个高斯随机因子——一个纵向 `(1 + ϵ_long)` 控制整条轨迹往前走多远，一个横向 `(1 + ϵ_lat)` 控制整条轨迹向左/右偏多少。乘到整条轨迹上，每个点同比例缩放，轨迹整体放大或缩小而不会产生锯齿。这样得到的探索轨迹保持原始的几何平滑性，PDM 仿真器才能给出有意义的奖励信号。
 
 ```python
 # additive noise: each (x,y) gets independent Gaussian
