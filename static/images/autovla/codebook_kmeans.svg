@@ -1,0 +1,101 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 850 420" font-family="system-ui, -apple-system, sans-serif">
+  <defs>
+    <marker id="arrow-blue" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#3b82f6"/>
+    </marker>
+  </defs>
+
+  <rect width="850" height="420" fill="#f8fafc" rx="12"/>
+
+  <text x="425" y="28" text-anchor="middle" font-size="17" font-weight="bold" fill="#1e293b">动作 Codebook 生成：KMeans 聚类</text>
+
+  <!-- === Panel 1: Raw continuous actions === -->
+  <rect x="30" y="55" width="230" height="330" fill="white" stroke="#e2e8f0" stroke-width="2" rx="10"/>
+  <text x="145" y="80" text-anchor="middle" font-size="13" font-weight="bold" fill="#475569">原始连续动作</text>
+
+  <!-- Scatter plot of raw actions -->
+  <rect x="50" y="95" width="190" height="190" fill="#fafafa" stroke="#e2e8f0" rx="6"/>
+  <!-- axes -->
+  <line x1="60" y1="275" x2="230" y2="275" stroke="#94a3b8" stroke-width="1"/>
+  <line x1="60" y1="100" x2="60" y2="275" stroke="#94a3b8" stroke-width="1"/>
+  <text x="145" y="290" text-anchor="middle" font-size="9" fill="#94a3b8">转向角 (deg)</text>
+  <text x="48" y="188" text-anchor="middle" font-size="9" fill="#94a3b8" transform="rotate(-90, 48, 188)">油门 (%)</text>
+
+  <!-- random scattered points -->
+  <g fill="#94a3b8" opacity="0.5">
+    <circle cx="120" cy="240" r="3"/><circle cx="90" cy="200" r="2.5"/><circle cx="140" cy="180" r="3"/>
+    <circle cx="100" cy="160" r="2.5"/><circle cx="160" cy="210" r="3"/><circle cx="80" cy="230" r="2"/>
+    <circle cx="150" cy="140" r="3.5"/><circle cx="110" cy="120" r="2.5"/><circle cx="170" cy="180" r="2"/>
+    <circle cx="130" cy="260" r="2.5"/><circle cx="60" cy="170" r="3"/><circle cx="180" cy="230" r="2.5"/>
+    <circle cx="75" cy="150" r="2"/><circle cx="145" cy="220" r="3"/><circle cx="200" cy="200" r="2.5"/>
+    <circle cx="95" cy="140" r="2.5"/><circle cx="165" cy="160" r="3"/><circle cx="115" cy="200" r="2"/>
+    <circle cx="155" cy="250" r="2.5"/><circle cx="85" cy="180" r="2"/><circle cx="175" cy="200" r="3"/>
+    <circle cx="70" cy="210" r="2.5"/><circle cx="190" cy="240" r="2"/><circle cx="105" cy="240" r="2.5"/>
+  </g>
+  <text x="145" y="320" text-anchor="middle" font-size="10" fill="#64748b">形状 (N, D): 数百万个连续</text>
+  <text x="145" y="336" text-anchor="middle" font-size="10" fill="#64748b">驾驶动作样本</text>
+  <text x="145" y="356" text-anchor="middle" font-size="10" fill="#64748b">N ≈ 训练集所有时刻</text>
+  <text x="145" y="372" text-anchor="middle" font-size="10" fill="#64748b">D = 动作维度（如 3）</text>
+
+  <!-- Arrow -->
+  <line x1="265" y1="220" x2="315" y2="220" stroke="#3b82f6" stroke-width="2.5" marker-end="url(#arrow-blue)"/>
+
+  <!-- === Panel 2: KMeans === -->
+  <rect x="320" y="55" width="200" height="330" fill="white" stroke="#93c5fd" stroke-width="2" rx="10"/>
+  <rect x="320" y="55" width="200" height="30" fill="#eff6ff" rx="10"/>
+  <text x="420" y="75" text-anchor="middle" font-size="12" font-weight="bold" fill="#2563eb">KMeans 聚类</text>
+
+  <text x="420" y="120" text-anchor="middle" font-size="11" fill="#475569">输入：(N, D)</text>
+  <text x="420" y="140" text-anchor="middle" font-size="11" fill="#475569">K = 词表大小</text>
+
+  <rect x="345" y="160" width="150" height="36" fill="#dbeafe" rx="6"/>
+  <text x="420" y="180" text-anchor="middle" font-size="10" font-weight="bold" fill="#1d4ed8">sklearn.cluster.KMeans</text>
+  <text x="420" y="193" text-anchor="middle" font-size="9" fill="#3b82f6">n_clusters=K, random_state=0</text>
+
+  <line x1="420" y1="200" x2="420" y2="230" stroke="#3b82f6" stroke-width="1.5" marker-end="url(#arrow-blue)"/>
+
+  <text x="420" y="250" text-anchor="middle" font-size="11" fill="#475569">输出：</text>
+  <text x="420" y="270" text-anchor="middle" font-size="10" fill="#475569">cluster_centers_ (K, D)</text>
+  <text x="420" y="288" text-anchor="middle" font-size="10" fill="#475569">+ labels_ (N,) </text>
+
+  <line x1="420" y1="300" x2="420" y2="330" stroke="#3b82f6" stroke-width="1.5" marker-end="url(#arrow-blue)"/>
+
+  <text x="420" y="350" text-anchor="middle" font-size="11" fill="#475569">每个动作 → 最近的簇中心</text>
+  <text x="420" y="370" text-anchor="middle" font-size="11" fill="#475569">连续动作 → token id</text>
+
+  <!-- Arrow -->
+  <line x1="525" y1="220" x2="575" y2="220" stroke="#3b82f6" stroke-width="2.5" marker-end="url(#arrow-blue)"/>
+
+  <!-- === Panel 3: Codebook === -->
+  <rect x="580" y="55" width="240" height="330" fill="white" stroke="#c084fc" stroke-width="2" rx="10"/>
+  <rect x="580" y="55" width="240" height="30" fill="#f5f3ff" rx="10"/>
+  <text x="700" y="75" text-anchor="middle" font-size="12" font-weight="bold" fill="#7c3aed">动作 Codebook</text>
+
+  <!-- Codebook table -->
+  <rect x="600" y="100" width="200" height="180" fill="white" stroke="#e9d5ff" rx="6"/>
+  <rect x="600" y="100" width="200" height="24" fill="#f3e8ff" rx="6"/>
+  <text x="660" y="117" text-anchor="middle" font-size="10" font-weight="bold" fill="#7c3aed">token_id</text>
+  <text x="750" y="117" text-anchor="middle" font-size="10" font-weight="bold" fill="#7c3aed">动作向量 (steer, accel, brake)</text>
+
+  <line x1="600" y1="125" x2="800" y2="125" stroke="#e9d5ff" stroke-width="1"/>
+
+  <text x="660" y="145" text-anchor="middle" font-size="10" fill="#6b7280">0</text><text x="750" y="145" text-anchor="middle" font-size="9" fill="#6b7280">[-0.8, 0.0, 0.3]</text>
+  <text x="660" y="165" text-anchor="middle" font-size="10" fill="#6b7280">1</text><text x="750" y="165" text-anchor="middle" font-size="9" fill="#6b7280">[0.0, 0.5, 0.0]</text>
+  <text x="660" y="185" text-anchor="middle" font-size="10" fill="#6b7280">2</text><text x="750" y="185" text-anchor="middle" font-size="9" fill="#6b7280">[0.3, 0.2, 0.1]</text>
+  <text x="660" y="205" text-anchor="middle" font-size="10" fill="#6b7280">...</text><text x="750" y="205" text-anchor="middle" font-size="9" fill="#6b7280">...</text>
+  <text x="660" y="225" text-anchor="middle" font-size="10" fill="#6b7280">K-1</text><text x="750" y="225" text-anchor="middle" font-size="9" fill="#6b7280">[-0.1, 0.0, 0.8]</text>
+
+  <line x1="600" y1="235" x2="800" y2="235" stroke="#e9d5ff" stroke-width="1"/>
+
+  <text x="700" y="258" text-anchor="middle" font-size="10" fill="#7c3aed">形状: (K, D)</text>
+  <text x="700" y="278" text-anchor="middle" font-size="10" fill="#64748b">存为 codebook.npy</text>
+  <text x="700" y="298" text-anchor="middle" font-size="10" fill="#64748b">推理时只读不写</text>
+
+  <rect x="610" y="315" width="180" height="28" fill="#fef2f2" stroke="#fecaca" rx="6"/>
+  <text x="700" y="334" text-anchor="middle" font-size="10" fill="#dc2626">token→action: codebook[id]</text>
+
+  <text x="700" y="370" text-anchor="middle" font-size="10" fill="#64748b">固定 codebook，训练时不更新</text>
+
+  <!-- Bottom note -->
+  <text x="425" y="410" text-anchor="middle" font-size="11" fill="#64748b">关键超参 K：K 太小量化误差大，K 太大 token 过多难学。AutoVLA 在精度和可学性之间取平衡</text>
+</svg>

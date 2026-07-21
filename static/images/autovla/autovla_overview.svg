@@ -1,0 +1,93 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 520" font-family="system-ui, -apple-system, sans-serif">
+  <defs>
+    <marker id="arrow-right" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#3b82f6"/>
+    </marker>
+    <marker id="arrow-down" viewBox="0 0 10 10" refX="5" refY="9" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M 0 0 L 5 10 L 10 0 z" fill="#64748b"/>
+    </marker>
+    <linearGradient id="header-grad" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#eff6ff"/>
+      <stop offset="100%" stop-color="#f0fdf4"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="900" height="520" fill="#f8fafc" rx="12"/>
+
+  <!-- Title -->
+  <text x="450" y="28" text-anchor="middle" font-size="17" font-weight="bold" fill="#1e293b">AutoVLA 整体架构</text>
+
+  <!-- ============ INPUT ============ -->
+  <rect x="30" y="50" width="220" height="120" fill="white" stroke="#93c5fd" stroke-width="2" rx="10"/>
+  <text x="140" y="75" text-anchor="middle" font-size="13" font-weight="bold" fill="#2563eb">输入</text>
+  <text x="140" y="98" text-anchor="middle" font-size="11" fill="#475569">• 多视角图像（前后左右）</text>
+  <text x="140" y="116" text-anchor="middle" font-size="11" fill="#475569">• 自车状态（速度、位置）</text>
+  <text x="140" y="134" text-anchor="middle" font-size="11" fill="#475569">• 语言指令（如 GO_STRAIGHT）</text>
+  <text x="140" y="152" text-anchor="middle" font-size="11" fill="#475569">• 导航信息</text>
+
+  <line x1="255" y1="110" x2="310" y2="110" stroke="#3b82f6" stroke-width="2.5" marker-end="url(#arrow-right)"/>
+
+  <!-- ============ VLM Backbone (Qwen2.5-VL) ============ -->
+  <rect x="315" y="45" width="280" height="130" fill="white" stroke="#818cf8" stroke-width="2" rx="10"/>
+  <rect x="315" y="45" width="280" height="32" fill="#eef2ff" rx="10"/>
+  <text x="455" y="66" text-anchor="middle" font-size="13" font-weight="bold" fill="#4338ca">VLM Backbone</text>
+  <text x="455" y="87" text-anchor="middle" font-size="11" fill="#475569">Qwen2.5-VL-3B</text>
+  <text x="455" y="105" text-anchor="middle" font-size="10" fill="#64748b">Vision Encoder (SIGLIP)</text>
+  <text x="455" y="120" text-anchor="middle" font-size="10" fill="#64748b">↓</text>
+  <text x="455" y="135" text-anchor="middle" font-size="10" fill="#64748b">LLM Decoder (Qwen2.5)</text>
+  <text x="455" y="150" text-anchor="middle" font-size="10" fill="#64748b">↓ LoRA Fine-Tuning</text>
+  <text x="455" y="165" text-anchor="middle" font-size="10" fill="#64748b">Hidden State (B, L, H)</text>
+
+  <!-- Output branches -->
+  <path d="M 455 175 L 455 200" stroke="#64748b" stroke-width="1.5" marker-end="url(#arrow-down)" fill="none"/>
+  <line x1="455" y1="200" x2="280" y2="200" stroke="#64748b" stroke-width="1.5"/>
+  <line x1="455" y1="200" x2="630" y2="200" stroke="#64748b" stroke-width="1.5"/>
+
+  <!-- ============ Slow Thinking (Text Head) ============ -->
+  <path d="M 280 200 L 280 230" stroke="#64748b" stroke-width="1.5" marker-end="url(#arrow-down)" fill="none"/>
+  <rect x="160" y="235" width="240" height="100" fill="white" stroke="#f59e0b" stroke-width="2" rx="10"/>
+  <rect x="160" y="235" width="240" height="28" fill="#fef3c7" rx="10"/>
+  <text x="280" y="254" text-anchor="middle" font-size="12" font-weight="bold" fill="#d97706">慢思考（文字头）</text>
+  <text x="280" y="275" text-anchor="middle" font-size="10" fill="#475569">LM Head → 自然语言 token</text>
+  <text x="280" y="295" text-anchor="middle" font-size="10" fill="#475569">输出：CoT 推理理由</text>
+  <text x="280" y="315" text-anchor="middle" font-size="10" fill="#64748b">"前方有行人，减速让行..."</text>
+  <text x="280" y="330" text-anchor="middle" font-size="9" fill="#94a3b8">训练必须，推理可旁路</text>
+
+  <!-- ============ Fast Thinking (Action Head) ============ -->
+  <path d="M 630 200 L 630 230" stroke="#64748b" stroke-width="1.5" marker-end="url(#arrow-down)" fill="none"/>
+  <rect x="520" y="235" width="220" height="100" fill="white" stroke="#10b981" stroke-width="2" rx="10"/>
+  <rect x="520" y="235" width="220" height="28" fill="#ecfdf5" rx="10"/>
+  <text x="630" y="254" text-anchor="middle" font-size="12" font-weight="bold" fill="#059669">快思考（动作头）</text>
+  <text x="630" y="275" text-anchor="middle" font-size="10" fill="#475569">ActionHead Linear → K logits</text>
+  <text x="630" y="295" text-anchor="middle" font-size="10" fill="#475569">输出：动作 token id</text>
+  <text x="630" y="315" text-anchor="middle" font-size="10" fill="#64748b">"action_42"</text>
+  <text x="630" y="330" text-anchor="middle" font-size="9" fill="#94a3b8">始终执行</text>
+
+  <!-- Merge back -->
+  <path d="M 280 335 L 280 370" stroke="#64748b" stroke-width="1.5" marker-end="url(#arrow-down)" fill="none"/>
+  <path d="M 630 335 L 630 370" stroke="#64748b" stroke-width="1.5" marker-end="url(#arrow-down)" fill="none"/>
+  <line x1="280" y1="370" x2="630" y2="370" stroke="#64748b" stroke-width="1.5"/>
+  <path d="M 455 370 L 455 395" stroke="#64748b" stroke-width="1.5" marker-end="url(#arrow-down)" fill="none"/>
+
+  <!-- ============ Codebook Lookup ============ -->
+  <rect x="330" y="400" width="250" height="105" fill="white" stroke="#8b5cf6" stroke-width="2" rx="10"/>
+  <rect x="330" y="400" width="250" height="28" fill="#f5f3ff" rx="10"/>
+  <text x="455" y="419" text-anchor="middle" font-size="12" font-weight="bold" fill="#7c3aed">动作 Codebook 查表</text>
+  <text x="455" y="440" text-anchor="middle" font-size="10" fill="#475569">action_id → codebook[action_id]</text>
+  <text x="455" y="458" text-anchor="middle" font-size="10" fill="#475569">→ 连续动作向量 (D,)</text>
+  <text x="455" y="476" text-anchor="middle" font-size="10" fill="#64748b">KMeans 预聚类，固定不训练</text>
+  <text x="455" y="494" text-anchor="middle" font-size="9" fill="#94a3b8">codebook.npy (K × D)</text>
+
+  <path d="M 455 505 L 455 525" stroke="#3b82f6" stroke-width="2" marker-end="url(#arrow-down)" fill="none"/>
+
+  <!-- ============ RESULT ============ -->
+  <rect x="350" y="530" width="210" height="40" fill="#1e293b" rx="8"/>
+  <text x="455" y="556" text-anchor="middle" font-size="12" font-weight="bold" fill="#fff">执行驾驶动作（方向盘/油门/刹车）</text>
+
+  <!-- Badges -->
+  <rect x="80" y="380" width="110" height="24" fill="#fef2f2" stroke="#fecaca" rx="6"/>
+  <text x="135" y="397" text-anchor="middle" font-size="10" fill="#dc2626">Stage-1: SFT</text>
+
+  <rect x="720" y="380" width="120" height="24" fill="#fef2f2" stroke="#fecaca" rx="6"/>
+  <text x="780" y="397" text-anchor="middle" font-size="10" fill="#dc2626">Stage-2: RFT/GRPO</text>
+</svg>

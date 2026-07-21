@@ -1,0 +1,108 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 480" font-family="system-ui, -apple-system, sans-serif">
+  <defs>
+    <marker id="arrow-down" viewBox="0 0 10 10" refX="5" refY="9" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M 0 0 L 5 10 L 10 0 z" fill="#64748b"/>
+    </marker>
+    <marker id="arrow-right" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#3b82f6"/>
+    </marker>
+    <linearGradient id="sft-grad" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#fef2f2"/>
+      <stop offset="100%" stop-color="#fff7ed"/>
+    </linearGradient>
+    <linearGradient id="rft-grad" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#f0fdf4"/>
+      <stop offset="100%" stop-color="#ecfdf5"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="900" height="480" fill="#f8fafc" rx="12"/>
+
+  <text x="450" y="28" text-anchor="middle" font-size="17" font-weight="bold" fill="#1e293b">AutoVLA 两阶段训练流程</text>
+
+  <!-- ===== Stage 1: SFT ===== -->
+  <rect x="30" y="50" width="840" height="180" fill="url(#sft-grad)" stroke="#fecaca" stroke-width="2" rx="12"/>
+  <rect x="30" y="50" width="120" height="36" fill="#fef2f2" rx="8"/>
+  <text x="90" y="73" text-anchor="middle" font-size="14" font-weight="bold" fill="#dc2626">Stage-1</text>
+
+  <!-- Data box -->
+  <rect x="50" y="100" width="180" height="100" fill="white" stroke="#fca5a5" stroke-width="1.5" rx="8"/>
+  <text x="140" y="120" text-anchor="middle" font-size="11" font-weight="bold" fill="#b91c1c">专家驾驶数据</text>
+  <text x="140" y="140" text-anchor="middle" font-size="9" fill="#64748b">图像 + 指令</text>
+  <text x="140" y="155" text-anchor="middle" font-size="9" fill="#64748b">+ CoT 推理文字</text>
+  <text x="140" y="170" text-anchor="middle" font-size="9" fill="#64748b">+ 正确动作 token</text>
+  <text x="140" y="185" text-anchor="middle" font-size="9" fill="#94a3b8">（人工标注 / 专家轨迹）</text>
+
+  <line x1="235" y1="150" x2="280" y2="150" stroke="#ef4444" stroke-width="2" marker-end="url(#arrow-right)"/>
+
+  <!-- Model box -->
+  <rect x="285" y="100" width="180" height="100" fill="white" stroke="#fca5a5" stroke-width="1.5" rx="8"/>
+  <text x="375" y="120" text-anchor="middle" font-size="11" font-weight="bold" fill="#b91c1c">SFT 训练</text>
+  <text x="375" y="140" text-anchor="middle" font-size="9" fill="#64748b">文字 loss (CE)</text>
+  <text x="375" y="155" text-anchor="middle" font-size="9" fill="#64748b">+ 动作 loss (CE)</text>
+  <text x="375" y="170" text-anchor="middle" font-size="9" fill="#64748b">联合反向传播</text>
+  <text x="375" y="185" text-anchor="middle" font-size="9" fill="#94a3b8">lr = 1e-5</text>
+
+  <line x1="470" y1="150" x2="515" y2="150" stroke="#ef4444" stroke-width="2" marker-end="url(#arrow-right)"/>
+
+  <!-- Result box -->
+  <rect x="520" y="100" width="180" height="100" fill="white" stroke="#fca5a5" stroke-width="1.5" rx="8"/>
+  <text x="610" y="120" text-anchor="middle" font-size="11" font-weight="bold" fill="#b91c1c">SFT 模型</text>
+  <text x="610" y="140" text-anchor="middle" font-size="9" fill="#64748b">会看图</text>
+  <text x="610" y="155" text-anchor="middle" font-size="9" fill="#64748b">会说推理</text>
+  <text x="610" y="170" text-anchor="middle" font-size="9" fill="#64748b">会输出动作 token</text>
+  <text x="610" y="185" text-anchor="middle" font-size="9" fill="#94a3b8">但 ≈ 专家平均</text>
+
+  <text x="750" y="145" text-anchor="middle" font-size="10" fill="#ef4444">→</text>
+  <text x="750" y="160" text-anchor="middle" font-size="10" fill="#ef4444"> "会开"</text>
+
+  <!-- Arrow: Stage 1 → Stage 2 -->
+  <path d="M 450 230 L 450 255" stroke="#64748b" stroke-width="2" marker-end="url(#arrow-down)" fill="none" stroke-dasharray="6,3"/>
+
+  <!-- ===== Stage 2: RFT / GRPO ===== -->
+  <rect x="30" y="260" width="840" height="200" fill="url(#rft-grad)" stroke="#86efac" stroke-width="2" rx="12"/>
+  <rect x="30" y="260" width="120" height="36" fill="#f0fdf4" rx="8"/>
+  <text x="90" y="283" text-anchor="middle" font-size="14" font-weight="bold" fill="#16a34a">Stage-2</text>
+
+  <!-- Rollout -->
+  <rect x="50" y="310" width="160" height="60" fill="white" stroke="#86efac" stroke-width="1.5" rx="8"/>
+  <text x="130" y="330" text-anchor="middle" font-size="11" font-weight="bold" fill="#15803d">① Rollout</text>
+  <text x="130" y="348" text-anchor="middle" font-size="9" fill="#64748b">每条场景采样 M 条轨迹</text>
+  <text x="130" y="362" text-anchor="middle" font-size="9" fill="#64748b">利用生成随机性</text>
+
+  <line x1="215" y1="340" x2="250" y2="340" stroke="#22c55e" stroke-width="2" marker-end="url(#arrow-right)"/>
+
+  <!-- Scoring -->
+  <rect x="255" y="310" width="160" height="60" fill="white" stroke="#86efac" stroke-width="1.5" rx="8"/>
+  <text x="335" y="330" text-anchor="middle" font-size="11" font-weight="bold" fill="#15803d">② 规则打分</text>
+  <text x="335" y="348" text-anchor="middle" font-size="9" fill="#64748b">碰撞 -10, 闯红灯 -5</text>
+  <text x="335" y="362" text-anchor="middle" font-size="9" fill="#64748b">舒适惩罚 + 前进奖励</text>
+
+  <line x1="420" y1="340" x2="455" y2="340" stroke="#22c55e" stroke-width="2" marker-end="url(#arrow-right)"/>
+
+  <!-- Selection -->
+  <rect x="460" y="310" width="160" height="60" fill="white" stroke="#86efac" stroke-width="1.5" rx="8"/>
+  <text x="540" y="330" text-anchor="middle" font-size="11" font-weight="bold" fill="#15803d">③ 拒绝采样</text>
+  <text x="540" y="348" text-anchor="middle" font-size="9" fill="#64748b">组内挑最高分</text>
+  <text x="540" y="362" text-anchor="middle" font-size="9" fill="#64748b">低于阈值则丢弃</text>
+
+  <line x1="625" y1="340" x2="660" y2="340" stroke="#22c55e" stroke-width="2" marker-end="url(#arrow-right)"/>
+
+  <!-- Retrain -->
+  <rect x="665" y="310" width="160" height="60" fill="white" stroke="#86efac" stroke-width="1.5" rx="8"/>
+  <text x="745" y="330" text-anchor="middle" font-size="11" font-weight="bold" fill="#15803d">④ 再微调</text>
+  <text x="745" y="348" text-anchor="middle" font-size="9" fill="#64748b">好样本当 SFT 数据</text>
+  <text x="745" y="362" text-anchor="middle" font-size="9" fill="#64748b">继续训 lr=5e-6</text>
+
+  <!-- Loop arrow -->
+  <path d="M 745 370 L 745 400 L 130 400 L 130 370" stroke="#22c55e" stroke-width="1.5" fill="none" stroke-dasharray="4,3" marker-end="url(#arrow-right)"/>
+  <text x="440" y="415" text-anchor="middle" font-size="10" fill="#22c55e">迭代多轮 RFT_ROUNDS</text>
+
+  <!-- Result -->
+  <rect x="300" y="430" width="290" height="35" fill="#1e293b" rx="8"/>
+  <text x="445" y="453" text-anchor="middle" font-size="12" font-weight="bold" fill="#fff">最终模型：快思考（高效）+ 慢思考（稳健）</text>
+
+  <text x="50" y="448" font-size="10" fill="#64748b">对比:</text>
+  <text x="50" y="462" font-size="9" fill="#64748b">SFT: 模仿专家平均</text>
+  <text x="50" y="476" font-size="9" fill="#64748b">RFT: 自我改进择优</text>
+</svg>
