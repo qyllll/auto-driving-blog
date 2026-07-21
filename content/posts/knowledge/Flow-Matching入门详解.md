@@ -10,9 +10,9 @@ weight: 4
 
 ## 一句话理解 Flow Matching
 
-![Flow Matching 核心概念：从噪声到数据的直线路径 —— ODE 速度场学习（来源：arXiv:2210.02747）](/images/flow-matching/fm_concept.png)
+![Flow Matching 核心概念：从噪声到数据的直线路径 —— ODE 速度场学习](/images/flow-matching/fm_concept.svg)
 
-![Flow Matching vs Diffusion 路径对比：OT 路径直（左）、扩散路径弯（右）（来源：arXiv:2210.02747）](/images/flow-matching/ot_vs_diffusion.png)
+![Flow Matching vs Diffusion 路径对比：OT 路径直（左）、扩散路径弯（右）](/images/flow-matching/ot_vs_diffusion.svg)
 
 > 上图对比了 Flow Matching（OT 路径）和 Diffusion（VP/VE 路径）的生成轨迹。Flow Matching 的直线路径意味着更少的采样步数和更稳定的训练。
 
@@ -33,7 +33,7 @@ weight: 4
 - **前向过程**：把一张干净图像逐步加高斯噪声，最后变成纯噪声。这是一个**固定的、不学习的**马尔可夫链。
 - **逆向过程**：训练一个网络 $v_\theta$（或预测噪声 $\epsilon_\theta$）去**反转**这个过程，从纯噪声一步步去噪回图像。
 
-![Flow Matching 生成轨迹示例：噪声粒子沿直线路径逐步走向数据分布（来源：arXiv:2210.02747）](/images/flow-matching/trajectory.png)
+![Flow Matching 生成轨迹示例：噪声粒子沿直线路径逐步走向数据分布](/images/flow-matching/trajectory.svg)
 
 **问题出在哪？** 扩散前向过程的轨迹是**弯曲的**——它对应一个非线性时变的随机微分方程（SDE）。逆向去噪必须用很小的步长才能跟上这条弯路，所以经典 DDPM 要采样 **1000 步**，DDIM 也要 20–50 步。即便后续有 DPM-Solver、一致性模型（Consistency Model）等各种加速技巧，**弯曲路径**这个根因始终没消除。
 
@@ -73,7 +73,7 @@ $$\mathcal{L}_{FM}(\theta) = \mathbb{E}_{t,\,x_t}\left[\,\big\|\,v_\theta(x_t,t)
 - $x_t = (1-t)\,x_0 + t\,x_1$ 是噪声 $x_0$ 和数据 $x_1$ 之间的**线性插值**（这就是"直线路径"的来源）
 - $u_t(x_t) = x_1 - x_0$ 是沿这条直线的**恒定速度**
 
-![Flow Matching 的线性插值路径：噪声 x₀ 到数据 x₁ 的直线概率路径（来源：arXiv:2210.02747）](/images/flow-matching/interpolation.png)
+![Flow Matching 的线性插值路径：噪声 x₀ 到数据 x₁ 的直线概率路径](/images/flow-matching/interpolation.svg)
 
 换句话说，**理想的"风向"就是"从当前插值点指向数据点"的方向**，网络只要学会预测这个方向即可。这个形式简单到令人惊讶——没有马尔可夫链，没有 SDE，没有繁琐的噪声调度，就是一个回归。
 

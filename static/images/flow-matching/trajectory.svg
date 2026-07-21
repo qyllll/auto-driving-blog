@@ -1,0 +1,85 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 380" font-family="system-ui, -apple-system, sans-serif">
+  <defs>
+    <marker id="arrow-sm" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#3b82f6"/>
+    </marker>
+    <linearGradient id="bg-noise" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#f8fafc"/>
+      <stop offset="100%" stop-color="#e2e8f0"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="800" height="380" fill="#f8fafc" rx="12"/>
+
+  <text x="400" y="30" text-anchor="middle" font-size="17" font-weight="bold" fill="#1e293b">噪声粒子沿直线路径逐步走向数据分布</text>
+  <text x="400" y="48" text-anchor="middle" font-size="12" fill="#64748b">同一组初始噪声点在不同时间步 t 的位置（直线 ODE 轨迹）</text>
+
+  <!-- === t = 0 (pure noise) === -->
+  <rect x="20" y="65" width="140" height="280" fill="white" stroke="#e2e8f0" stroke-width="1.5" rx="8"/>
+  <text x="90" y="85" text-anchor="middle" font-size="11" font-weight="bold" fill="#64748b">t = 0</text>
+  <!-- Scattered noise -->
+  <g fill="#94a3b8" opacity="0.7">
+    <circle cx="50" cy="150" r="4"/><circle cx="110" cy="140" r="3.5"/><circle cx="80" cy="180" r="4.5"/>
+    <circle cx="60" cy="220" r="3"/><circle cx="120" cy="210" r="4"/><circle cx="90" cy="250" r="3.5"/>
+    <circle cx="70" cy="280" r="4.5"/><circle cx="130" cy="270" r="3"/><circle cx="100" cy="300" r="3.5"/>
+    <circle cx="40" cy="190" r="3"/><circle cx="115" cy="170" r="3.5"/><circle cx="55" cy="260" r="3"/>
+    <circle cx="130" cy="230" r="3.5"/><circle cx="45" cy="310" r="3"/>
+  </g>
+
+  <!-- Arrow -->
+  <line x1="165" y1="200" x2="210" y2="200" stroke="#3b82f6" stroke-width="2" marker-end="url(#arrow-sm)"/>
+
+  <!-- === t = 0.25 === -->
+  <rect x="215" y="65" width="140" height="280" fill="white" stroke="#e2e8f0" stroke-width="1.5" rx="8"/>
+  <text x="285" y="85" text-anchor="middle" font-size="11" font-weight="bold" fill="#64748b">t = 0.25</text>
+  <g fill="#60a5fa" opacity="0.7">
+    <circle cx="245" cy="160" r="4"/><circle cx="300" cy="150" r="3.5"/><circle cx="270" cy="190" r="4"/>
+    <circle cx="255" cy="225" r="3.5"/><circle cx="310" cy="215" r="4"/><circle cx="280" cy="255" r="3.5"/>
+    <circle cx="260" cy="285" r="4"/><circle cx="320" cy="270" r="3"/><circle cx="290" cy="305" r="3.5"/>
+    <circle cx="235" cy="200" r="3"/><circle cx="305" cy="180" r="3.5"/><circle cx="250" cy="265" r="3"/>
+    <circle cx="315" cy="240" r="3.5"/><circle cx="240" cy="310" r="3"/>
+  </g>
+  <!-- Small arrows showing direction -->
+  <g stroke="#60a5fa" stroke-width="1.5" opacity="0.4">
+    <line x1="275" y1="190" x2="290" y2="185" marker-end="url(#arrow-sm)"/>
+    <line x1="265" y1="225" x2="280" y2="218" marker-end="url(#arrow-sm)"/>
+    <line x1="295" y1="215" x2="308" y2="208" marker-end="url(#arrow-sm)"/>
+  </g>
+
+  <!-- Arrow -->
+  <line x1="360" y1="200" x2="405" y2="200" stroke="#3b82f6" stroke-width="2" marker-end="url(#arrow-sm)"/>
+
+  <!-- === t = 0.5 === -->
+  <rect x="410" y="65" width="140" height="280" fill="white" stroke="#e2e8f0" stroke-width="1.5" rx="8"/>
+  <text x="480" y="85" text-anchor="middle" font-size="11" font-weight="bold" fill="#64748b">t = 0.5</text>
+  <g fill="#3b82f6" opacity="0.7">
+    <circle cx="440" cy="170" r="4"/><circle cx="490" cy="160" r="3.5"/><circle cx="465" cy="200" r="4"/>
+    <circle cx="448" cy="230" r="3.5"/><circle cx="500" cy="220" r="4"/><circle cx="475" cy="255" r="3.5"/>
+    <circle cx="455" cy="285" r="4"/><circle cx="510" cy="275" r="3"/><circle cx="480" cy="305" r="3.5"/>
+    <circle cx="435" cy="210" r="3"/><circle cx="495" cy="190" r="3.5"/><circle cx="445" cy="265" r="3"/>
+    <circle cx="505" cy="245" r="3.5"/><circle cx="460" cy="310" r="3"/>
+  </g>
+  <g stroke="#3b82f6" stroke-width="1.5" opacity="0.4">
+    <line x1="470" y1="200" x2="482" y2="193" marker-end="url(#arrow-sm)"/>
+    <line x1="455" y1="230" x2="468" y2="222" marker-end="url(#arrow-sm)"/>
+    <line x1="495" y1="220" x2="506" y2="213" marker-end="url(#arrow-sm)"/>
+  </g>
+
+  <!-- Arrow -->
+  <line x1="555" y1="200" x2="600" y2="200" stroke="#3b82f6" stroke-width="2" marker-end="url(#arrow-sm)"/>
+
+  <!-- === t = 1 (data) === -->
+  <rect x="605" y="65" width="170" height="280" fill="white" stroke="#e2e8f0" stroke-width="1.5" rx="8"/>
+  <text x="690" y="85" text-anchor="middle" font-size="11" font-weight="bold" fill="#64748b">t = 1</text>
+  <!-- Concentrated data -->
+  <g fill="#4f46e5" opacity="0.8">
+    <circle cx="680" cy="180" r="4"/><circle cx="710" cy="170" r="3.5"/><circle cx="695" cy="200" r="4.5"/>
+    <circle cx="670" cy="220" r="3.5"/><circle cx="720" cy="215" r="4"/><circle cx="690" cy="240" r="3.5"/>
+    <circle cx="665" cy="260" r="4"/><circle cx="715" cy="255" r="3"/><circle cx="700" cy="285" r="3.5"/>
+    <circle cx="675" cy="240" r="3"/><circle cx="705" cy="195" r="3.5"/><circle cx="685" cy="270" r="3"/>
+    <circle cx="725" cy="235" r="3.5"/><circle cx="660" cy="290" r="3"/>
+  </g>
+
+  <!-- Bottom trajectories trace -->
+  <text x="400" y="370" text-anchor="middle" font-size="11" fill="#64748b">同一组 14 个初始噪声点沿着各自的直线 ODE 轨迹同时"流向"数据分布</text>
+</svg>
