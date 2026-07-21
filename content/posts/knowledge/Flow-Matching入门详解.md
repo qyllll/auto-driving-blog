@@ -1,10 +1,10 @@
 ---
-title: "Flow Matching 入门详解：从扩散模型到连续动作生成"
+title: "Flow Matching 入门详解：从扩散模型到连续动作生成（含代码讲解）"
 date: 2026-07-18
 draft: false
 categories: ["知识点拆解"]
-tags: ["🌊 Flow Matching", "🎨 扩散模型", "📐 数学基础", "🤖 动作生成"]
-summary: "Flow Matching 通过直接学习从噪声到数据的直线 ODE 路径，解决了扩散模型弯曲路径导致采样步数过多的问题。本文从数学直觉出发讲解向量场、ODE 与流的核心概念，并对比 CFM、Rectified Flow、OT路径等关键变体。Flow Matching 正快速取代扩散头成为轨迹生成与规划的首选方案。"
+tags: ["🌊 Flow Matching", "🎨 扩散模型", "📐 数学基础", "🤖 动作生成", "💻 代码讲解"]
+summary: "Flow Matching 通过直接学习从噪声到数据的直线 ODE 路径，解决了扩散模型弯曲路径导致采样步数过多的问题。本文从数学直觉出发讲解向量场、ODE 与流的核心概念，并对比 CFM、Rectified Flow、OT路径等关键变体。与普通教程不同的是，本文所有代码均来自 ByteDance Bagel / Flow-GRPO 的真实项目实现，包含 CFG 推理、SDE 采样、GRPO 策略优化等工业级代码讲解。"
 weight: 4
 ---
 
@@ -122,45 +122,248 @@ Flow Matching 的一个强大之处是**路径和边际分布可以自由设计*
 
 ---
 
-## 💻 训练 vs 推理：代码层面的理解
+## 💻 真实项目代码讲解：Bagel / Flow-GRPO
 
-Flow Matching 的代码结构异常简洁，这是它流行的另一个原因。
+> 下面所有代码节选自 [ByteDance-Seed/BAGEL](https://github.com/ByteDance-Seed/BAGEL)（一个全模态理解+生成的 VLM）以及 Flow-GRPO 扩展。这是目前最完整的**将 Flow Matching 融入 LLM 做生成的工业级实现**，比伪代码有营养得多。
 
-### 训练阶段：学向量场
+### 模型架构概览
 
-一次训练迭代的伪代码（PyTorch 风格）：
+Bagel 模型是一个"通才"——它用一个 Qwen2 LLM 做骨干，同时支持**视觉理解**（SIGLIP ViT 编码图像）和**视觉生成**（Flow Matching 解码图像）。生成部分的核心组件：
 
-```python
-# x1: 一批真实数据（图像/轨迹/动作）
-# x0: 一批同形状的高斯噪声
-x0 = torch.randn_like(x1)              # 采样噪声
-t  = torch.rand(B, 1)                  # 采样时刻 t ~ U(0,1)
-xt = (1 - t) * x0 + t * x1             # 线性插值（直线路径）
-u  = x1 - x0                           # 理想速度（指向数据）
-v  = model(xt, t, cond)                # 网络预测速度场
-loss = mse(v, u)                       # 匹配损失
-loss.backward()
+```
+输入: tokenized text + latent patches (来自 VAE)
+        │
+        ├─ text → embedding (Qwen2 embed_tokens)
+        ├─ latent patches → vae2llm Linear + timestep_embed + pos_embed
+        │
+        └─ packed_sequence → Qwen2 LLM (融合理解与生成的 token 序列)
+                │
+                └─ llm2vae Linear → 预测速度场 v_t
 ```
 
-**关键点：** 训练时**根本不需要真实数据分布 $p_1$ 的解析形式**，只需要单个样本 $x_1$ 作为条件（这就是 CFM 的"Conditional"含义）。损失就是最朴素的 MSE，没有 KL 项、没有 ELBO，简洁到让人怀疑是不是漏了什么。
-
-### 推理阶段：用 ODE solver 采样
-
-推理时用一个**ODE 求解器**从 $t=0$ 积分到 $t=1$：
+关键配置（`BagelConfig`）：
 
 ```python
-x = torch.randn(B, D)                  # 起点：纯噪声
-dt = 1.0 / num_steps                   # 步长
-for i in range(num_steps):
-    t  = i * dt
-    v  = model(x, t, cond)             # 查询速度场
-    x  = x + v * dt                    # Euler 步（最简单的 ODE solver）
-# x 即为生成结果
+class BagelConfig(PretrainedConfig):
+    def __init__(
+        self,
+        visual_gen=True,        # 开启 Flow Matching 生成
+        visual_und=True,        # 开启视觉理解
+        llm_config=None,        # Qwen2 config
+        vit_config=None,        # SIGLIP config
+        vae_config=None,        # VAE config（输出 latent）
+        latent_patch_size=2,    # 每个 latent patch 的尺寸
+        max_latent_size=32,     # 最大 latent 网格
+        timestep_shift=1.0,     # timestep 偏移（推理时常用 3.0）
+        ...
+    )
 ```
 
-上面是最简单的 **Euler 法**；实际中常用更高阶的 solver，如 **Midpoint、RK4、Dopri5**，能在更少步数下达到更高精度。对比一下扩散模型的推理（要做数十到上千次神经网络前向），Flow Matching 的工程优势非常直观。
+### 训练阶段：真正的 Flow Matching 前向
 
-**一个微妙的点：** 训练时 $t$ 是连续采样的浮点数，没有"时间步"的离散概念；推理时才把 $[0,1]$ 离散成若干步。所以"采样步数"纯粹是推理时的工程选择，与训练无关——你可以训完之后自由调整步数权衡速度和质量。
+训练时，模型接收 VAE 编码后的 latent、文本 token、以及随机 timestep，经过 LLM 后预测速度场。代码如下（`Bagel.forward` 视觉生成部分）：
+
+```python
+# -----------------------------------------------------------
+# Step 1: 从 VAE latent 构造干净的 packed_latent
+# -----------------------------------------------------------
+p = self.latent_patch_size          # 通常为 2
+packed_latent = []
+for latent, (h, w) in zip(padded_latent, patchified_vae_latent_shapes):
+    # VAE latent shape: [C, H, W] → reshape to patches
+    # 把 latent 切成 p×p 的 patch，每个 patch 展平成向量
+    latent = latent[:, :h * p, :w * p].reshape(self.latent_channel, h, p, w, p)
+    latent = torch.einsum("chpwq->hwpqc", latent).reshape(-1, p * p * self.latent_channel)
+    packed_latent.append(latent)
+packed_latent_clean = torch.cat(packed_latent, dim=0)
+
+# -----------------------------------------------------------
+# Step 2: 采样噪声 + 线性插值（CFM 核心）
+# -----------------------------------------------------------
+noise = torch.randn_like(packed_latent_clean)          # x₀: 高斯噪声
+packed_timesteps = torch.sigmoid(packed_timesteps)     # t: 0→1 的 timestep
+# timestep shift: 让模型在 t 接近 0 时"看得更细"
+packed_timesteps = self.timestep_shift * packed_timesteps / \
+                   (1 + (self.timestep_shift - 1) * packed_timesteps)
+# x_t = (1-t) * x₀ + t * x₁  直线插值
+packed_latent = (1 - packed_timesteps[:, None]) * packed_latent_clean \
+                + packed_timesteps[:, None] * noise
+
+# -----------------------------------------------------------
+# Step 3: 把 latent patch 映射到 LLM 隐空间 + 加 timestep/位置编码
+# -----------------------------------------------------------
+packed_timestep_embeds = self.time_embedder(packed_timesteps)
+latent_token_pos_emb = self.latent_pos_embed(packed_latent_position_ids)
+# vae2llm: Linear 把 patch 投影到 hidden_size
+packed_latent = self.vae2llm(packed_latent) \
+                + packed_timestep_embeds + latent_token_pos_emb
+# 插入到 packed_sequence 的对应位置（与文本 token 拼接）
+packed_sequence[packed_vae_token_indexes] = packed_latent
+
+# -----------------------------------------------------------
+# Step 4: 过 LLM backbone，得到隐状态
+# -----------------------------------------------------------
+last_hidden_state = self.language_model(packed_sequence=packed_sequence, ...)
+
+# -----------------------------------------------------------
+# Step 5: 预测速度场 + MSE loss
+# -----------------------------------------------------------
+packed_mse_preds = self.llm2vae(last_hidden_state[mse_loss_indexes])
+# 注意这里的 target 方向：x₁ - x₀  即"从数据指向噪声"
+# （与论文中 u_t = x₁ - x₀ 一致，符号取决于路径定义方向）
+target = noise - packed_latent_clean
+has_mse = packed_timesteps > 0
+mse = (packed_mse_preds - target[has_mse]) ** 2
+```
+
+**和伪代码的区别：** 真实代码里多了**timestep shift**（把 timestep 重新分布）和**patchify**（把 dense latent 切成 patch 序列以适配 LLM 的 token 输入格式）。核心逻辑 `(1-t)*x₀ + t*x₁` 和 MSE loss 是完全一致的。
+
+### Timestep 编码：正弦位置嵌入
+
+Flow Matching 的 $t$ 是连续浮点数，需要编码成向量才能送入网络。真实实现使用了 DiT 式正弦编码：
+
+```python
+class TimestepEmbedder(nn.Module):
+    def __init__(self, hidden_size, frequency_embedding_size=256):
+        super().__init__()
+        self.mlp = nn.Sequential(
+            nn.Linear(frequency_embedding_size, hidden_size),
+            nn.SiLU(),
+            nn.Linear(hidden_size, hidden_size),
+        )
+
+    @staticmethod
+    def timestep_embedding(t, dim, max_period=10000):
+        half = dim // 2
+        freqs = torch.exp(
+            -math.log(max_period) *
+            torch.arange(start=0, end=half, dtype=torch.float32) / half
+        ).to(device=t.device)
+        args = t[:, None].float() * freqs[None]
+        embedding = torch.cat([torch.cos(args), torch.sin(args)], dim=-1)
+        return embedding
+
+    def forward(self, t):
+        t_freq = self.timestep_embedding(t, self.frequency_embedding_size)
+        t_emb = self.mlp(t_freq)          # 256 → hidden_size
+        return t_emb
+```
+
+`timestep_shift` 是一个容易被忽视但很重要的技巧。原始的 timestep $t$ 均匀分布在 $[0,1]$，但实际生成时 $t$ 靠近 0 的步（细节塑造）比靠近 1 的步（轮廓布局）需要更多分辨率。shift 公式 `shift * t / (1 + (shift-1) * t)` 会**把更多步压缩到细节区域**，`shift=3.0` 是常见的经验值。
+
+### 推理阶段（1）：ODE 求解 + SDE 噪声注入
+
+Flow Matching 推理的金标准不是纯 ODE 而是**带噪声注入的 SDE**——每一步在预测方向上加适量随机性，兼顾确定性和多样性。核心 step 实现：
+
+```python
+def _sde_step_with_logprob(self, model_output, timestep, prev_timestep,
+                           d_timestep, sample, prev_sample=None,
+                           noise_level=0.8):
+    model_output = model_output.float()
+    sample = sample.float()
+
+    # 计算当前步的噪声标准差
+    # std_dev_t = sqrt(t / (1 - t')) * noise_level
+    # 其中 t' = max(sigma_max, t) 防止除零
+    std_dev_t = torch.sqrt(
+        timestep / (1 - torch.where(timestep == 1, sigma_max, timestep))
+    ) * noise_level
+
+    # 预测下一步均值（Euler 步 + 噪声修正项）
+    #   x_{t-1} = x_t*(1 + σ²/(2t)*dt) + v_t*(1 + σ²*(1-t)/(2t))*dt
+    # 当 noise_level=0 时退化为纯 Euler: x_{t-1} = x_t + v_t * dt
+    prev_sample_mean = (
+        sample * (1 + std_dev_t**2 / (2 * timestep) * d_timestep)
+        + model_output * (1 + std_dev_t**2 * (1 - timestep) / (2 * timestep)) * d_timestep
+    )
+
+    if prev_sample is None:
+        variance_noise = randn_tensor(model_output.shape, ...)
+        prev_sample = prev_sample_mean + std_dev_t * torch.sqrt(-d_timestep) * variance_noise
+
+    # log_prob 用于 RL 策略梯度（Flow-GRPO 需要）
+    log_prob = -((prev_sample.detach() - prev_sample_mean) ** 2) \
+               / (2 * (std_dev_t * torch.sqrt(-d_timestep))**2)
+    log_prob = log_prob.mean()
+
+    return prev_sample, log_prob, prev_sample_mean, std_dev_t
+```
+
+理解这个代码的三个层次：
+- `noise_level=0` → 纯 **Euler ODE**，$x_{t-1} = x_t + v_t \cdot dt$
+- `noise_level>0` → 加噪声的 **SDE**，$x_{t-1} = \text{mean} + \sigma \cdot \epsilon$
+- `log_prob` 计算了每一步 transition 的高斯 log-probability，**这是 Flow-GRPO 能做 RL 的关键**——没有它就没法算策略梯度
+
+### 推理阶段（2）：完整采样循环 + CFG
+
+完整的采样循环从 $t=1$ 的纯噪声积分到 $t=0$ 的生成结果，中间可以选择性使用 **Classifier-Free Guidance (CFG)** 提升条件控制强度。
+
+```python
+def generate_image(self, ...):
+    x_t = packed_init_noises                      # 起点：纯噪声
+
+    # 准备离散 timestep 序列（从 1 → 0）
+    timesteps = torch.linspace(1, 0, num_timesteps)  # 例如 50 步
+    timesteps = timestep_shift * timesteps / \
+                (1 + (timestep_shift - 1) * timesteps)
+    dts = timesteps[1:] - timesteps[:-1]
+
+    for i, t in enumerate(timesteps[:-1]):
+        # -----------------------------------------------------------
+        # 预测速度场（含可选的 CFG）
+        # -----------------------------------------------------------
+        v_t = self._forward_flow(
+            x_t=x_t, timestep=torch.tensor([t]),
+            cfg_text_scale=cfg_text_scale,   # 文本 CFG 强度
+            cfg_img_scale=cfg_img_scale,     # 图像 CFG 强度
+            ...
+        )
+        # -----------------------------------------------------------
+        # SDE step（含可选的噪声注入）
+        # -----------------------------------------------------------
+        x_t, log_prob, _, _ = self._sde_step_with_logprob(
+            v_t, timesteps[i], timesteps[i+1], dts[i], x_t,
+            noise_level=cur_noise_level
+        )
+
+    return x_t  # 生成结果
+```
+
+CFG 在 `_forward_flow` 中实现（简化版）：
+
+```python
+def _forward_flow(self, x_t, timestep, ..., cfg_text_scale, cfg_img_scale):
+    # 1) 条件前向（有 text/image 条件）
+    v_t = self.llm2vae(llm_output)
+
+    # 2) 无条件前向（text CFG：用空文本做条件）
+    if cfg_text_scale > 1.0:
+        cfg_text_v_t = self.llm2vae(cfg_text_llm_output)
+
+    # 3) 图像无条件前向（image CFG）
+    if cfg_img_scale > 1.0:
+        cfg_img_v_t = self.llm2vae(cfg_img_llm_output)
+
+    # 4) CFG 插值 + renormalization（防止 CFG 导致向量范数爆炸）
+    #    v = v_uncond + scale * (v_cond - v_uncond)
+    v_t = cfg_text_v_t + cfg_text_scale * (v_t - cfg_text_v_t)
+    v_t = v_t * (norm(v_t) / norm(v_t_))  # CFG-Renorm 保持速度尺度
+
+    return v_t
+```
+
+**CFG 的核心：** 同时推理有条件和无条件两个分支，然后外推 `v = v_uncond + s * (v_cond - v_uncond)`。$s>1$ 时模型会更"卖力"地满足条件，但同时速度场范数会膨胀，所以需要 renormalization 把速度尺度拉回合理范围。
+
+### 推理超参数速查
+
+| 参数 | 作用 | 典型值 |
+|------|------|--------|
+| `num_timesteps` | 采样步数 | 10–50（步数越少越快，但质量下降） |
+| `cfg_text_scale` | 文本条件强度 | 4.0–8.0（1.0 = 关闭） |
+| `cfg_img_scale` | 图像条件强度（编辑/图生图） | 1.0–2.0 |
+| `cfg_interval` | CFG 生效的 t 范围 | [0, 1] 全程或 [0.4, 1] 后半段 |
+| `timestep_shift` | 步数分布偏移 | 3.0（t→0 细节区域分配更多步） |
+| `noise_level` | SDE 噪声强度 | 0.7–0.8（0 = 纯 ODE） |
 
 ---
 
@@ -227,25 +430,115 @@ Flow Matching 正在成为高精度 VLA 动作头的事实标准。
 
 ---
 
-## 🔗 与 GRPO 的结合：Flow-GRPO 的思路
+## 🔗 与 GRPO 的结合：Flow-GRPO 的真实训练代码
 
-强化学习是 VLA 走向"安全、舒适、符合人类偏好"的必经之路，而 **GRPO（Group Relative Policy Optimization）** 是 DeepSeek 提出的一种高效策略优化方法（被 R1 等模型采用）。问题是：**Flow Matching 是一个生成式采样过程，怎么和 RL 结合？**
+Flow-GRPO 是 ByteDance Bagel 项目的一个扩展，把 Flow Matching 的图像生成和 GRPO 策略优化结合起来。我们直接从实际训练代码中拆解其核心逻辑。
 
-### 核心挑战：从分布到策略
+### 核心挑战：Flow Matching 策略的 log-prob 从哪来？
 
-GRPO 原本是给**自回归语言模型**设计的：采样一组回答，用组内相对奖励做优势估计，更新策略。但 Flow Matching 输出的是**连续动作分布**，且采样依赖 ODE 积分，没有明确的 token 概率可读。要直接套用 GRPO，必须解决两个问题：
+GRPO 需要 $\log p_\theta(a)$ 计算 importance ratio。Flow Matching 的策略分布通过 ODE 定义，没有显式密度。但**SDE 的每一步 transition 是高斯分布**，因此整个轨迹的 log-prob 就是各步 log-prob 之和。
 
-- **如何定义 Flow Matching 策略的"概率"？** Flow Matching 的密度 $p_\theta(x_1)$ 可以通过**瞬时变量替换公式**从 ODE 解出（涉及向量场的散度 $\nabla\cdot v_\theta$），从而得到 $\log p_\theta$ 用于计算策略梯度。
-- **如何在 ODE 采样上做组内比较？** 对同一个状态（场景+指令），并行采样一组动作（多条轨迹），用环境奖励（碰撞、舒适、目标达成）排序，组内归一化得到优势。
+在 `_sde_step_with_logprob` 中，我们早就埋好了 log-prob 计算：
 
-### Flow-GRPO 的基本框架
+```python
+# transition: x_{t+1} ~ N(mean_t, σ_t²)
+# log p(x_{t+1} | x_t, θ) = -(x_{t+1} - mean_t)² / (2σ_t²)
+log_prob = -((prev_sample.detach() - prev_sample_mean) ** 2) \
+           / (2 * (std_dev_t * torch.sqrt(-d_timestep))**2)
+log_prob = log_prob.mean()
+```
 
-Flow-GRPO 的思路可以概括为四个步骤：
+**关键洞察**：Flow Matching + SDE 的每一步 transition 恰好是高斯分布，所以 log-prob 有**闭式解**，不需要复杂的瞬时变量替换公式。每一步的 log_prob 累加就是整条轨迹的 $\log p_\theta(\text{轨迹})$。
 
-1. **条件采样**：对同一个 $(s, \text{指令})$，用当前 Flow Matching 策略并行采样一组动作 $\{a^{(1)},\dots,a^{(G)}\}$（不同的初始噪声 $x_0$ 给出不同的合理动作）
-2. **环境评估**：把每个动作送入环境（仿真器或世界模型）得到奖励 $r^{(i)}$
-3. **组内优势**：对奖励做组内归一化得到优势 $A^{(i)} = \frac{r^{(i)}-\bar r}{\sigma_r}$（GRPO 的精髓，免去价值网络）
-4. **策略更新**：用**score-function 或重参数化**估计 $\nabla \log p_\theta(a^{(i)})$，结合优势更新向量场网络
+### Flow-GRPO 训练循环
+
+训练时，模型先生成一组候选图像（多条轨迹），用奖励模型打分，然后做 GRPO 策略更新。
+
+#### Step 1: 采样生成 + 保存中间 latent
+
+```python
+# generate_image() 中保存每一步的 latent 和 log_prob
+all_latents = []     # 每一步的 latent
+all_log_probs = []   # 每一步的对数概率
+all_timesteps = []   # 对应的时间步
+
+for i, t in enumerate(timesteps):
+    v_t = self._forward_flow(x_t, ...)
+    x_t, log_prob, _, _ = self._sde_step_with_logprob(v_t, ...)
+    # 在指定窗口内保存中间结果用于 RL 训练
+    if i >= sde_timestep_begin and i < sde_timestep_begin + window_size:
+        all_latents.append(x_t)
+        all_log_probs.append(log_prob)
+        all_timesteps.append(t)
+```
+
+生成完成后，把图像送入奖励模型得到标量奖励 $r$，同 prompt 的 $G$ 条轨迹做组内归一化得到 advantage $A^{(i)} = \frac{r^{(i)} - \bar{r}}{\sigma_r}$。
+
+#### Step 2: 逐 timestep 做 PPO-style 策略更新
+
+```python
+def generate_image_learn(self, sample, grpo_config, accelerator, optimizer, ...):
+    latents = sample["latents"]           # 采样时保存的 latent 序列
+    prev_latents = sample["prev_latents"] # 上一步的 latent
+    timesteps = sample["timesteps"]
+    advantages = torch.clamp(
+        sample["advantages"],
+        -grpo_config.train.adv_clip_max,
+        grpo_config.train.adv_clip_max,
+    )
+
+    for i, t in enumerate(timesteps):
+        with accelerator.accumulate(transformer):
+            # 用当前策略预测速度场（online）
+            v_t = self._forward_flow(x_t=latents[i], timestep=t, ...)
+
+            # 计算 log_prob（含重参数化）
+            _, log_prob, prev_sample_mean, std_dev_t = self._sde_step_with_logprob(
+                v_t, timesteps[i], timesteps[i+1], dts[i],
+                latents[i], prev_sample=prev_latents[i], ...
+            )
+
+            # KL 正则：对 reference model 也做一步推理
+            if grpo_config.train.beta > 0:
+                v_t_ref = self._forward_flow(..., ref_model=True)
+                _, _, prev_sample_mean_ref, _ = self._sde_step_with_logprob(
+                    v_t_ref, ...
+                )
+
+            # -----------------------------------------------------------
+            # GRPO 策略梯度（核心 4 行）
+            # -----------------------------------------------------------
+            ratio = torch.exp(log_prob - sample["log_probs"][i])
+            unclipped_loss = -advantages * ratio
+            clipped_loss = -advantages * torch.clamp(
+                ratio,
+                1.0 - grpo_config.train.clip_range_lt,
+                1.0 + grpo_config.train.clip_range_gt,
+            )
+            policy_loss = torch.mean(torch.maximum(unclipped_loss, clipped_loss))
+
+            # KL 散度（高斯分布的 KL 有闭式解）
+            if grpo_config.train.beta > 0:
+                kl_loss = ((prev_sample_mean - prev_sample_mean_ref) ** 2).mean() \
+                          / (2 * std_dev_t ** 2)
+                loss = policy_loss + grpo_config.train.beta * kl_loss
+            else:
+                loss = policy_loss
+
+            accelerator.backward(loss)
+            optimizer.step()
+            optimizer.zero_grad()
+```
+
+### 代码对应的 GRPO 公式
+
+上面的核心 4 行代码对应 GRPO 的**裁剪 surrogate 目标**：
+
+$$L(\theta) = -\mathbb{E}\left[\min\left(r_t(\theta) A_t, \text{clip}(r_t(\theta), 1-\epsilon, 1+\epsilon) A_t\right)\right]$$
+
+其中 $r_t(\theta) = \frac{\pi_\theta(a_t|s_t)}{\pi_{\theta_{\text{old}}}(a_t|s_t)} = e^{\log p_\theta - \log p_{\theta_{\text{old}}}}$，$A_t$ 是组内归一化优势。
+
+**和 PPO 的区别：** GRPO 不用 critic network（价值网络），优势直接从组内奖励归一化得到 $$\hat{A}_i = \frac{r_i - \mu_\text{group}}{\sigma_\text{group}}$$。这个简化对 Flow Matching 尤其友好——不用额外训一个价值网络去逼近连续动作空间的价值函数。
 
 ### 为什么 Flow + RL 特别契合自动驾驶？
 
@@ -256,7 +549,7 @@ Flow-GRPO 的思路可以概括为四个步骤：
 | **奖励稀疏可处理** | GRPO 的组内比较把"绝对奖励"变"相对优势"，缓解驾驶奖励极度稀疏的问题 |
 | **世界模型协同** | 可用世界模型做 rollout 评估，无需真实路测，安全且低成本 |
 
-> 💡 一句话理解 Flow-GRPO：**用 Flow Matching 做多模态动作采样器，用 GRPO 做组内偏好优化，把"模仿学习出来的策略"对齐到"安全舒适的人类偏好"。**
+> 💡 一句话理解 Flow-GRPO：**用 Flow Matching 的 SDE 采样提供多模态候选轨迹 + 高斯 log-prob 闭式解，用 GRPO 的组内归一化做免价值网络策略优化。**
 
 ---
 
@@ -301,13 +594,18 @@ Flow-GRPO 的思路可以概括为四个步骤：
 - **DiffusionDrive**（华中科大等）—— 扩散头轨迹规划
 - **Stable Diffusion 3**（Stability AI, 2024）—— Rectified Flow 用于图像生成
 
-**博客与代码：**
+**代码仓库（本文的代码来源）：**
+
+- **ByteDance-Seed/BAGEL**（https://github.com/ByteDance-Seed/BAGEL）—— 全模态 VLM，含 Flow Matching 图像生成的完整工业级实现
+- **Flow-GRPO**（https://github.com/anomalyco/Flow-GRPO）—— 在 Bagel 基础上扩展 GRPO 策略优化，支持 RL 训练
+
+**博客与教程：**
 
 - Lily Yang 的 *Flow Matching for Generative Modeling* 教程（直观图解）
-- **torchcfm**（https://github.com/atong01/conditional-flow-matching）—— 官方 CFM 实现，入门首选
+- **torchcfm**（https://github.com/atong01/conditional-flow-matching）—— 官方 CFM 最小实现
 - HuggingFace *Diffusers* 库已原生支持 Flow Matching / Rectified Flow
 
-> 💡 新手建议：先读 torchcfm 的最小示例（100 行就能跑通），再对照本篇的"训练 vs 推理"两段伪代码，半天就能建立完整工程直觉。
+> 💡 新手建议：先读 torchcfm 的最小示例（100 行就能跑通），然后在 Bagel 仓库里看实际的 bagel.py forward 函数，再回来看本文的代码讲解，会非常通透。
 
 ---
 
