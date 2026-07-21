@@ -4,98 +4,155 @@ date: 2026-07-20
 draft: false
 categories: ["代码讲解"]
 tags: ["DiffusionDriveV2", "GRPO", "强化学习", "扩散规划", "端到端自动驾驶", "代码讲解", "NAVSIM"]
-summary: "「DiffusionDriveV2 在 DiffusionDrive 的 anchor 截断扩散之上，补了一套 GRPO 强化学习微调：用 scale-adaptive 乘性噪声做探索、Intra-Anchor GRPO 保住多模态、Inter-Anchor Truncated GRPO 用碰撞惩罚把低质量轨迹压下去，最后加两级 Mode Selector 精排，在 NAVSIM v1 上冲到 91.2 PDMS。本文基于 paper 详尽的算法描述改写成伪代码，逐行讲清 RL 训练循环怎么写、优势怎么算、分类头怎么训。」"
+summary: "「DiffusionDriveV2 在 DiffusionDrive 的 anchor 截断扩散之上，补了一套 GRPO 强化学习微调：用 scale-adaptive 乘性噪声做探索、Intra-Anchor GRPO 保住多模态不坍缩、Inter-Anchor Truncated GRPO 用碰撞惩罚把低质量轨迹压下去，最后加两级 Mode Selector 精排，在 NAVSIM v1 上冲到 91.2 PDMS。本文基于论文 Algorithm 还原成逐文件逐函数伪代码，从 cold start 权重加载写到 rollout → advantage → loss 的完整 RL 训练循环。」"
 ---
 
 ## 写给完全没基础的同学：先补几个最关键的名词
 
-在看 DiffusionDriveV2 的代码之前，有几个名词是必须先搞懂的。如果你已经读过本博客的 [DiffusionDrive 代码讲解](/posts/code/diffusiondrive代码讲解/)，那前一半名词你已经熟了——这里用更短的方式过一遍，重点讲新东西。
+在看 DiffusionDriveV2 的代码之前，有几个名词是必须先搞懂的。如果你已经读过本博客的 DiffusionDrive 代码讲解，前一半名词你已经熟了——这里用更短的方式过一遍，重点讲新东西。
 
-- **截断扩散（Truncated Diffusion）**：不是从纯高斯噪声出发，而是从 k-means 聚好的 anchor（模板轨迹）出发、只加一点点噪声（t=8），然后去噪 2 步就修好。DiffusionDriveV2 的生成器完全继承它，没改结构。
-- **anchor（锚轨迹）**：训练集里聚类出来的 20 种典型驾驶姿势（直行 / 左转 / 超车…），作为扩散的起点。每个 anchor 代表一种「驾驶意图」。
-- **GRPO（Group Relative Policy Optimization）**：DeepSeek 提出的强化学习算法——不给模型训一个单独的价值网络（critic），而是在一组（group）样本内部做归一化算优势，避免训价值网络带来的不稳定。DiffusionDriveV2 把 GRPO 改成「先按 anchor 分组（Intra），再加全局碰撞惩罚（Inter）」，适配到带 anchor 的截断扩散模型。
-- **优势函数（Advantage）**：RL 里衡量「这个动作比平均水平好多少」的值。正优势 = 这个轨迹比同组其他好；负优势 = 比同组差。DiffusionDriveV2 用 Intra-Anchor GRPO 算优势（只跟同 anchor 的其他样本比），然后用 Inter-Anchor Truncated GRPO 把正优势保留、负优势截断成 0、碰撞的直接给 -1。
-- **乘性探索噪声（Multiplicative Exploration Noise）**：给轨迹加噪声时，不是在每个点 (x,y) 上加独立高斯噪声（加性，会把轨迹变得毛刺），而是统一在纵向/lateral 方向各乘一个随机因子（乘性），保持轨迹的平滑和物理合理性。
-- **Mode Selector（模式选择器）**：生成 20 条候选轨迹后，需要一个「最终评分工」挑最好的那条。DiffusionDriveV2 专门训了一个两级 scorer（粗筛 top-k → 细排），用 BCE loss + Margin-Rank loss 学怎么打分。
-- **冷启动（Cold Start）**：先用 DiffusionDrive 的 IL 预训练权重初始化生成器，再做 RL 微调。不是从零训。
-- **EP（Ego Progress）**：NAVSIM 的一个子指标，衡量自车在 8 秒内前进了多远。DiffusionDriveV2 的 EP 比 v1 高了 5.3（从 82.2 到 87.5），说明 RL 不仅让轨迹更安全（不撞），还让路线更高效（走得远）。
-- **DDPM / DDIM**：DDPM 是加随机噪声的去噪过程，DDIM 是确定性快速采样。训练探索时用 DDPM 加噪（`η=1`）获取随机性，推理时用 DDIM（`η=0`）确定性地出结果。
+### 旧朋友（快速过）
 
-如果你不记得 anchor 怎么聚、截断扩散怎么 2 步去噪、TrajectoryHead 长啥样——建议先读 DiffusionDrive 那篇再回来。这篇直接假设你已经认识它们。
+- **端到端自动驾驶**：给模型传感器输入，直接输出行驶轨迹，中间不拆成独立模块。
+- **轨迹（Trajectory）**：未来 T 个时刻的 (x, y, θ) 序列。本文里每条轨迹是 8 个点，每点 3 个值。
+- **anchor（锚轨迹）**：KMeans 从训练集里聚出来的 20 种典型驾驶姿势模板。训练时冻结（不改），作为扩散起点。
+- **截断扩散（Truncated Diffusion）**：不从纯高斯噪声出发，而是从 anchor 出发、只加一点点噪声（t=8），然后去噪 2 步就修好。这是 DiffusionDrive 的核心加速 trick，DiffusionDriveV2 完全继承它，**没改结构**。
+- **去噪网络（Denoiser / TrajectoryHead）**：2 层 CustomTransformerDecoder，每层做 grid_sample 交叉注意力 + agent/map 交叉注意力 + FiLM 时间步调制 + 残差 offset 回归。
+- **DDIM / DDPM**：DDIM 是确定性快速采样（η=0），DDPM 是随机慢采样（η=1）。DiffusionDriveV2 训练探索时用 DDPM（η=1）获取随机性，推理时用 DDIM（η=0）确定性地出结果。
+- **NAVSIM 评测指标**：PDMS 是综合驾驶得分（包含碰撞、舒适度、进度等），EP 是自车前进距离，DAC 是可行驶区域合规率。
+
+### 新名词（重点看）
+
+- **GRPO（Group Relative Policy Optimization）**：DeepSeek 提出的强化学习算法——不给模型训一个单独的价值网络（critic），而是在一组（group）样本内部做归一化算优势。免去了训价值网络的不稳定。公式上，组内第 i 个样本的优势 = (r_i - mean(r_group)) / std(r_group)。
+- **Intra-Anchor GRPO**：把 GRPO 的「组」定义为「来自同一个 anchor 的若干条轨迹」。右转和直行的轨迹不放在同一个组里比——因为它们代表不同驾驶意图，不应该互相竞争。只在同一个意图内比「这条转得好不好」。
+- **Inter-Anchor Truncated GRPO**：在 Intra-Anchor GRPO 的基础上加全局视角。对于没碰撞的轨迹，只保留正优势（鼓励更好）、截断负优势（不惩罚保守）；对于碰撞的轨迹，直接给 -1 重罚。用两行判断解决「矮子里拔将军」和「安全硬约束」。
+- **乘性探索噪声（Multiplicative Exploration Noise）**：RL 需要探索，探索需要加噪声。标准做法是给每个 (x,y) 加独立高斯（加性噪声），但轨迹近端和远端尺度差异大，加出来毛刺多。乘性做法只生成两个随机因子（纵向/横向），乘到整条轨迹上，保持几何形状不变。
+- **冷启动（Cold Start）**：DiffusionDriveV2 的生成器不是从零训，而是直接加载 DiffusionDrive 的预训练权重。RL 只负责微调安全偏好，不需要重新学怎么开车。
+- **Mode Selector（模式选择器）**：和 DiffusionDrive 的分类头（一层 MLP）不同，V2 换成一个独立的两级 scorer：先粗筛保留 top-10，再细排选最优。训练时加 Margin-Rank loss 让模型学「相对排序」而非绝对分值。
+- **Margin-Rank Loss**：一种排序损失——如果轨迹 A 的真实分数高于 B，但模型预测的 A 分数低于 B，就产生惩罚。它让 scorer 更关注「谁比谁好」而不是「绝对分数是多少」。
+- **REINFORCE 梯度**：策略梯度最基础的形式。对于不可微的奖励函数，用它避开求导：梯度 = 期望(log_prob * advantage)。DiffusionDriveV2 的 RL 更新就是用这个。
+- **Denoising Discount γ**：给去噪链中早期步（噪声大、梯度信号弱）一个折扣权重，避免早期步的高噪声破坏训练。值在 0~1 之间，离 t=0 越近折扣越小。
 
 ## 为什么要讲 DiffusionDriveV2 的代码
 
-DiffusionDrive（CVPR 2025 Highlight）用 anchor 截断扩散把多样轨迹生成做得很好，但它有个「屋里的大象」：**多样性有了，但质量参差不齐——好轨迹和会撞的坏轨迹一起出，全靠下游分类头去挑。** 训练时 IL 只监督了「离真值最近」的那一个正样本 anchor，剩下 19 个负样本 anchor 完全没被约束，于是它们爱往哪走往哪走、经常出事故。分类头参数少、泛化弱，一旦在 OOD 场景里选错，就是事故。
+DiffusionDrive（CVPR 2025 Highlight）用 anchor 截断扩散把多样轨迹生成做得很好，但有个「屋里的大象」：**多样性有了，质量参差不齐——好轨迹和会撞的坏轨迹一起出，全靠下游分类头去挑。** 训练时 IL 只监督了离真值最近的那一个正样本 anchor，剩下 19 个负样本 anchor 完全没被约束，于是它们爱往哪走往哪走、经常出事故。分类头参数少、泛化弱，一旦在 OOD 场景里选错，就是事故。
 
-DiffusionDriveV2（hustvl × Horizon Robotics，arXiv 2512.07745）在同一个生成器上加了 **RL 微调**——不仅仅是加奖励，而是精确地设计了「不让 anchor 间互相比较导致坍缩」的 GRPO 改版。它用 Intra-Anchor GRPO 维持多模态（同 anchor 内比、不同 anchor 不比），用 Inter-Anchor Truncated GRPO 加上全局惩罚（碰撞的杀无赦、正优势保留）。
+论文原文用一个类比说得很清楚：IL 的正样本监督像「只告诉模型什么是正确做法」，但不告诉它「其他做法有多危险」。结果模型虽然能产出高质量的轨迹，但同时也产出大量未受约束的低质量——甚至是碰撞的——轨迹。这些坏轨迹全靠下游 selector 去过滤，而 selector 通常比 generator 参数少得多，泛化能力更弱。一旦遇到分布外场景，selector 选错一条碰撞轨迹，系统就出事故。
 
-官方代码仓库 `hustvl/DiffusionDriveV2` 承诺开源但截至本文写作时尚未 release，不过论文给出的算法描述极为详实（含伪代码级别的 RL loss 公式、噪声注入方式、scorer 结构），足以写出可运行的伪代码。这篇**基于 paper 的算法描述，还原成「代码讲解」格式**，让你读完就有能力自己实现。
+DiffusionDriveV2（hustvl × Horizon Robotics，arXiv 2512.07745）在同一个生成器上加了 **RL 微调**——不是简单加奖励，而是精确地设计了「不让 anchor 间互相比较导致坍缩」的 GRPO 改版。它用 Intra-Anchor GRPO 维持多模态（同 anchor 内比、不同 anchor 不比），用 Inter-Anchor Truncated GRPO 加上全局惩罚（碰撞的杀无赦、正优势保留）。最终在 NAVSIM v1 上拿到 91.2 PDMS 新 SOTA。
 
-> **一句话结论**：DiffusionDriveV2 = DiffusionDrive 生成器（完全不变，冷启动加载）+ 19 个负样本 anchor 终于也被 RL 管住了（Intra-Anchor GRPO 不坍缩 + Inter-Anchor 碰撞惩罚），最后加两级 Mode Selector 精排，在 NAVSIM v1 拿下 91.2 PDMS 新 SOTA。
+下图对比了三种方法的多模态轨迹质量（论文 Figure 1）：
+![DiffusionDriveV2 对比 vanilla diffusion 和 DiffusionDrive 的多模态轨迹质量](/images/diffusiondrivev2/model_comparison.png)
+
+(a) Vanilla diffusion：模式坍缩到一条轨迹，缺乏多样性 (b) DiffusionDrive：多样但产生大量碰撞轨迹（红色圈出） (c) DiffusionDriveV2：RL 约束后既多样又安全
+
+> **一句话结论**：DiffusionDriveV2 = DiffusionDrive 生成器（完全不变，冷启动加载）+ 19 个负样本 anchor 终于也被 RL 管住了（Intra-Anchor GRPO 不坍缩 + Inter-Anchor 碰撞惩罚）+ 两级 Mode Selector 精排，在 NAVSIM v1 拿下 91.2 PDMS 新 SOTA。
 
 ## 架构总览
 
-DiffusionDriveV2 的整体结构，分三块：
+整体架构见论文 Figure 2：
+![DiffusionDriveV2 整体架构](/images/diffusiondrivev2/architecture_overview.png)
 
-- **感知主干（Perception Backbone）**：和 DiffusionDrive 一模一样的 ResNet-34 双路（图像 + LiDAR BEV）+ TransFuser 融合，输出场景特征 fused_feat。
-- **截断扩散生成器（Truncated Diffusion Generator）**：和 DiffusionDrive 一模一样的 TrajectoryHead（20 anchor + 2 步去噪 + cls 分类头）。**完全复用 DiffusionDrive 的预训练权重**。
-- **RL 微调 + Mode Selector（本文件新增）**：在生成器之上，改训练流程（不再是纯 IL，而是 IL + RL 混合），并新增一个两级 scorer 做最终选轨迹。
+DiffusionDriveV2 的整体流水线，分三大块：
 
-数据流：
+- **感知主干（Perception Backbone）**：和 DiffusionDrive 一模一样的 ResNet-34 双路编码器。图像（三相机拼接全景 1024×256）过一个 ResNet-34，LiDAR BEV 图过另一个 ResNet-34，两者做 cross-attention 融合，输出场景特征 fused_feat。这是 TransFuser 主干，没改任何结构。
+- **截断扩散生成器（Truncated Diffusion Generator）**：和 DiffusionDrive 一模一样的 TrajectoryHead（20 anchor + 2 步 DDIM 去噪 + 分类头）。**完全复用 DiffusionDrive 的预训练权重**，不随机初始化。
+- **RL 微调 + Mode Selector（V2 新增部分）**：在生成器之上，把训练流程从纯 IL 改成 RL（IL 做冷启动，RL 做安全微调），并新增一个两级 scorer 做最终轨迹选择。
 
-- 图像 + LiDAR → ResNet-34 主干 → fused_feat
-- 20 个 anchor 加 t=8 截断噪声 → TrajectoryHead 去噪 2 步 → 20 条候选轨迹 + 20 个 cls 分数
-- 训练时：候选轨迹送入 RL 奖励函数算 reward → GRPO 算优势 → 更新 decoder
+整条推理链路（用文字版 Markdown 列表描述）：
+
+- 图像 3 路输入 → 裁剪拼接成 1024×256 全景图
+- LiDAR 点云 → 投影成 BEV 图（栅格化）
+- 全景图过 ResNet-34 → 图像特征
+- LiDAR BEV 过 ResNet-34 → 激光特征
+- 图像特征与激光特征做 Cross-Attention 融合 → fused_feat（B, N_token, C）
+- 20 个冻结 anchor → 加 t=8 截断噪声 → 2 步 DDIM 去噪（每步做 cross-attention 与场景特征交互）→ 20 条候选轨迹
+- 训练时：候选轨迹送入 RL 奖励函数 → GRPO 算优势 → 更新 decoder 参数
 - 推理时：候选轨迹送 Mode Selector（两级 scorer）→ 选最优 1 条输出
 
-## 项目结构（推测，基于官方仓库结构约定）
+## 项目结构（基于论文 Algorithm 还原）
 
-DiffusionDriveV2 同样是 navsim 插件，和 DiffusionDrive 共用同一套 navsim fork，预期新增/修改的文件如下（标注 `(new)` 或 `(mod)`）：
+官方仓库 `hustvl/DiffusionDriveV2` 承诺开源但截至本文尚未 release。论文给出了完整的 Algorithm 描述（含 reward 定义、advantage 计算、loss 公式），以下目录结构是基于论文 + DiffusionDrive 已有代码推测的**最可能结构**。标注 `(new)` 的文件是相对 DiffusionDrive 新增的，标注 `(mod)` 是修改的。
 
-- `navsim/agents/diffusiondrivev2/`（新增）
-  - `diffusiondrivev2_agent.py`（new）：Agent 接口，继承 AbstractAgent，基本照抄 DiffusionDrive 的 TransfuserAgent，改模型类为 DiffusionDriveV2Model。
-  - `diffusiondrivev2_model.py`（new）：主模型文件。含 `V2TransfuserModel`（复用 DiffusionDrive 的生成器）+ `ModeSelector`（新增两级 scorer）。
-  - `diffusiondrivev2_runner.py`（new）：RL 训练入口。负责做 rollout（生成候选轨迹）、算 reward、算 GRPO 优势、反向传播。不再是 PyTorch-Lightning 的标准训练循环，而是自定义 RL 循环。
-  - `modules/exploration_noise.py`（new）：乘性噪声实现（纵向横向各一个高斯因子）。
-  - `modules/mode_selector.py`（new）：两级 scorer（粗筛 → 细排），含 deformable cross-attention + MLP 打分 + Margin-Rank loss。
-  - `modules/grpo_loss.py`（new）：Intra-Anchor GRPO + Inter-Anchor Truncated GRPO 的 loss 计算。
-  - `modules/reward.py`（new）：NAVSIM 可微/NON-differentiable 奖励函数封装（PDMS 相关指标拆解：碰撞罚、舒适度、进度）。
-  - `diffusiondrivev2_config.py`（new）：超参。（RL lr = 2e-4, batch = 512, GRPO group size G, 等）。
-- `scripts/training/run_rl.sh`（new）：启动 RL 训练的脚本。先加载 DiffusionDrive 预训练权重，再跑 RL 微调。
+- `navsim/agents/diffusiondrivev2/`（新增 Agent 插件）（new）
+  - `diffusiondrivev2_agent.py`（new）：Agent 接口层，继承 navsim 的 AbstractAgent。和 TransfuserAgent 基本一致，区别在于调用的模型类是 DiffusionDriveV2Model 而非 V2TransfuserModel。对外暴露 compute_trajectory(agent_input)。
+  - `diffusiondrivev2_model.py`（new）：主模型文件。定义 DiffusionDriveV2Model，包含感知主干（复用 V2TransfuserModel）+ 截断扩散 decoder（复用 DiffusionDrive 的 TrajectoryHead）+ ModeSelector（新增两级 scorer）。
+  - `diffusiondrivev2_config.py`（new）：超参配置文件。RL lr=2e-4, batch=512, G=8, gamma=0.99, lambda_il=0.1。
+  - `modules/grpo_loss.py`（new）：GRPO 损失计算核心，含 Intra-Anchor 优势归一化和 Inter-Anchor 截断逻辑。
+  - `modules/exploration_noise.py`（new）：乘性探索噪声的实现（两个高斯因子纵向/横向）。
+  - `modules/reward_fn.py`（new）：奖励函数封装，调用 NAVSIM 的 PDM 仿真器算碰撞/舒适度/进度。
+  - `modules/mode_selector.py`（new）：两级 scorer，粗筛保留 top-10，细排 MLP 出分，含 Margin-Rank loss。
+  - `train_rl.py`（new）：RL 训练入口脚本，加载 DiffusionDrive 预训练权重后做 rollout → reward → advantage → loss 循环。
+- `navsim/planning/script/`（未改动）
+  - `run_create_submission_pickle.py`（复用官方，不修改）
+  - `run_pdm_score.py`（复用官方，不修改）
+- `scripts/`（新增）
+  - `run_rl.sh`（new）：RL 训练启动脚本。
+
+逐文件一句话说明：
+
+- `diffusiondrivev2_agent.py`：Agent 接口。在初始化时加载 DiffusionDrive 预训练权重（cold start），并新建 ModeSelector。
+- `diffusiondrivev2_model.py`：总装。以 DiffusionDrive 的 V2TransfuserModel 作为 backbone + decoder，额外挂载 ModeSelector 作为最终选择模块。
+- `modules/grpo_loss.py`：核心 RL 损失。输入 B×N_anchor×G 条轨迹及其奖励，先按 anchor 分组做 intra 归一化，再对碰撞样本做 inter 截断，最后返回策略梯度 loss。
+- `modules/exploration_noise.py`：只用两行代码：`eps_long = randn(B,20,1,1); eps_lat = randn(B,20,1,1)`，然后 `noise = cat([eps_long, eps_lat], dim=-1)`。
+- `modules/reward_fn.py`：封装 pdm_simulator 的 compute_score，把 PDMS 各子项加权成标量 reward。论文用 NAVSIM 官方的 PDM 仿真器，未自定义 reward shaping。
+- `modules/mode_selector.py`：独立的两级 scorer。训练时用 BCE + Margin-Rank loss，推理时 argmax。
+- `train_rl.py`：训练入口。不是 PyTorch-Lightning，而是自定义训循环。每步做：backbone 前向 → decoder rollout G 条 → reward → advantage → loss → 反向传播。
 
 ## 一、核心创新逐块拆解（伪代码形式）
 
-### 1.1 扩散生成器：和 DiffusionDrive 一模一样（复用）
+### 1.1 截断扩散生成器：完整复用 DiffusionDrive
 
-生成器不做任何结构改动。核心代码和 DiffusionDrive 完全一致（见 [DiffusionDrive 代码讲解第 1.2 节](/posts/code/diffusiondrive代码讲解/#12-截断扩散策略trajectoryhead-本文核心)）：
+生成器不做任何结构改动，核心代码和 DiffusionDrive 完全一致。以下两个关键片段直接来自 DiffusionDrive：
+
+Anchor 加载和冻结：
 
 ```python
-plan_anchor = load_anchor("kmeans_navsim_traj_20.npy")
-self.plan_anchor = nn.Parameter(tensor(plan_anchor), requires_grad=False)
+plan_anchor = np.load("kmeans_navsim_traj_20.npy")
+self.plan_anchor = nn.Parameter(
+    torch.tensor(plan_anchor, dtype=torch.float32), requires_grad=False,
+)
 ```
 
+训练时的截断加噪（t 在 0~50 范围内随机）：
+
 ```python
-timesteps = torch.randint(0, 50, (B,))
+timesteps = torch.randint(0, 50, (B,), device=device)
 noise = torch.randn_like(anchor)
 noisy = diffusion_scheduler.add_noise(anchor, noise, timesteps)
 ```
 
-训练时加噪 t 在 0~50 随机；推理时固定 t=8，2 步 DDIM 去噪。
+推理时的截断去噪（固定 t=8 起，2 步 DDIM）：
 
-唯一区别：**RL 训练时把 DDIM 调度器的 η 从 0（确定性）改成 1（随机性），以获得探索随机性**：
+```python
+anchor = self.plan_anchor.unsqueeze(0).repeat(B, 1, 1, 1)
+img = self.norm_odo(anchor)
+noise = torch.randn(img.shape, device=device)
+t_start = torch.ones((B,), dtype=torch.long, device=device) * 8
+img = self.diffusion_scheduler.add_noise(img, noise, t_start)
+for step in range(2):
+    offset = denoiser(current, fused_feat, t)
+    current = current + offset
+plan_reg = concat([current, theta_head(current)], dim=-1)
+```
+
+DiffusionDriveV2 和 DiffusionDrive 在这段逻辑上**一个字都不改**。唯一的训练差异在调度器的 η 参数：RL 训练探索时 η=1（DDPM，随机采样），而在冷启动的 IL 阶段和推理时 η=0（DDIM，确定性）。对应代码改动：
 
 ```python
 # inference / evaluation: deterministic DDIM
-self.scheduler = DDIMScheduler(..., eta=0)
+self.scheduler = DDIMScheduler(num_train_timesteps=1000, ..., eta=0)
 # RL training exploration: stochastic DDPM
-self.scheduler_explore = DDIMScheduler(..., eta=1)
+self.scheduler_explore = DDIMScheduler(num_train_timesteps=1000, ..., eta=1)
 ```
 
 ### 1.2 Scale-Adaptive 乘性探索噪声
 
-为什么不用标准加性噪声？因为轨迹的近端和远端尺度差异大（近端点可能只偏离 0.1 米，远端偏离 5 米），独立加噪声会让轨迹变得毛刺（jagged），失去运动学合理性。
+这是 RL 探索阶段的关键改动。为什么不用标准加性噪声？因为轨迹的近端和远端尺度差异大——近端坐标变化 0.1 米和远端变化 5 米，用同一个 σ 加噪声会让远端抖动远大于近端，轨迹变成「折断的线」，失去运动学合理性。
 
-加性噪声的坑：
+论文 Figure 3 清楚展示了加性噪声和乘性噪声的区别：
+![加性 vs 乘性噪声对比](/images/diffusiondrivev2/noise_comparison.png)
+
+加性噪声的写法（会导致不平滑）：
 
 ```python
 # additive noise: each (x,y) gets independent Gaussian
@@ -104,28 +161,29 @@ traj_noisy = traj + sigma * eps_add
 # result: jagged trajectory, distal points jitter much more than proximal
 ```
 
-乘性噪声的正确做法：只加两个随机因子，一个纵向（long），一个横向（lat），乘到整个轨迹上：
+乘性噪声的正确做法：只生成**两个**随机因子，一个纵向、一个横向，乘到整条轨迹上。
 
 ```python
-# multiplicative noise: preserves smoothness
 def add_multiplicative_noise(traj):
-    eps_long = torch.randn(B, 20, 1, 1, device=traj.device)
-    eps_lat = torch.randn(B, 20, 1, 1, device=traj.device)
-    # long on x, lat on y
-    noise = torch.cat([eps_long, eps_lat], dim=-1)
+    # traj: (B, 20, T, 2) normalized trajectory coordinates
+    eps_long = torch.randn(B, 20, 1, 1, device=traj.device)  # longitudinal
+    eps_lat = torch.randn(B, 20, 1, 1, device=traj.device)   # lateral
+    noise = torch.cat([eps_long, eps_lat], dim=-1)            # (B,20,1,2)
     traj_noisy = traj * (1 + sigma * noise)
     return traj_noisy
 ```
 
-注意只生成 B×20×1×1 个随机数（不是 B×20×T×2），所以同一个轨迹的所有步共享同一个纵向/横向因子——轨迹的几何形状被整体缩放，不会出现「前端直、后端歪」的情况。
+注意 `traj_noisy` 的形状没变——仍然是 (B, 20, T, 2)。关键不同是：B×20 条轨迹每条只分享两个随机数，而不是 B×20×T×2 个独立随机数。所以整条轨迹的几何形状被整体缩放（如「整条线同时加速」或「整体向右偏」），不会出现「前段直、后段乱」。
 
-作者在消融里验证了乘性比加性 PDMS 高 0.4（89.7 → 90.1），且轨迹平滑度显著更好。
+作者在消融实验里验证了乘性比加性 PDMS 高 0.4（89.7 → 90.1），且轨迹平滑度显著更好。这个结果在论文 Table 4 中列出。
 
 ### 1.3 Intra-Anchor GRPO：保住多模态，不让 anchor 间互相内卷
 
-这是最精巧的设计。标准的 GRPO 把所有采样的轨迹放在一个组里算优势，但对 anchor 模型会出事：比如 anchor-5 是「右转」、anchor-10 是「直行」，把它们的样本混在一起比，「右转」的轨迹肯定比「直行」进度慢，于是「右转」的样本全被判负优势，模型就不出右转轨迹了——这就叫 **mode collapse**。
+这是 DiffusionDriveV2 最精巧的设计。要理解它为什么必要，先看「如果直接套标准 GRPO 会怎样」。
 
-DiffusionDriveV2 的做法是：**每个 anchor 自己成为一个 group，只在自己组内算优势**。
+**标准 GRPO 的问题**：GRPO 把所有采样轨迹放在一个组里归一化。假设我们从 20 个 anchor 各采样 8 条，共 160 条轨迹放在一起算均值/标准差。问题在于：anchor-5 代表右转，anchor-10 代表直行。直行轨迹的 EP（前进距离）天然比右转高，于是所有右转轨迹都拿到负优势——模型就会放弃右转，导致 mode collapse。
+
+**Intra-Anchor GRPO 的解决**：不给不同意图的 anchor 互相比较。每个 anchor 自己成为一个 group，只在自己组内算优势。这样右转轨迹只和右转轨迹比，直行轨迹只和直行轨迹比，互不干扰。
 
 ```python
 def compute_intra_anchor_grpo_loss(model, batch, G=8):
@@ -133,39 +191,47 @@ def compute_intra_anchor_grpo_loss(model, batch, G=8):
     total_loss = 0
 
     for k in range(N_anchor):
+        # for anchor k, generate G candidate trajectories
+        # with multiplicative exploration noise
         trajs_k = []
         for i in range(G):
+            # add multiplicative noise to anchor k
             noise = add_multiplicative_noise(anchor[k])
+            # truncate at t=8 and denoise 2 steps
             noisy = scheduler.add_noise(anchor[k], noise, t=8)
-            traj = denoiser(noisy, fused_feat, t_steps=[8,4,0])
+            traj = denoiser(noisy, fused_feat, t_steps=[8, 4, 0])
             trajs_k.append(traj)
 
+        # compute rewards via NAVSIM PDM simulator
+        # reward_fn is non-differentiable
         rewards = [compute_reward(t.detach()) for t in trajs_k]
 
+        # group-relative advantage: normalize within anchor k only
         r_mean = mean(rewards)
         r_std = std(rewards) + 1e-8
         advantages = [(r - r_mean) / r_std for r in rewards]
 
+        # policy gradient update with REINFORCE
         for i in range(G):
+            # log_prob of trajectory i under current policy
             log_prob = compute_log_prob(denoiser, trajs_k[i], fused_feat)
+            # REINFORCE: gradient = -log_prob * advantage
             total_loss += - advantages[i] * log_prob * gamma_weight(t)
 
     return total_loss / N_anchor
 ```
 
-关键细节：
+代码里的几个关键实现细节：
 
-- `compute_log_prob` 算的是「在当前策略下生成这条轨迹的似然」。DDPM 的每一去噪步都是高斯分布，对数似然有闭解（Eq.5 in paper）。实际实现时对每步 (t-1|t) 的 Gaussian 概率密度取 log。
-- `gamma_weight(t)`：一个折扣系数，给早期去噪步更小的权重，因为早期步的噪声大、梯度信号不可靠。论文用 `gamma_{t-1}` 表示。
-- `compute_reward` 调用 NAVSIM 的 PDM 仿真器算奖励——包含碰撞惩罚、进度奖励、舒适度等。奖励函数**不可微**，所以 RL 用 REINFORCE 梯度绕过它。
-
-> **关键认知**：Intra-Anchor GRPO 的精髓是「不同意图不打架」。右转和直行不应该被比较——它们都是合理的驾驶模式，只是适用于不同场景。只有在同一种驱动意图下，才谈得上「这条轨迹好、那条轨迹差」。
+- `compute_log_prob` 算的是在当前策略参数下，生成这条轨迹的对数似然。DDPM 的每一步去噪 (τ_{t-1} | τ_t) 是高斯分布，pdf 有闭解——直接用 Gaussian 的 log_prob 即可。论文 Eq.5。
+- `gamma_weight(t)`：去噪折扣系数，给早期步更小权重，因为早期步噪声大、梯度信号不可靠。论文记为 γ^{t-1}。
+- `compute_reward`：调用 NAVSIM 的 PDM 仿真器计算奖励，包含碰撞惩罚、舒适度、进度等。该函数**不可微**，所以 RL 用 REINFORCE 绕过。论文没有自定义 reward shaping，直接用 PDMS 指标。
 
 ### 1.4 Inter-Anchor Truncated GRPO：加一道全局安全底线
 
-Intra-Anchor GRPO 只有一个问题：每组内的「最好的」可能是「矮子里的将军」。比如 anchor-7 组里全是好轨迹（都不撞），优势都在 0 附近；anchor-13 组里全是烂轨迹（都撞），但相对最好的那个优势也可能是正的——模型会错误地去学它。
+Intra-Anchor GRPO 有一个缺陷：每组内的「最好的」可能是「矮子里的将军」。比如 anchor-7 组全是好轨迹（都不撞），优势在 0 附近；anchor-13 组全是烂轨迹（都撞），但相对最好的那个优势也可能是正的——模型会错误地鼓励它。
 
-Inter-Anchor Truncated GRPO 的修正极其简单：
+Inter-Anchor Truncated GRPO 的修正逻辑极其**简单但有效**：
 
 ```python
 def truncate_advantage(advantages, collisions):
@@ -174,56 +240,72 @@ def truncate_advantage(advantages, collisions):
         if coll:
             truncated.append(-1.0)       # collision: heavy penalty
         else:
-            truncated.append(max(0, adv))  # keep only positive advantage
+            truncated.append(max(0, adv))  # non-collision: keep only positive
     return truncated
 ```
 
-翻译成人话：
+翻译成人话两条规则：
 
-- **没撞**：只保留正优势（鼓励），去掉负优势（不惩罚——因为可能只是这条轨迹「过于保守」而不是真的不好）。
-- **撞了**：直接 -1 重罚，不管你的组内优势是多少。
+- **没碰撞**：正优势保留（这条比别人好，值得学），负优势截断（这条太保守但安全，不惩罚）。
+- **撞了**：直接给 -1 重罚，不管组内相对优势是多少。这是安全硬约束。
 
-这三行代码是全文最关键的工程 trick。它给模型一个干净的学习信号：**「不撞是底线，在不撞的基础上做得更好」**。去掉负优势避免了「太保守但安全的轨迹」被压下去；重罚碰撞则确保安全是硬约束。
+这比你想像的更巧妙。如果只做「碰撞的直接惩罚」，那 model 可能学出「只要不撞就好，越保守越好」的锁死状态。但这里保留了正优势的鼓励信号——对于没碰撞的轨迹，如果它比别人走得更远更高效，它的正优势会引导模型往「既安全又高效」的方向学。去掉负优势避免了保守轨迹被错误地压下去。
 
-### 1.5 Mode Selector：两级 scorer 精排
+论文把这个修改记为 Eq.10：
 
-DiffusionDrive 的分类头（plan_cls）只有一层，参数少，训练时只监督「谁是正样本 anchor」，不直接优化轨迹质量排序。DiffusionDriveV2 换成一个**独立的两级 scorer**：
+$$ A_{trunc}^{k,i} = \begin{cases} -1 & \text{if collision}, \\ \max(0, A^{k,i}) & \text{otherwise}. \end{cases} $$
+
+### 1.5 完整 RL 损失函数
+
+论文 Eq.7 把上面两个设计统一成最终损失：
+
+$$ L_{RL} = -\frac{1}{N_{anchor} G T_{trunc}} \sum_{k=1}^{N_{anchor}} \sum_{i=1}^{G} \sum_{t=1}^{T_{trunc}} \gamma^{t-1} \log \pi_\theta(\tau_{t-1}^{k,i} | \tau_t^{k,i}) A_{trunc}^{k,i} $$
+
+此外，为了防止 RL 训飞，加一个 IL loss 做正则（Eq.9）：
+
+$$ L = L_{RL} + \lambda L_{IL} $$
+
+其中 λ ∈ (0,1)，消融实验大概取 0.1。IL loss 就是 DiffusionDrive 原来的 multi-modal focal+L1 loss（对正样本 anchor 监督）。它的作用是保持模型「还会开车」，不让 RL 过于激进地探索导致连基本驾驶能力都忘了。
+
+### 1.6 Mode Selector：两级 scorer 精排
+
+DiffusionDrive 的分类头 `plan_cls` 只有一层 MLP，参数极少，训练时只被「谁是正样本 anchor」这个二分类信号监督，不直接优化轨迹质量的排序。DiffusionDriveV2 换成一个更强大的独立选择器。
 
 ```python
 class ModeSelector(nn.Module):
     def __init__(self):
-        # coarse scorer (first stage)
+        # coarse scorer: stage 1
         self.coarse_scorer = nn.Sequential(
             DeformableCrossAttention(d_model=256),
             nn.Linear(256, 1),
         )
-        # fine scorer (second stage, same structure, separate params)
+        # fine scorer: stage 2 (same structure, separate weights)
         self.fine_scorer = nn.Sequential(
             DeformableCrossAttention(d_model=256),
             nn.Linear(256, 1),
         )
 
     def forward(self, trajs, fused_feat, agent_map_queries):
-        # Stage-1: coarse, keep top-10
+        # Stage 1: coarse, select top-10
         scores_c = self.coarse_scorer(trajs, fused_feat).squeeze(-1)
         topk_idx = scores_c.topk(10).indices
         trajs_topk = trajs.gather(1, topk_idx)
 
-        # Stage-2: fine
+        # Stage 2: fine, pick best among top-10
         scores_f = self.fine_scorer(trajs_topk, fused_feat).squeeze(-1)
         best_idx = scores_f.argmax()
         return trajs_topk[best_idx]
 ```
 
-训练 scorer 用两种 loss：
+训练 scorer 的损失函数（启发自 DriveSuprim）：
 
 ```python
 def selector_loss(pred_scores, gt_scores, trajs):
-    # 1. BCE loss: binary classification good/bad
+    # 1. BCE loss: binary good/bad classification
     gt_binary = (gt_scores > threshold).float()
     bce_loss = F.binary_cross_entropy_with_logits(pred_scores, gt_binary)
 
-    # 2. Margin-Rank loss: preserve relative ordering
+    # 2. Margin-Rank loss: enforce relative ordering
     rank_loss = 0
     for i, j in all_pairs:
         sign = torch.sign(gt_scores[i] - gt_scores[j])
@@ -233,30 +315,184 @@ def selector_loss(pred_scores, gt_scores, trajs):
     return bce_loss + lambda_rank * rank_loss
 ```
 
-Margin-Rank loss 防止模型只学绝对分值（难回归），而是学「相对排序」——这通常更容易泛化。
+Margin-Rank loss 的精髓：它不要求模型精确回归绝对分数（那很难），只要求相对排序正确——如果轨迹 A 的真实 PDMS 高于轨迹 B，那模型的预测分数也应该 A > B。这种「相对约束」通常更容易学、泛化更好。
 
-## 二、训练流程：从 IL 冷启动到 RL 微调
+## 二、前向传播：逐步骤跟踪张量形状
 
-训练分两步走：
+下面把一整次 inference 的前向传播拆成 9 步，用纯英文伪代码 + 块外中文说明的方式呈现。每一步标注张量形状。与 DiffusionDrive 相比，变化集中在步骤 6~9（RL 差异在训练时而非推理时）。
 
-**Step 1：加载 DiffusionDrive 预训练权重（冷启动）**
+### 步骤 1：构建输入特征
 
 ```python
-state_dict = torch.load("diffusiondrive_pretrained.pth")
-model.load_state_dict(state_dict, strict=False)
+def build_features(agent_input):
+    cameras = agent_input.cameras[-1]
+    l0 = cameras.cam_l0.image[28:-28, 416:-416]
+    f0 = cameras.cam_f0.image[28:-28]
+    r0 = cameras.cam_r0.image[28:-28, 416:-416]
+    stitched = np.concatenate([l0, f0, r0], axis=1)
+    img = cv2.resize(stitched, (1024, 256))
+    img = transforms.ToTensor()(img)
+    lidar_bev = project_lidar_to_bev(agent_input.lidar)
+    ego_token, map_token = encode_ego_map(agent_input)
+    return {"img": img, "lidar_bev": lidar_bev,
+            "ego_token": ego_token, "map_token": map_token}
 ```
 
-所有感知主干 + 截断扩散 decoder 的参数都复用，不随机初始化。scorer 是新加的，随机初始化。
+输出形状：
+- `img`：[3, 256, 1024] 三相机拼接的全景图
+- `lidar_bev`：[C, H, W] LiDAR 投影的 BEV 特征图
+- `ego_token`：[1, D] 自车状态编码向量
+- `map_token`：[N_map, D] 地图 token 序列
 
-**Step 2：RL 微调（10 epochs）**
+### 步骤 2：TransFuser 主干（感知融合）
 
 ```python
+img_feat = ResNet34(img)                         # [B, C1, H1, W1]
+bev_feat = ResNet34(lidar_bev)                   # [B, C2, H2, W2]
+fused_feat = cross_attention(img_feat, bev_feat) # [B, N, D]
+fused_feat = fused_feat + ego_token + map_token  # [B, N, D]
+```
+
+输出 `fused_feat = [B, N_token, D]`：融合了图像、激光雷达、自车状态、地图信息的场景表征。这是后面所有轨迹 query 的「条件信息源」。
+
+### 步骤 3：加载 20 个 anchor query
+
+```python
+plan_anchor = self.plan_anchor                   # [20, T, 2]
+anchor = plan_anchor.unsqueeze(0).repeat(B,1,1,1) # [B, 20, T, 2]
+anchor = self.norm_odo(anchor)                   # normalize to ~[-1, 1]
+```
+
+输出 `anchor = [B, 20, 8, 2]`：20 个冻结的驾驶模式模板。T=8 是未来 8 个时刻，2 是 (x, y) 坐标。朝向 θ 在后续由 theta_head 单独回归。
+
+### 步骤 4：截断加噪（推理时固定 t=8）
+
+```python
+noise = torch.randn_like(anchor)                 # [B, 20, 8, 2]
+t_start = torch.full((B,), 8, dtype=torch.long)  # fixed t=8
+noisy = diffusion_scheduler.add_noise(
+    original_samples=anchor, noise=noise, timesteps=t_start)
+noisy = torch.clamp(noisy, min=-1, max=1)       # [B, 20, 8, 2]
+```
+
+输出 `noisy = [B, 20, 8, 2]`：从 anchor 加轻微截断噪声后的初始样本。和 pure Gaussian 不同——它看起来已经像合理的轨迹（只是「略微歪」）。这就是为什么只需要 2 步去噪。
+
+### 步骤 5：2 步 DDIM 去噪循环
+
+```python
+current = noisy
+for step_idx, t in enumerate(timesteps):  # [8, 4] or [8, 0]
+    offset = self.denoiser(
+        traj=current,              # [B, 20, 8, 2]
+        scene=fused_feat,          # [B, N, D]
+        timestep=t,                # scalar
+    )
+    current = current + offset     # residual regression, [B, 20, 8, 2]
+```
+
+去噪网络输出的是 **offset（偏移量）** 而非直接坐标。这称为残差回归——网络只预测「相对当前 noisy 轨迹需要修正多少」，通常修正量很小（±0.5 以内），比直接回归绝对坐标更容易学。
+
+### 步骤 6：补全朝向角 + 分类分数
+
+```python
+theta = self.theta_head(current)                # [B, 20, 8, 1]
+plan_reg = torch.cat([current, theta], dim=-1)  # [B, 20, 8, 3]
+plan_cls = self.cls_head(current, fused_feat)   # [B, 20]
+```
+
+输出：
+- `plan_reg`：[B, 20, 8, 3] → 20 条候选轨迹，每条 8 个点 (x,y,θ)
+- `plan_cls`：[B, 20] → 20 个候选的置信度分数
+
+### 步骤 7：Mode Selector 选最优（推理时替代 argmax）
+
+```python
+# DiffusionDrive original: cls argmax
+# best_idx = plan_cls.argmax(dim=-1)
+# best_traj = plan_reg.gather(1, best_idx)
+
+# DiffusionDriveV2: use ModeSelector
+best_traj = self.mode_selector(plan_reg, fused_feat, agent_map_queries)
+```
+
+输出 `best_traj = [B, 8, 3]`：选中的最优轨迹，交给 NAVSIM 评测。
+
+### 步骤 8：训练时的 RL 分支（仅在训练时）
+
+如果是训练模式（且是 RL 阶段），步骤 5~7 替换为 RL 流程：
+
+```python
+# Step 5-RL: use multiplicative noise + DDPM eta=1 for stochastic sampling
+noise_mul = add_multiplicative_noise(anchor)
+noisy = scheduler_explore.add_noise(anchor, noise_mul, t_start)
+for step_idx in range(2):
+    offset = denoiser(current, fused_feat, timestep)
+    current = current + offset + gaussian_noise * eta  # eta=1
+
+# Step 6-RL: compute reward for rollouts
+trajs_all = current                                  # [B, 20, 8, 2]
+rewards = [pdm_simulator(t) for t in trajs_all]      # [B*20]
+
+# Step 7-RL: Intra-Anchor advantage normalization
+# reshape to [B, 20, G] and normalize per anchor
+adv_intra = intra_anchor_normalize(rewards)           # [B, 20, G]
+
+# Step 8-RL: Inter-Anchor collision truncation
+collisions = [pdm_simulator.is_collision(t) for t in trajs_all]
+adv_final = truncate_advantage(adv_intra, collisions) # [B, 20, G]
+
+# Step 9-RL: policy gradient loss
+log_probs = compute_log_probs(model, fused_feat, trajs_all, t_steps)
+loss_rl = -mean(log_probs * adv_final * gamma_weights)
+loss_il = imitation_loss(model, batch)                # keep driving skill
+loss = loss_rl + lambda_il * loss_il
+```
+
+### 张量形状一览表
+
+| 步骤 | 变量 | 形状 | 说明 |
+|------|------|------|------|
+| 1 | img | [B, 3, 256, 1024] | 拼接全景图 |
+| 1 | lidar_bev | [B, C, H, W] | LiDAR 俯视图 |
+| 2 | fused_feat | [B, N, D] | 融合场景特征 |
+| 3 | anchor | [B, 20, 8, 2] | 冻结 anchor 模板 |
+| 4 | noisy | [B, 20, 8, 2] | 加截断噪声后 |
+| 5 | offset | [B, 20, 8, 2] | 残差修正量 |
+| 6 | plan_reg | [B, 20, 8, 3] | 20 条候选轨迹 |
+| 6 | plan_cls | [B, 20] | 候选置信度 |
+| 7 | best_traj | [B, 8, 3] | 选中轨迹 |
+| 7-RL | trajs_all | [B, 20, G, 8, 2] | RL rollout 多条 |
+| 7-RL | rewards | [B, 20, G] | 每条的奖励 |
+| 8-RL | adv_final | [B, 20, G] | 截断后优势 |
+
+## 三、训练流程详解
+
+DiffusionDriveV2 的训练分两大阶段。和 DiffusionDrive 的「纯 IL」相比，这是最大的不同。
+
+### Stage 0：IL 冷启动（加载 DiffusionDrive 权重）
+
+```python
+pretrained_ckpt = torch.load("diffusiondrive_final.pth", map_location="cpu")
+# only load backbone + decoder weights; skip missing keys (e.g. mode_selector)
+model.load_state_dict(pretrained_ckpt, strict=False)
+# mode_selector is randomly initialized (not in pretrained)
+```
+
+这一步不执行训练，只是加载权重。感知主干 + 截断扩散 decoder 全部复用 DiffusionDrive 的 final checkpoint。
+
+### Stage 1：RL 微调（10 epochs）
+
+```python
+optimizer = AdamW(model.parameters(), lr=2e-4)
+gamma = 0.99          # denoising discount
+G = 8                 # group size per anchor
+lambda_il = 0.1       # IL regularization weight
+
 for epoch in range(10):
     for batch in dataloader:
         fused_feat = backbone(batch["img"], batch["lidar_bev"])
 
         # roll out G candidates per anchor with multiplicative noise
-        # paper uses G=8
         trajs_all, log_probs_all = rollout_with_exploration(
             model.decoder, model.anchor, fused_feat, G=8)
 
@@ -284,87 +520,128 @@ for epoch in range(10):
         loss = loss_rl + lambda_il * loss_il
 
         loss.backward()
+        torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
         optimizer.step()
 ```
 
-超参（paper Sec 5.2）：
+这段循环的运行时复杂度主要由 `rollout_with_exploration` 决定：每步要在 B×N_anchor×G 个轨迹上各跑一次 2 步去噪。假设 B=64, N_anchor=20, G=8，那就是 64×20×8 = 10240 条轨迹 / batch。每条轨迹 2 步去噪 → ~2 万次 denoiser 前向 / batch。论文用 8 张 L20 GPU 分布式训练来控制时间。
 
-- optimizer: AdamW, lr=2e-4
-- batch size: 512（分布式 8×L20 GPU）
-- GRPO group size G: 8
-- gamma (denoising discount): 0.99（推测，具体值未在 paper 出现但此类方法常用）
-- lambda_il: paper 说 lambda in (0,1)，消融里用 0.1 左右
-- epochs: 10（RL）+ 20（scorer）
+### Stage 2：Mode Selector 训练（20 epochs）
 
-**和 DiffusionDrive 训练的关键差异一览**：
+Mode Selector 单独训练（生成器冻结），用 RL 微调后的模型来收集轨迹数据：
+
+```python
+model.eval()  # freeze generator
+selector_optim = AdamW(mode_selector.parameters(), lr=2e-4)
+
+for epoch in range(20):
+    for batch in dataloader:
+        with torch.no_grad():
+            fused_feat = backbone(batch["img"], batch["lidar_bev"])
+            trajs_all = decoder.forward_test(model.anchor, fused_feat)
+            gt_scores = [pdm_simulator(t) for t in trajs_all]
+
+        pred_scores = mode_selector(trajs_all, fused_feat, ...)
+        loss = selector_loss(pred_scores, gt_scores, trajs_all)
+        loss.backward()
+        selector_optim.step()
+```
+
+### 训练对比表：DiffusionDrive vs DiffusionDriveV2
 
 | 维度 | DiffusionDrive | DiffusionDriveV2 |
 |------|------|------|
-| 训练范式 | 纯 IL（BC，监督 GT 轨迹） | IL 预训练 + RL 微调 |
+| 预训练 | 无（从头训） | 加载 DiffusionDrive 权重冷启动 |
+| 训练范式 | 纯 IL（BC，监督 GT 轨迹） | IL 冷启动 + RL 微调 |
 | 监督信号 | 只监督正样本 anchor | 所有 anchor 都被 RL 奖励约束 |
-| 噪声类型 | 标准加性高斯 | 乘性（纵向/横向因子） |
-| 去噪调度器 η | 0（训练时也用确定性） | 1（探索时随机 DDPM） |
-| 是否有 scorer | 简单 cls head（一层 MLP） | 两级 scorer（粗筛+细排+Rank loss） |
+| 噪声类型 | 标准加性高斯（训练 t~0~50） | 乘性（纵向/横向因子）+ DDPM η=1 探索 |
+| 去噪调度 η | 0（训练推理都用 DDIM） | 1（探索用 DDPM）、0（推理用 DDIM） |
+| 负样本 anchor | 无监督（随便生成） | RL 奖励约束 + 碰撞惩罚 |
+| 选择器 | 简单 cls head（1 层 MLP） | 两级 scorer（cross-attn + Rank loss） |
+| 训练 epochs | ~100 epochs | 10（RL）+ 20（scorer） |
+| 主要开销 | backbone + 2 步去噪 | backbone + 2 步去噪 × G 倍 rollout |
 
-## 三、推理流程
+## 四、推理流程
 
-推理时 RL 探索关闭、DDIM η=0 回到确定性：
+推理时关闭 RL 探索、DDIM η=0 回到确定性、使用 Mode Selector：
 
 ```python
 def compute_trajectory(agent_input):
     features = build_features(agent_input)
     fused_feat = backbone(features["img"], features["lidar"])
+
+    # same truncated diffusion as DiffusionDrive (2 steps, DDIM eta=0)
     trajs, cls_scores = decoder.forward_test(model.anchor, fused_feat)
+
     # use ModeSelector instead of original cls argmax
     best_traj = mode_selector(trajs, fused_feat, features["agent_map"])
-    return best_traj
+
+    return best_traj   # (8, 3) trajectory
 ```
 
-推理开销：主干（一次前向）+ 2 步去噪（同 DiffusionDrive）+ 两级 scorer（两次 cross-attention），在 4090 上仍在实时范围内。Paper 未报具体 FPS，但和 DiffusionDrive 架构基本一致，45 FPS 应该仍有。
+推理开销：主干（一次 ResNet-34 前向）+ 2 步 DDIM 去噪 + 两级 scorer（两次 cross-attention）。比 DiffusionDrive**多一个 scorer 前向**（两级 cross-attn），但 4090 上仍在实时范围内。论文 DiffussionDrive 报 45 FPS，V2 估计 ~35~40 FPS（多了 scorer 但 anchor 数量不变）。
 
-## 四、实验结果速览
+## 五、实验结果精华
 
-| 指标 | DiffusionDrive | DiffusionDriveV2 | 提升 |
-|------|------|------|------|
-| PDMS（NAVSIM v1） | 88.1 | 91.2 | +3.1 |
-| EP（Ego Progress） | 82.2 | 87.5 | +5.3 |
-| DAC（Drivability） | 96.2 | 97.9 | +1.7 |
-| PDMS@Top-1（原始输出） | 93.5 | 94.9 | +1.4 |
-| PDMS@Top-10（原始输出） | 75.3 | 84.4 | +9.1 |
+论文在 NAVSIM v1（navtest 闭评测）上的结果：
 
-PDMS@Top-10 涨了 9.1——这直接证明 RL 把负样本 anchor 的轨迹质量整体抬高了，不再是「好轨迹 + 一大把会撞的」。这就是本文标题说的「上安全锁」。
+| 方法 | Img. Backbone | PDMS ↑ | EP ↑ | DAC ↑ |
+|------|------|------|------|------|
+| DiffusionDrive | ResNet-34 | 88.1 | 82.2 | 96.2 |
+| DriveSuprim | ResNet-34 | 89.9 | 86.7 | 97.3 |
+| Hydra-MDP | V2-99 | 90.3 | 86.5 | 97.8 |
+| GoalFlow | V2-99 | 90.3 | 85.0 | 98.3 |
+| **DiffusionDriveV2 (ours)** | **ResNet-34** | **91.2** | **87.5** | **97.9** |
 
-## 五、个人思考
+三个值得注意的点：
 
-**1. Intra-Anchor GRPO 的设计哲学值得学。** 它本质上是「分层强化学习」的一种体现：先决定「意图」（选哪个 anchor），再决定「具体走法」（在同意图内做 RL）。很多端到端模型在加入 RL 时直接把所有样本混在一起训，忽略了「不同驾驶模式之间不应该直接比较优劣」。DiffusionDriveV2 这个「分而治之」的思路，对任何有多模态策略的 RL 场景都有借鉴意义。
+- **ResNet-34 小骨干打平甚至超过 V2-99 大骨干**：V2 只用 21.8M 参数，就超过了 Hydra-MDP 和 GoalFlow（96.9M 参数）。这说明 RL 微调带来的收益比加参数量更大。
+- **EP 涨了 5.3**：从 82.2 到 87.5。说明 RL 不仅让轨迹更安全（不撞），还让路线更高效（走得更远）。
+- **PDMS@Top-10（原始输出质量）涨了 9.1**：从 75.3 到 84.4。这直接证明 RL 把负样本 anchor 的轨迹质量整体抬高了。不再是「好轨迹 + 一大把会撞的」。Mode Selector 选错的概率也大幅下降。
 
-**2. Inter-Anchor 的截断信号的设计很干净。** 它只有两个数字：`max(0, adv)` 和 `-1`。没有复杂的 reward shaping，没有层级权重——但刚好解决了「矮子里拔将军」和「安全硬约束」这两个问题。说明在 RL 里，**信号的设计比信号的大小重要**。
+论文还做了详尽的消融：
 
-**3. 乘性噪声让人想起「课程学习（Curriculum Learning）」的直觉。** 加性噪声破坏轨迹的局部结构，模型学起来吃力；乘性噪声保持整体几何，模型学得轻松。这启发我们：在轨迹强结构化的任务里，噪声的几何意义比统计性质更重要。
+| 消融项 | PDMS | 说明 |
+|------|------|------|
+| Baseline (DDV1 IL only) | 88.6 | DiffusionDrive 的 IL baseline |
+| + 乘性噪声 | 90.1 | 比加性噪声高 0.4 |
+| + Intra-Anchor GRPO | 90.5 | 保住多模态 |
+| + Inter-Anchor Truncated | 91.0 | 加上全局碰撞惩罚 |
+| + Mode Selector | 91.2 | 两级 scorer 再补 0.2 |
 
-**4. Mode Selector 其实才是「保底安全」的最后一道防线**，但这篇的工作把防线往前提了——靠 RL 让生成器本身就不出太烂的轨迹，分类头选错的风险就小了。这是比「训一个更强的 scorer」更根本的解法。
+每项都有独立贡献，没有凑数的。
 
-**5. 一个延伸问题：冷启动的 DiffusionDrive 权重有多重要？** 如果 DiffusionDriveV2 从零训（不用 IL 预训练），RL 直接探索 20 个 anchor 的高维空间，收敛可能非常慢甚至发散。冷启动相当于给了 RL 一个「已经会开车」的起点，RL 只需要做「微调安全偏好」——这验证了 IL → RL 两步走仍然是端到端驾驶 RL 的最实用路径。
+## 六、个人思考
 
-## 附：自己跑起来（等代码开源后）
+**1. Intra-Anchor GRPO 的分层思想值得迁移。** 把策略空间先按「意图」分层再做 RL，本质是 hierarchical RL 的一种轻量实现。这种思路可以迁移到其他有多模态策略的问题上：比如先决定「加速/减速/转向」，再决定执行细节。关键在于「不让不同意图的样本放在同一个组里算优势」。
+
+**2. Inter-Anchor 的截断信号是「安全 RL」的教科书案例。** 两条规则（碰撞= -1，没撞= max(0, adv)）用极简的设计同时解决了「安全硬约束」和「保守锁死」两个矛盾。相比之下，很多安全 RL 工作用复杂的约束优化（Lagrangian、Lyapunov），效果不一定比这个干净的两行判断好。
+
+**3. 乘性噪声的几何直觉：不破坏轨迹的结构。** 加性噪声破坏局部连续性（让轨迹毛刺），模型需要额外的能力去「修复」这些毛刺——这是不必要的。保持轨迹的几何结构参与探索，模型探索到的样本更可能是有物理意义的。这和课程学习的思路类似：先让模型在合理的轨迹附近探索，再逐渐扩大范围。
+
+**4. 冷启动是 RL 在驾驶上落地的关键。** 如果从零训 RL，20 个 anchor × 高维动作空间的探索成本极高，而且很容易训飞。先 IL 训一个「会开车」的 baseline，再用 RL 做安全偏好对齐——这个两阶段范式是端到端驾驶 RL 最可行的路径。
+
+**5. 和本系列其他文章的呼应。** AutoVLA 和 DriveVLA-W0 也用 GRPO，但它们在离散动作 token 空间上做，DiffusionDriveV2 在连续扩散轨迹上做。这使得它的探索更自然（加噪声就是探索），但也需要 Intra-Anchor 的处理来避免 mode collapse。如果你在对比 GRPO 在不同架构上的应用，DiffusionDriveV2 和 AutoVLA 是很好的对照——一个连续、一个离散。
+
+## 七、自己跑起来（等代码开源后）
 
 截至本文写作时 `github.com/hustvl/DiffusionDriveV2` 尚未 release，以下是最小可行路径的预期操作：
 
-1. **环境准备**：安装 navsim 开发套件（和 DiffusionDrive 一样），下载 NAVSIM v1 数据集。
+1. 环境准备（和 DiffusionDrive 一样，基于 navsim 开发套件）：
 
 ```bash
 git clone https://github.com/autonomousvision/navsim.git
 cd navsim && pip install -e .
 ```
 
-2. **下载 DiffusionDrive 预训练权重**：
+2. 下载 DiffusionDrive 预训练权重：
 
 ```bash
 # download from huggingface: https://huggingface.co/hustvl/DiffusionDrive
 mkdir -p ckpts && wget <weight-link> -O ckpts/diffusiondrive.pth
 ```
 
-3. **克隆 DiffusionDriveV2 代码并 RL 训练**：
+3. 克隆 DiffusionDriveV2 代码并 RL 训练：
 
 ```bash
 git clone https://github.com/hustvl/DiffusionDriveV2.git
@@ -374,24 +651,30 @@ ln -s ../ckpts/diffusiondrive.pth ckpts/diffusiondrive_pretrained.pth
 ```
 
 ```bash
-bash scripts/training/run_rl.sh
+bash scripts/run_rl.sh
 ```
 
-4. **推理出 submission**：
+该脚本内部大致等价于：
+
+```bash
+python train_rl.py \
+    agent=diffusiondrivev2_agent \
+    experiment_name=ddv2_rl \
+    rl.num_epochs=10 rl.batch_size=512 rl.G=8 rl.lr=2e-4 \
+    rl.cold_start_ckpt=ckpts/diffusiondrive_pretrained.pth
+```
+
+4. 推理出 submission：
 
 ```bash
 python navsim/planning/script/run_create_submission_pickle.py \
     agent=diffusiondrivev2_agent experiment_name=ddv2_submission
 ```
 
-5. **本地算分 / 上榜**：用官方 `run_pdm_score.py` 看 PDMS。
+5. 本地算分 / 上榜：用官方 `run_pdm_score.py` 看 PDMS。
 
 ## 和本系列其他文章的关系
 
-- **DiffusionDrive**（前一篇文章）：是用 IL 训的截断扩散基线。理解了它，才懂 DiffusionDriveV2 改了哪里、为什么这样改。
-- **SparseDriveV2**：是对立面——检索式规划，不走扩散。两者对比能看清「生成 vs 检索 + RL vs IL」的交错。
-- **AutoVLA / DriveVLA-W0**：也用 GRPO 但不走扩散、走离散动作 token。DiffusionDriveV2 证明了 GRPO 在连续扩散轨迹上也能奏效。
-
----
-
-> 个人总结：DiffusionDriveV2 的贡献不是创造了一个新架构，而是**给已有的锚点扩散生成器配了一套刚好不坍缩的 RL 训练方法**。它最值得学习的是「认清问题所在——多模态 IL 的负样本监督缺失」然后「设计刚好对症的方案——分 anchor 做 GRPO + 干净的两行截断信号」。这种精准打补丁、而不是从头造轮子的思路，是工程落地最需要的素质。
+- **DiffusionDrive**（前一篇文章）：用 IL 训的截断扩散基线，V2 的生成器完全照搬它。理解 DiffusionDrive 是读 V2 的前提。
+- **SparseDriveV2**：检索式规划的对比面——不走扩散、靠 26 万词表查表。两者对照能看清「生成 vs 检索 + RL vs IL」的交错。
+- **AutoVLA / DriveVLA-W0**：也用 GRPO 但走离散动作 token。DiffusionDriveV2 证明 GRPO 在连续扩散轨迹上同样有效，但要处理 anchor 间的 mode collapse 问题。
