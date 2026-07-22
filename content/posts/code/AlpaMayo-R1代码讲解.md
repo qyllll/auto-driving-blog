@@ -348,6 +348,8 @@ def sample_trajectories_from_data_with_vlm_rollout(self, data, ...):
 - `StopAfterEOS`：遇到 `<traj_future_start>` 这个特殊 token 就停止生成。这个 token 是「推理完成，接下来该生成轨迹了」的信号。
 - 生成完成后，VLM 的 `past_key_values`（KV cache）——里面包含了图像 token、CoC 文本 token 的注意力键值——被**直接传给 Expert**。
 
+> **ExpertLogitsProcessor 的设计意图**：离散轨迹 token（`<i0>` ~ `<i767>`）的 logit 被 mask 为 `-inf`，强制 VLM 只生成文本 token。这保证了 **CoC 推理链是纯文本，不与轨迹 token 混淆**。推理链和轨迹生成完全解耦，但通过 KV cache 共享上下文——**KV cache 共享正是「推理链约束轨迹生成」的实现机制**。Expert 做去噪时，它的注意力可以「看到」VLM 生成的 CoC 文本，从而让推理内容直接影响轨迹生成。
+
 **阶段2——Expert + Diffusion 去噪**，每一小步：
 
 - `action_in_proj(x, t)`：把当前噪声动作 x（形状 [B, 64, 2]，64 个 waypoint × (accel, kappa)）和时间步 t 投影成 Expert 的 hidden_size 维 embedding。方法是用 Fourier 编码 + MLP（下一节详细讲）。
@@ -394,6 +396,46 @@ AutoModel.register(AlpamayoR1Config, AlpamayoR1)
 ```
 
 这两行代码把自定义的模型类和配置类注册进了 HuggingFace transformers 的 `AutoModel` 体系。从此 transformers 就知道：当你看到 `"nvidia/Alpamayo-R1-10B"` 这个模型名，它的 config 是 `AlpamayoR1Config`，模型结构是 `AlpamayoR1`。这是那 22GB 权重能一键加载的技术基础。
+
+### 2.6 配置系统：Hydra 注入与可插拔设计
+
+所有组件都是**可插拔**的，通过 Hydra + config dict 注入。`AlpamayoR1Config` 统一管理全部子模块的配置：
+
+```python
+class AlpamayoR1Config(ReasoningVLAConfig):
+    def __init__(self,
+                 diffusion_cfg=None,        # → hyu.instantiate 创建 FlowMatching
+                 action_space_cfg=None,     # → hyu.instantiate 创建 UnicycleAccelCurvatureActionSpace
+                 action_in_proj_cfg=None,   # → hyu.instantiate 创建 PerWaypointActionInProjV2
+                 action_out_proj_cfg=None,  # → nn.Linear
+                 expert_cfg=None,           # → 覆盖 text_config 属性
+                 expert_non_causal_attention=True,
+                 keep_same_dtype=True,
+                 ...):
+```
+
+每个 `_cfg` 参数都是一个 dict，用 `hydra.utils.instantiate` 从 dict 创建具体对象。一个典型的 YAML 配置片段：
+
+```yaml
+action_space_cfg:
+  _target_: "alpamayo_r1.action_space.UnicycleAccelCurvatureActionSpace"
+  accel_mean: 0.0
+  accel_std: 1.0
+  curvature_mean: 0.0
+  curvature_std: 1.0
+  dt: 0.1
+  n_waypoints: 64
+```
+
+| 配置键 | 实例化目标 | 作用 |
+|:---|:---|:---|
+| `diffusion_cfg` | `FlowMatching` | 采样器（步数、x_dims） |
+| `action_space_cfg` | `UnicycleAccelCurvatureActionSpace` | 动作空间（dt、标准化参数） |
+| `action_in_proj_cfg` | `PerWaypointActionInProjV2` | 动作投影（hidden_size、Fourier 维度） |
+| `action_out_proj_cfg` | `nn.Linear` | 反向投影（输出维度） |
+| `expert_cfg` | 覆盖 `text_config` | Expert 结构（层数、head 数） |
+
+这意味替换任意组件不需要改模型代码——换 Diffusion 采样器只需改 YAML 里 `_target_` 路径，换动作空间只需替换 `action_space_cfg` 的配置块。这种设计是后续 SFT 和 RL 训练复用的基础，也是「三组件」能独立演进的结构保障。
 
 ---
 
@@ -685,33 +727,67 @@ def extract_text_tokens(tokenizer, output_tokens):
 
 ## 七、把整条链路串起来
 
-到这里所有零件都讲完了，我们把一次完整的推理串成一条线：
+到这里所有零件都讲完了，我们把一次完整的推理用一张数据流图串起来，再钉死每个环节的关键信息。
 
-**准备阶段（一次性）**：
+下面这张图追踪从用户输入到轨迹输出的每一个步骤——它不包含新信息，但能帮你把前面六节的内容在脑子里串成一条完整的线：
 
-- 从 HuggingFace 加载 22GB 模型权重 → `AlpamayoR1.from_pretrained("nvidia/Alpamayo-R1-10B")`
-- 指定要评测的场景 → `clip_id` + `t0_us=5.1s`
-
-**推理阶段（对每个场景）**：
-
-- `load_physical_aiavdataset(clip_id, t0_us)` → 加载 4 相机 ×4 帧图像 + 历史/未来轨迹，全部转到自车 t0 局部坐标系
-- `helper.create_message(image_frames)` → 构造对话模板：告诉模型「你是司机，请看图输出推理和轨迹」
-- `processor.apply_chat_template(messages)` → 图像变 patch embedding，文本变 token ID，拼成一个大序列
-- `fuse_traj_tokens(input_ids, traj_data)` → 把 48 个 `<traj_history>` 占位符替换成真实历史轨迹的离散 token
-- **阶段 1—VLM 自回归生成**：
-  - `vlm.generate()` 逐 token 生成
-  - `ExpertLogitsProcessor` 屏蔽轨迹 token，只能输出文本
-  - `StopAfterEOS` 遇到 `<traj_future_start>` 后多生成 1 个 token 停止
-  - 输出：CoC 推理链文本 + KV cache
-- **阶段 2—Expert + Diffusion 去噪**：
-  - 初始化高斯噪声 x `(B, 64, 2)`
-  - `action_in_proj(x, t)`：Fourier 编码 + MLP 投影成 Expert embedding
-  - `expert(inputs_embeds, past_key_values=KV_cache)`：Expert 在 VLM 上下文上预测速度场 v
-  - `action_out_proj(hidden)`：投影回动作维度
-  - `x = x + dt * v`：Euler 积分（×10 步）
-  - 输出：干净动作 `(accel, kappa)`
-- `action_space.action_to_traj(动作)`：单轮动力学积分 → (x, y, yaw) 轨迹点 `(B, 64, 3)`
-- 输出：pred_xyz（64 个 waypoint）+ extra["cot"]（CoC 推理链）
+```text
+用户输入: clip_id + t0_us[5.1s]
+    |
+    v
+load_physical_aiavdataset()
+    |-- 加载 4 相机 x 4 帧图像         -> image_frames (4,4,3,H,W)
+    |-- 加载自车历史轨迹 (1.6s)         -> ego_history_xyz (1,1,16,3)
+    |-- 加载自车未来轨迹 (6.4s)         -> ego_future_xyz  (1,1,64,3)
+    +-- 坐标变换: 世界系 -> 自车 t0 局部系
+    |
+    v
+helper.create_message()
+    +-- 构造 [system, user, assistant] 对话模板
+    |
+    v
+processor.apply_chat_template()
+    +-- 图像 -> ViT patch embedding; 文本 -> token ID
+    |
+    v
+AlpamayoR1.sample_trajectories_from_data_with_vlm_rollout()
+    |
+    |-- Stage 1: VLM 自回归生成
+    |   |-- fuse_traj_tokens(): 历史轨迹 -> 离散 token -> 替换 placeholder
+    |   |-- vlm.generate() with ExpertLogitsProcessor
+    |   |   |-- 图像 token + 历史轨迹 token + 文本 prompt
+    |   |   |-- -> 自回归生成 CoC 推理链文本
+    |   |   |-- -> 遇到 <|traj_future_start|> 停止
+    |   |   +-- -> 得到: 推理链文本 + KV cache (含图像&文本上下文)
+    |   |
+    |   +-- 构建 Expert 输入
+    |       |-- position_ids 对齐 (去除填充, 加上 rope_delta)
+    |       +-- attention_mask 只关注 KV cache 的有效部分
+    |
+    +-- Stage 2: Expert + Diffusion 去噪
+        |-- init: x = randn(B, 64, 2)  # 高斯噪声 (accel, kappa)
+        |
+        +-- for t in [0.0, 0.1, ..., 1.0] x 10 steps:
+            |-- action_in_proj(x, t)
+            |   |-- Fourier 编码 (accel_i, kappa_i, t)
+            |   +-- MLP -> Expert hidden_size
+            |-- expert(inputs_embeds, past_key_values=KV_cache)
+            |   +-- Expert 在 VLM 上下文上做前向 -> 预测速度场 v
+            |-- action_out_proj(last_hidden)  # hidden -> (accel, kappa)
+            +-- x = x + dt * v  # Euler 积分
+            |
+            v
+        sampled_action (accel, kappa) -> (64, 2)
+        |
+        v
+    action_space.action_to_traj()
+        |-- 反标准化: normed_accel -> 物理 accel (+-9.8)
+        |-- 单轮动力学积分: (accel, kappa) -> (x, y, yaw)
+        +-- 输出: pred_xyz (64,3) + pred_rot (64,3,3)
+        |
+        v
+    额外输出: extra["cot"] = CoC 推理链文本
+```
 
 用一张对照表钉死每个环节的关键信息：
 
