@@ -1,0 +1,128 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 660" font-family="'Courier New', monospace" font-size="13">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#0f172a"/>
+      <stop offset="100%" stop-color="#1e293b"/>
+    </linearGradient>
+    <linearGradient id="enc" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#3b82f6"/>
+      <stop offset="100%" stop-color="#1d4ed8"/>
+    </linearGradient>
+    <linearGradient id="fusion" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#f59e0b"/>
+      <stop offset="100%" stop-color="#d97706"/>
+    </linearGradient>
+    <linearGradient id="diffblock" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#10b981"/>
+      <stop offset="100%" stop-color="#059669"/>
+    </linearGradient>
+    <linearGradient id="decorr" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#ef4444"/>
+      <stop offset="100%" stop-color="#dc2626"/>
+    </linearGradient>
+    <linearGradient id="out" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#8b5cf6"/>
+      <stop offset="100%" stop-color="#7c3aed"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="900" height="660" fill="url(#bg)" rx="12"/>
+
+  <!-- Title -->
+  <text x="450" y="28" fill="white" text-anchor="middle" font-size="15" font-weight="bold">TransDiffuser 架构与多模态表示解相关机制</text>
+
+  <!-- ===== Overall Architecture (Top) ===== -->
+  <!-- Scene Encoder box -->
+  <rect x="30" y="50" width="240" height="200" rx="8" fill="#1e293b" stroke="#3b82f6" stroke-width="1.5"/>
+  <rect x="30" y="50" width="240" height="28" rx="8" fill="url(#enc)"/>
+  <text x="150" y="69" fill="white" text-anchor="middle" font-size="12" font-weight="bold">Scene Encoder</text>
+
+  <text x="50" y="98" fill="#93c5fd" font-size="11">Camera Images (Front-view)</text>
+  <rect x="50" y="108" width="200" height="22" rx="4" fill="#1e3a5f"/>
+  <text x="150" y="124" fill="#bfdbfe" text-anchor="middle" font-size="11">CNN Backbone → F_img</text>
+
+  <text x="50" y="158" fill="#93c5fd" font-size="11">LiDAR Point Cloud</text>
+  <rect x="50" y="168" width="200" height="22" rx="4" fill="#1e3a5f"/>
+  <text x="150" y="184" fill="#bfdbfe" text-anchor="middle" font-size="11">CNN Backbone → F_lidar</text>
+
+  <text x="50" y="218" fill="#93c5fd" font-size="11">Multi-stage Transformer Fusion</text>
+  <rect x="50" y="228" width="200" height="18" rx="4" fill="#1e3a5f"/>
+  <text x="150" y="241" fill="#bfdbfe" text-anchor="middle" font-size="10">→ F_bev (BEV Feature)</text>
+
+  <!-- Arrow from Scene Encoder down -->
+  <line x1="150" y1="250" x2="150" y2="330" stroke="#3b82f6" stroke-width="2" stroke-dasharray="6,3"/>
+  <text x="170" y="295" fill="#3b82f6" font-size="10">frozen</text>
+
+  <!-- Motion Encoder box -->
+  <rect x="320" y="50" width="240" height="200" rx="8" fill="#1e293b" stroke="#f59e0b" stroke-width="1.5"/>
+  <rect x="320" y="50" width="240" height="28" rx="8" fill="url(#fusion)"/>
+  <text x="440" y="69" fill="white" text-anchor="middle" font-size="12" font-weight="bold">Motion Encoder</text>
+
+  <text x="340" y="98" fill="#fde68a" font-size="11">Historical Ego Trajectory</text>
+  <rect x="340" y="108" width="200" height="22" rx="4" fill="#4d3d11"/>
+  <text x="440" y="124" fill="#fde68a" text-anchor="middle" font-size="11">Action Encoder (MLP) → Emb_action</text>
+
+  <text x="340" y="165" fill="#fde68a" font-size="11">Current Ego Status</text>
+  <rect x="340" y="175" width="200" height="22" rx="4" fill="#4d3d11"/>
+  <text x="440" y="191" fill="#fde68a" text-anchor="middle" font-size="11">Ego Status Encoder (MLP) → Emb_ego</text>
+
+  <!-- Arrow from Motion Encoder down -->
+  <line x1="440" y1="250" x2="440" y2="330" stroke="#f59e0b" stroke-width="2" stroke-dasharray="6,3"/>
+
+  <!-- ===== Denoising Decoder (Bottom) ===== -->
+  <rect x="30" y="330" width="840" height="170" rx="8" fill="#1e293b" stroke="#10b981" stroke-width="2"/>
+  <rect x="30" y="330" width="840" height="28" rx="8" fill="url(#diffblock)"/>
+  <text x="450" y="349" fill="white" text-anchor="middle" font-size="12" font-weight="bold">Denoising Decoder (DDPM)</text>
+
+  <!-- Feature fusion boxes -->
+  <text x="70" y="378" fill="#6ee7b7" font-size="11">Multi-modal Feature Group:</text>
+  <rect x="70" y="388" width="140" height="24" rx="4" fill="#064e3b"/>
+  <text x="140" y="404" fill="#6ee7b7" text-anchor="middle" font-size="10">F_bev (BEV)</text>
+  <rect x="220" y="388" width="120" height="24" rx="4" fill="#064e3b"/>
+  <text x="280" y="404" fill="#6ee7b7" text-anchor="middle" font-size="10">F_img (Image)</text>
+  <rect x="350" y="388" width="130" height="24" rx="4" fill="#064e3b"/>
+  <text x="415" y="404" fill="#6ee7b7" text-anchor="middle" font-size="10">F_lidar</text>
+  <rect x="490" y="388" width="120" height="24" rx="4" fill="#064e3b"/>
+  <text x="550" y="404" fill="#6ee7b7" text-anchor="middle" font-size="10">Emb_action</text>
+  <rect x="620" y="388" width="110" height="24" rx="4" fill="#064e3b"/>
+  <text x="675" y="404" fill="#6ee7b7" text-anchor="middle" font-size="10">Emb_ego</text>
+
+  <!-- Multi-head cross-attention block -->
+  <rect x="70" y="425" width="250" height="30" rx="6" fill="#065f46"/>
+  <text x="195" y="444" fill="#6ee7b7" text-anchor="middle" font-size="11">Multi-Head Cross-Attention Fusion</text>
+
+  <!-- Noise input -->
+  <rect x="370" y="425" width="110" height="30" rx="6" fill="#065f46"/>
+  <text x="425" y="444" fill="#6ee7b7" text-anchor="middle" font-size="11">x_t (Noise)</text>
+
+  <!-- DDPM step -->
+  <rect x="520" y="425" width="140" height="30" rx="6" fill="#065f46"/>
+  <text x="590" y="444" fill="#6ee7b7" text-anchor="middle" font-size="11">ϵ_θ Prediction</text>
+
+  <!-- Arrow to action decoder -->
+  <line x1="700" y1="440" x2="760" y2="440" stroke="#10b981" stroke-width="2"/>
+  <polygon points="755,435 765,440 755,445" fill="#10b981"/>
+
+  <rect x="770" y="425" width="80" height="30" rx="6" fill="url(#out)"/>
+  <text x="810" y="444" fill="#ddd6fe" text-anchor="middle" font-size="11">Action</text>
+
+  <!-- ===== Decorrelation Module ===== -->
+  <rect x="30" y="520" width="840" height="125" rx="8" fill="#1e293b" stroke="#ef4444" stroke-width="2" stroke-dasharray="6,3"/>
+  <rect x="30" y="520" width="840" height="28" rx="8" fill="url(#decorr)"/>
+  <text x="450" y="539" fill="white" text-anchor="middle" font-size="12" font-weight="bold">Multi-modal Representation Decorrelation (L_reg)</text>
+
+  <text x="60" y="568" fill="#fca5a5" font-size="11">M = fused multi-modal representation matrix (batch × features)</text>
+  <text x="60" y="588" fill="#fca5a5" font-size="11">M_norm = (M - μ_M) / √(σ_M² + ε)  // normalize</text>
+  <text x="60" y="608" fill="#fca5a5" font-size="11">corr = M_norm · M_normᵀ  // correlation matrix</text>
+  <text x="60" y="628" fill="#fca5a5" font-size="11">L_reg = mean(corr_non_diagonal²) / |B|  // penalize off-diagonal elements</text>
+
+  <!-- Connection indicator -->
+  <line x1="450" y1="500" x2="450" y2="520" stroke="#ef4444" stroke-width="1.5" stroke-dasharray="4,3"/>
+  <text x="470" y="513" fill="#ef4444" font-size="10">插在 Denoising Decoder 和 Action Decoder 之间</text>
+
+  <!-- Equation -->
+  <rect x="620" y="560" width="230" height="70" rx="6" fill="#1e293b" stroke="#ef4444" stroke-width="1"/>
+  <text x="735" y="580" fill="#fca5a5" text-anchor="middle" font-size="11" font-weight="bold">Total Loss:</text>
+  <text x="735" y="600" fill="#fca5a5" text-anchor="middle" font-size="12">L = L_diff + β L_reg</text>
+  <text x="735" y="620" fill="#fca5a5" text-anchor="middle" font-size="10">β = 0.02 (固定)</text>
+</svg>
