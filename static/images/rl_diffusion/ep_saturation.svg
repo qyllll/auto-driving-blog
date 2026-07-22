@@ -1,0 +1,67 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 860 380" font-family="system-ui, -apple-system, sans-serif">
+  <rect width="860" height="380" fill="#f8fafc" rx="12"/>
+  <text x="430" y="30" text-anchor="middle" font-size="17" font-weight="bold" fill="#0f172a">EP（前进量）：90分以上的终极瓶颈</text>
+  <text x="430" y="50" text-anchor="middle" font-size="11" fill="#64748b">当安全指标全部拉满后，EP是唯一还能提升的分数维度</text>
+
+  <!-- Chart -->
+  <rect x="60" y="80" width="740" height="220" fill="white" stroke="#e2e8f0" rx="8"/>
+
+  <!-- Y axis -->
+  <line x1="80" y1="280" x2="80" y2="100" stroke="#64748b" stroke-width="1.5"/>
+  <line x1="80" y1="280" x2="760" y2="280" stroke="#64748b" stroke-width="1.5"/>
+
+  <!-- Grid lines -->
+  <line x1="80" y1="190" x2="760" y2="190" stroke="#f1f5f9" stroke-width="1"/>
+  <line x1="80" y1="145" x2="760" y2="145" stroke="#f1f5f9" stroke-width="1"/>
+
+  <!-- Labels -->
+  <text x="72" y="285" text-anchor="end" font-size="9" fill="#94a3b8">0</text>
+  <text x="72" y="195" text-anchor="end" font-size="9" fill="#94a3b8">0.5</text>
+  <text x="72" y="150" text-anchor="end" font-size="9" fill="#94a3b8">1.0</text>
+  <text x="72" y="105" text-anchor="end" font-size="9" fill="#94a3b8">分数</text>
+
+  <!-- X-axis labels -->
+  <text x="80" y="300" text-anchor="middle" font-size="8" fill="#94a3b8">SFT</text>
+  <text x="200" y="300" text-anchor="middle" font-size="8" fill="#94a3b8">Scoring</text>
+  <text x="350" y="300" text-anchor="middle" font-size="8" fill="#94a3b8">+蒸馏</text>
+  <text x="500" y="300" text-anchor="middle" font-size="8" fill="#94a3b8">+RL</text>
+  <text x="650" y="300" text-anchor="middle" font-size="8" fill="#94a3b8">CLOVER</text>
+  <text x="740" y="300" text-anchor="middle" font-size="8" fill="#94a3b8">人类</text>
+
+  <!-- NC bar -->
+  <rect x="80" y="120" width="50" height="160" fill="#fca5a5" rx="3" opacity="0.7"/>
+  <rect x="145" y="110" width="50" height="170" fill="#fca5a5" rx="3" opacity="0.7"/>
+  <rect x="210" y="110" width="50" height="170" fill="#fca5a5" rx="3" opacity="0.7"/>
+  <rect x="275" y="110" width="50" height="170" fill="#fca5a5" rx="3" opacity="0.7"/>
+  <rect x="340" y="110" width="50" height="170" fill="#fca5a5" rx="3" opacity="0.7"/>
+  <rect x="405" y="110" width="50" height="170" fill="#fca5a5" rx="3" opacity="0.7"/>
+  <rect x="470" y="110" width="50" height="170" fill="#fca5a5" rx="3" opacity="0.7"/>
+  <rect x="535" y="110" width="50" height="170" fill="#fca5a5" rx="3" opacity="0.7"/>
+  <rect x="600" y="110" width="50" height="170" fill="#fca5a5" rx="3" opacity="0.7"/>
+  <rect x="665" y="110" width="50" height="170" fill="#fca5a5" rx="3" opacity="0.7"/>
+  <rect x="730" y="110" width="50" height="170" fill="#fca5a5" rx="3" opacity="0.7"/>
+  <text x="105" y="280" text-anchor="middle" font-size="7" fill="#dc2626">NC</text>
+  <text x="730" y="280" text-anchor="middle" font-size="7" fill="#dc2626">NC</text>
+
+  <!-- EP trend line -->
+  <path d="M 105 250 L 170 240 L 235 220 L 300 200 L 365 185 L 430 170 L 495 155 L 560 145 L 625 138 L 690 130 L 755 125" stroke="#3b82f6" stroke-width="3" fill="none"/>
+  <circle cx="105" cy="250" r="4" fill="#3b82f6"/>
+  <circle cx="300" cy="200" r="4" fill="#3b82f6"/>
+  <circle cx="495" cy="155" r="4" fill="#3b82f6"/>
+  <circle cx="690" cy="130" r="4" fill="#3b82f6"/>
+  <circle cx="755" cy="125" r="4" fill="#3b82f6"/>
+
+  <text x="105" y="245" text-anchor="middle" font-size="7" fill="#2563eb">EP=0.5</text>
+  <text x="300" y="215" text-anchor="middle" font-size="7" fill="#2563eb">EP=0.7</text>
+  <text x="495" y="165" text-anchor="middle" font-size="7" fill="#2563eb">EP=0.85</text>
+  <text x="690" y="125" text-anchor="middle" font-size="7" fill="#2563eb">EP=0.93</text>
+  <text x="755" y="118" text-anchor="middle" font-size="7" fill="#2563eb">人类EP=0.95</text>
+
+  <!-- Legend -->
+  <rect x="80" y="330" width="12" height="12" fill="#fca5a5" rx="2"/>
+  <text x="98" y="342" font-size="9" fill="#64748b">NC（安全指标，饱和后不再增长）</text>
+  <rect x="320" y="330" width="12" height="12" fill="#3b82f6" rx="2"/>
+  <text x="338" y="342" font-size="9" fill="#64748b">EP（一直在增长，是区分高分的关键）</text>
+
+  <text x="430" y="370" text-anchor="middle" font-size="10" fill="#64748b">NC 很快达到天花板（不能再高了），EP 才是 90+ 的兵家必争之地</text>
+</svg>

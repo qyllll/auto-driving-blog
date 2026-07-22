@@ -1,0 +1,72 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 860 420" font-family="system-ui, -apple-system, sans-serif">
+  <rect width="860" height="420" fill="#f8fafc" rx="12"/>
+  <text x="430" y="30" text-anchor="middle" font-size="17" font-weight="bold" fill="#0f172a">三大技术路线对比：你是哪一派？</text>
+  <text x="430" y="50" text-anchor="middle" font-size="11" fill="#64748b">不同路线对应不同分数段和计算量，不存在银弹</text>
+
+  <!-- Route 1 -->
+  <rect x="20" y="75" width="260" height="310" fill="white" stroke="#93c5fd" stroke-width="2" rx="10"/>
+  <rect x="20" y="75" width="260" height="36" fill="#eff6ff" rx="10"/>
+  <text x="150" y="99" text-anchor="middle" font-size="12" font-weight="bold" fill="#2563eb">路线A：Scoring-based</text>
+
+  <text x="40" y="130" font-size="10" fill="#475569">代表方法：CLOVER(94.5)</text>
+  <text x="40" y="148" font-size="10" fill="#475569">Hydra-MDP(91.3)</text>
+
+  <rect x="35" y="160" width="230" height="26" fill="#eff6ff" rx="4"/>
+  <text x="150" y="179" text-anchor="middle" font-size="9" fill="#2563eb">候选生成 + 打分器 + Top-1 选</text>
+
+  <text x="40" y="205" font-size="10" font-weight="bold" fill="#475569">优点：</text>
+  <text x="40" y="225" font-size="9" fill="#15803d">✓ 固定场景navtest最稳</text>
+  <text x="40" y="243" font-size="9" fill="#15803d">✓ 打分器可解释</text>
+  <text x="40" y="261" font-size="9" fill="#15803d">✓ 训练稳定</text>
+
+  <text x="40" y="286" font-size="10" font-weight="bold" fill="#475569">缺点：</text>
+  <text x="40" y="306" font-size="9" fill="#b91c1c">✗ 上限受候选集质量限</text>
+  <text x="40" y="324" font-size="9" fill="#b91c1c">✗ 难例navhard泛化差</text>
+  <text x="40" y="342" font-size="9" fill="#b91c1c">✗ 候选生成和打分解耦</text>
+
+  <!-- Route 2 -->
+  <rect x="300" y="75" width="260" height="310" fill="white" stroke="#c084fc" stroke-width="2" rx="10"/>
+  <rect x="300" y="75" width="260" height="36" fill="#f5f3ff" rx="10"/>
+  <text x="430" y="99" text-anchor="middle" font-size="12" font-weight="bold" fill="#7c3aed">路线B：扩散/Flow生成</text>
+
+  <text x="320" y="130" font-size="10" fill="#475569">代表方法：TransDiffuser(94.85)</text>
+  <text x="320" y="148" font-size="10" fill="#475569">DiffusionDrive(88.1)</text>
+
+  <rect x="315" y="160" width="230" height="26" fill="#f5f3ff" rx="4"/>
+  <text x="430" y="179" text-anchor="middle" font-size="9" fill="#7c3aed">扩散去噪 → 直接出轨迹</text>
+
+  <text x="320" y="205" font-size="10" font-weight="bold" fill="#475569">优点：</text>
+  <text x="320" y="225" font-size="9" fill="#15803d">✓ 多模态生成能力最强</text>
+  <text x="320" y="243" font-size="9" fill="#15803d">✓ 候选=生成质量高</text>
+  <text x="320" y="261" font-size="9" fill="#15803d">✓ 可做RL优化(GRO)</text>
+
+  <text x="320" y="286" font-size="10" font-weight="bold" fill="#475569">缺点：</text>
+  <text x="320" y="306" font-size="9" fill="#b91c1c">✗ 推理计算量大</text>
+  <text x="320" y="324" font-size="9" fill="#b91c1c">✗ 尾部场景可能失稳</text>
+  <text x="320" y="342" font-size="9" fill="#b91c1c">✗ 训练不如scoring稳</text>
+
+  <!-- Route 3 -->
+  <rect x="580" y="75" width="260" height="310" fill="white" stroke="#fbbf24" stroke-width="2" rx="10"/>
+  <rect x="580" y="75" width="260" height="36" fill="#fef3c7" rx="10"/>
+  <text x="710" y="99" text-anchor="middle" font-size="12" font-weight="bold" fill="#d97706">路线C：VLA+RL</text>
+
+  <text x="600" y="130" font-size="10" fill="#475569">代表方法：ExploreVLA(93.7)</text>
+  <text x="600" y="148" font-size="10" fill="#475569">AutoVLA(89.1)</text>
+
+  <rect x="595" y="160" width="230" height="26" fill="#fef3c7" rx="4"/>
+  <text x="710" y="179" text-anchor="middle" font-size="9" fill="#d97706">多模态+语言+RL微调</text>
+
+  <text x="600" y="205" font-size="10" font-weight="bold" fill="#475569">优点：</text>
+  <text x="600" y="225" font-size="9" fill="#15803d">✓ 可解释性最强</text>
+  <text x="600" y="243" font-size="9" fill="#15803d">✓ LLM推理应对复杂场景</text>
+  <text x="600" y="261" font-size="9" fill="#15803d">✓ RL可直接优化PDMS</text>
+
+  <text x="600" y="286" font-size="10" font-weight="bold" fill="#475569">缺点：</text>
+  <text x="600" y="306" font-size="9" fill="#b91c1c">✗ 计算量最大</text>
+  <text x="600" y="324" font-size="9" fill="#b91c1c">✗ 训练pipeline最复杂</text>
+  <text x="600" y="342" font-size="9" fill="#b91c1c">✗ 速度慢部署困难</text>
+
+  <!-- Bottom comparison -->
+  <rect x="20" y="395" width="820" height="1" fill="#e2e8f0"/>
+  <text x="430" y="415" text-anchor="middle" font-size="10" fill="#64748b">分数高低 ≠ 方法好坏，还要看你的目标：刷榜用A，部署用B，研究用C</text>
+</svg>

@@ -1,0 +1,76 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 860 400" font-family="system-ui, -apple-system, sans-serif">
+  <rect width="860" height="400" fill="#f8fafc" rx="12"/>
+  <text x="430" y="30" text-anchor="middle" font-size="17" font-weight="bold" fill="#0f172a">候选轨迹质量：Scoring-based 的上限</text>
+  <text x="430" y="50" text-anchor="middle" font-size="11" fill="#64748b">打分器再强也救不了烂候选——候选集决定分数的天花板</text>
+
+  <!-- Left: bad candidates -->
+  <rect x="40" y="80" width="370" height="290" fill="white" stroke="#fca5a5" stroke-width="2" rx="10"/>
+  <text x="225" y="105" text-anchor="middle" font-size="12" font-weight="bold" fill="#dc2626">低质量候选集</text>
+  <text x="225" y="125" text-anchor="middle" font-size="10" fill="#64748b">候选轨迹同质化严重，最佳候选也差</text>
+
+  <!-- Trajectory lines -->
+  <line x1="80" y1="200" x2="140" y2="195" stroke="#cbd5e1" stroke-width="3"/>
+  <line x1="140" y1="195" x2="200" y2="198" stroke="#cbd5e1" stroke-width="3"/>
+  <line x1="200" y1="198" x2="260" y2="205" stroke="#cbd5e1" stroke-width="3"/>
+
+  <line x1="80" y1="220" x2="140" y2="215" stroke="#cbd5e1" stroke-width="3"/>
+  <line x1="140" y1="215" x2="200" y2="218" stroke="#cbd5e1" stroke-width="3"/>
+  <line x1="200" y1="218" x2="260" y2="225" stroke="#cbd5e1" stroke-width="3"/>
+
+  <line x1="80" y1="240" x2="140" y2="235" stroke="#cbd5e1" stroke-width="3"/>
+  <line x1="140" y1="235" x2="200" y2="238" stroke="#cbd5e1" stroke-width="3"/>
+  <line x1="200" y1="238" x2="260" y2="245" stroke="#cbd5e1" stroke-width="3"/>
+
+  <rect x="80" y="180" width="200" height="80" fill="none" stroke="#fca5a5" stroke-width="1" stroke-dasharray="5,3"/>
+  <text x="180" y="178" text-anchor="middle" font-size="8" fill="#dc2626">所有候选都挤在一起</text>
+
+  <!-- Obstacle -->
+  <rect x="290" y="190" width="30" height="40" fill="#fecaca" rx="4"/>
+  <text x="305" y="215" text-anchor="middle" font-size="7" fill="#dc2626">🚧</text>
+
+  <text x="60" y="280" font-size="9" fill="#475569">路权冲突/特殊场景：</text>
+  <text x="60" y="298" font-size="9" fill="#b91c1c">所有候选都不会让行</text>
+  <text x="60" y="316" font-size="9" fill="#b91c1c">打分器只能从"垃圾里选垃圾"</text>
+  <text x="60" y="340" font-size="9" font-weight="bold" fill="#b91c1c">PDMS 上限 ≈ 88</text>
+
+  <!-- Arrow -->
+  <text x="430" y="230" text-anchor="middle" font-size="22" fill="#94a3b8">→</text>
+
+  <!-- Right: good candidates -->
+  <rect x="450" y="80" width="370" height="290" fill="white" stroke="#6ee7b7" stroke-width="2" rx="10"/>
+  <text x="635" y="105" text-anchor="middle" font-size="12" font-weight="bold" fill="#059669">高质量候选集</text>
+  <text x="635" y="125" text-anchor="middle" font-size="10" fill="#64748b">候选轨迹多样化，覆盖不同决策</text>
+
+  <!-- Diverse trajectories -->
+  <line x1="490" y1="200" x2="530" y2="185" stroke="#86efac" stroke-width="3"/>
+  <line x1="530" y1="185" x2="570" y2="175" stroke="#86efac" stroke-width="3"/>
+  <line x1="570" y1="175" x2="610" y2="170" stroke="#86efac" stroke-width="3"/>
+
+  <line x1="490" y1="220" x2="530" y2="215" stroke="#86efac" stroke-width="3"/>
+  <line x1="530" y1="215" x2="570" y2="218" stroke="#86efac" stroke-width="3"/>
+  <line x1="570" y1="218" x2="610" y2="220" stroke="#86efac" stroke-width="3"/>
+
+  <line x1="490" y1="240" x2="530" y2="248" stroke="#86efac" stroke-width="3"/>
+  <line x1="530" y1="248" x2="570" y2="255" stroke="#86efac" stroke-width="3"/>
+  <line x1="570" y1="255" x2="610" y2="260" stroke="#86efac" stroke-width="3"/>
+
+  <line x1="490" y1="260" x2="530" y2="270" stroke="#86efac" stroke-width="3"/>
+  <line x1="530" y1="270" x2="570" y2="278" stroke="#86efac" stroke-width="3"/>
+  <line x1="570" y1="278" x2="610" y2="285" stroke="#86efac" stroke-width="3"/>
+
+  <rect x="490" y="170" width="140" height="100" fill="none" stroke="#6ee7b7" stroke-width="1" stroke-dasharray="5,3"/>
+  <text x="560" y="168" text-anchor="middle" font-size="8" fill="#059669">候选覆盖不同策略</text>
+
+  <!-- Obstacle -->
+  <rect x="660" y="190" width="30" height="40" fill="#bbf7d0" rx="4"/>
+  <text x="675" y="215" text-anchor="middle" font-size="7" fill="#059669">🚧</text>
+
+  <text x="470" y="280" font-size="9" fill="#475569">绕行候选被选中：</text>
+  <text x="470" y="298" font-size="9" fill="#15803d">有候选选择了让行/绕行</text>
+  <text x="470" y="316" font-size="9" fill="#15803d">打分器正确选中最佳候选</text>
+  <text x="470" y="340" font-size="9" font-weight="bold" fill="#15803d">PDMS 上限 ≈ 94.5</text>
+
+  <!-- Bottom insight -->
+  <rect x="20" y="380" width="820" height="1" fill="#e2e8f0"/>
+  <text x="430" y="398" text-anchor="middle" font-size="10" fill="#64748b">结论：提升候选质量比提升打分器更重要！CLOVER 的核心创新就是蒸馏候选生成</text>
+</svg>
