@@ -1,0 +1,71 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 860 400" font-family="system-ui, -apple-system, sans-serif">
+  <defs><marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" fill="#7c3aed"/></marker></defs>
+  <rect width="860" height="400" fill="#f8fafc" rx="12"/>
+  <text x="430" y="30" text-anchor="middle" font-size="17" font-weight="bold" fill="#0f172a">策略梯度如何通过扩散/Flow 网络反向传播</text>
+  <text x="430" y="50" text-anchor="middle" font-size="11" fill="#64748b">奖励信号 → 梯度 → 更新每一层去噪网络 → 生成更好的轨迹</text>
+
+  <!-- Denoising chain -->
+  <rect x="30" y="80" width="800" height="130" fill="white" stroke="#e2e8f0" rx="10"/>
+  <text x="430" y="103" text-anchor="middle" font-size="12" font-weight="bold" fill="#475569">去噪/积分链（生成过程）</text>
+
+  <rect x="50" y="120" width="90" height="60" fill="#f5f3ff" stroke="#c084fc" rx="6"/>
+  <text x="95" y="142" text-anchor="middle" font-size="9" font-weight="bold" fill="#7c3aed">x₀</text>
+  <text x="95" y="158" text-anchor="middle" font-size="8" fill="#64748b">初始噪声</text>
+
+  <text x="150" y="158" text-anchor="middle" font-size="16" fill="#c084fc">→</text>
+
+  <rect x="165" y="120" width="90" height="60" fill="#f5f3ff" stroke="#c084fc" rx="6"/>
+  <text x="210" y="142" text-anchor="middle" font-size="9" font-weight="bold" fill="#7c3aed">v_θ(x₀,0)</text>
+  <text x="210" y="158" text-anchor="middle" font-size="8" fill="#64748b">预测速度</text>
+
+  <text x="265" y="158" text-anchor="middle" font-size="16" fill="#c084fc">→</text>
+
+  <rect x="280" y="120" width="90" height="60" fill="#f5f3ff" stroke="#c084fc" rx="6"/>
+  <text x="325" y="142" text-anchor="middle" font-size="9" font-weight="bold" fill="#7c3aed">x₁</text>
+  <text x="325" y="158" text-anchor="middle" font-size="8" fill="#64748b">第一步更新</text>
+
+  <text x="380" y="158" text-anchor="middle" font-size="16" fill="#c084fc">→</text>
+
+  <rect x="395" y="120" width="90" height="60" fill="#f5f3ff" stroke="#c084fc" rx="6"/>
+  <text x="440" y="142" text-anchor="middle" font-size="9" font-weight="bold" fill="#7c3aed">...</text>
+  <text x="440" y="158" text-anchor="middle" font-size="8" fill="#64748b">中间步骤</text>
+
+  <text x="495" y="158" text-anchor="middle" font-size="16" fill="#c084fc">→</text>
+
+  <rect x="510" y="120" width="90" height="60" fill="#f5f3ff" stroke="#c084fc" rx="6"/>
+  <text x="555" y="142" text-anchor="middle" font-size="9" font-weight="bold" fill="#7c3aed">v_θ(x_{T-1},T-1)</text>
+  <text x="555" y="158" text-anchor="middle" font-size="8" fill="#64748b">最后一步</text>
+
+  <text x="610" y="158" text-anchor="middle" font-size="16" fill="#c084fc">→</text>
+
+  <rect x="625" y="120" width="90" height="60" fill="#dbeafe" stroke="#3b82f6" rx="6"/>
+  <text x="670" y="142" text-anchor="middle" font-size="9" font-weight="bold" fill="#2563eb">x_T</text>
+  <text x="670" y="158" text-anchor="middle" font-size="8" fill="#64748b">最终轨迹</text>
+
+  <rect x="735" y="120" width="80" height="60" fill="#fef2f2" stroke="#fca5a5" rx="6"/>
+  <text x="775" y="142" text-anchor="middle" font-size="9" font-weight="bold" fill="#dc2626">R(x_T)</text>
+  <text x="775" y="158" text-anchor="middle" font-size="8" fill="#64748b">奖励</text>
+
+  <!-- Gradient flow -->
+  <rect x="30" y="230" width="800" height="150" fill="white" stroke="#e2e8f0" rx="10"/>
+  <text x="430" y="253" text-anchor="middle" font-size="12" font-weight="bold" fill="#475569">梯度反向传播路径</text>
+
+  <!-- Gradient arrows going backwards -->
+  <path d="M 775 195 Q 775 280 670 280" stroke="#dc2626" stroke-width="2" fill="none" marker-end="url(#ar)" stroke-dasharray="4,3"/>
+  <text x="740" y="275" font-size="9" fill="#dc2626">∇R</text>
+
+  <path d="M 670 280 Q 555 280 555 280" stroke="#dc2626" stroke-width="2" fill="none" marker-end="url(#ar)" stroke-dasharray="4,3"/>
+  <text x="600" y="275" font-size="9" fill="#dc2626">目标：最大化 E[R]</text>
+
+  <text x="430" y="310" text-anchor="middle" font-size="10" fill="#475569">但这里有两大难题：</text>
+
+  <rect x="100" y="320" width="300" height="40" fill="#fef2f2" stroke="#fecaca" rx="6"/>
+  <text x="250" y="338" text-anchor="middle" font-size="9" fill="#b91c1c">难题 1：每一层的梯度需要 log-prob</text>
+  <text x="250" y="353" text-anchor="middle" font-size="8" fill="#64748b">∇_θ log p_θ(τ) 需要追踪所有随机性</text>
+
+  <rect x="460" y="320" width="300" height="40" fill="#fef2f2" stroke="#fecaca" rx="6"/>
+  <text x="610" y="338" text-anchor="middle" font-size="9" fill="#b91c1c">难题 2：T 步迭代 → 梯度消失/爆炸</text>
+  <text x="610" y="353" text-anchor="middle" font-size="8" fill="#64748b">长计算图 → 内存爆炸 / 梯度不稳定</text>
+
+  <text x="430" y="390" text-anchor="middle" font-size="10" fill="#64748b">Flow-GRPO 通过「ODE → SDE 转换」和「Denoising Reduction」分别解决这两个问题</text>
+</svg>

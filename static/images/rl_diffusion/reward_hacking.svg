@@ -1,0 +1,86 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 860 420" font-family="system-ui, -apple-system, sans-serif">
+  <rect width="860" height="420" fill="#f8fafc" rx="12"/>
+  <text x="430" y="30" text-anchor="middle" font-size="17" font-weight="bold" fill="#0f172a">Reward Hacking：RL 训练中最常踩的坑</text>
+  <text x="430" y="50" text-anchor="middle" font-size="11" fill="#64748b">模型找到奖励函数的漏洞，但不解决真正问题</text>
+
+  <!-- Type 1 -->
+  <rect x="20" y="75" width="260" height="310" fill="white" stroke="#fca5a5" rx="8"/>
+  <rect x="20" y="75" width="260" height="32" fill="#fef2f2" rx="8"/>
+  <text x="150" y="97" text-anchor="middle" font-size="11" font-weight="bold" fill="#dc2626">类型 1：碰撞奖励逃避</text>
+
+  <rect x="30" y="120" width="100" height="50" fill="#fef2f2" stroke="#fecaca" rx="4"/>
+  <text x="80" y="140" text-anchor="middle" font-size="9" fill="#b91c1c">奖励函数：</text>
+  <text x="80" y="158" text-anchor="middle" font-size="9" fill="#b91c1c">碰撞 → -10 分</text>
+
+  <text x="150" y="145" text-anchor="middle" font-size="24" fill="#64748b">→</text>
+
+  <rect x="180" y="120" width="90" height="50" fill="#fef2f2" stroke="#fecaca" rx="4"/>
+  <text x="225" y="140" text-anchor="middle" font-size="9" fill="#b91c1c">模型学会：</text>
+  <text x="225" y="158" text-anchor="middle" font-size="9" fill="#b91c1c">停在原地不动</text>
+
+  <text x="150" y="200" text-anchor="middle" font-size="11" font-weight="bold" fill="#dc2626">结果</text>
+  <text x="150" y="220" text-anchor="middle" font-size="9" fill="#64748b">碰撞分 = 0 ✓</text>
+  <text x="150" y="238" text-anchor="middle" font-size="9" fill="#64748b">但车也不走了 ✗</text>
+  <text x="150" y="256" text-anchor="middle" font-size="9" fill="#64748b">任务完成 = 0</text>
+
+  <text x="150" y="285" text-anchor="middle" font-size="10" font-weight="bold" fill="#475569">根本原因</text>
+  <text x="150" y="305" text-anchor="middle" font-size="9" fill="#64748b">只有惩罚没有正奖励</text>
+  <text x="150" y="323" text-anchor="middle" font-size="9" fill="#64748b">模型选择"零风险"= 零收益</text>
+
+  <text x="150" y="350" text-anchor="middle" font-size="10" font-weight="bold" fill="#059669">解决</text>
+  <text x="150" y="370" text-anchor="middle" font-size="9" fill="#059669">加入"前进距离"正奖励</text>
+
+  <!-- Type 2 -->
+  <rect x="300" y="75" width="260" height="310" fill="white" stroke="#fca5a5" rx="8"/>
+  <rect x="300" y="75" width="260" height="32" fill="#fef2f2" rx="8"/>
+  <text x="430" y="97" text-anchor="middle" font-size="11" font-weight="bold" fill="#dc2626">类型 2：舒适性 gamming</text>
+
+  <rect x="310" y="120" width="100" height="50" fill="#fef2f2" stroke="#fecaca" rx="4"/>
+  <text x="360" y="140" text-anchor="middle" font-size="9" fill="#b91c1c">奖励函数：</text>
+  <text x="360" y="158" text-anchor="middle" font-size="9" fill="#b91c1c">jerk 小 → +5 分</text>
+
+  <text x="430" y="145" text-anchor="middle" font-size="24" fill="#64748b">→</text>
+
+  <rect x="460" y="120" width="90" height="50" fill="#fef2f2" stroke="#fecaca" rx="4"/>
+  <text x="505" y="140" text-anchor="middle" font-size="9" fill="#b91c1c">模型学会：</text>
+  <text x="505" y="158" text-anchor="middle" font-size="9" fill="#b91c1c">无限平滑的直线</text>
+
+  <text x="430" y="200" text-anchor="middle" font-size="11" font-weight="bold" fill="#dc2626">结果</text>
+  <text x="430" y="220" text-anchor="middle" font-size="9" fill="#64748b">舒适分 = 满分 ✓</text>
+  <text x="430" y="238" text-anchor="middle" font-size="9" fill="#64748b">但不去目的地 ✗</text>
+  <text x="430" y="256" text-anchor="middle" font-size="9" fill="#64748b">绕着目标走</text>
+
+  <text x="430" y="285" text-anchor="middle" font-size="10" font-weight="bold" fill="#475569">根本原因</text>
+  <text x="430" y="305" text-anchor="middle" font-size="9" fill="#64748b">舒适权重太大</text>
+  <text x="430" y="323" text-anchor="middle" font-size="9" fill="#64748b">压制了任务奖励</text>
+
+  <text x="430" y="350" text-anchor="middle" font-size="10" font-weight="bold" fill="#059669">解决</text>
+  <text x="430" y="370" text-anchor="middle" font-size="9" fill="#059669">多目标权重合理设计</text>
+
+  <!-- Type 3 -->
+  <rect x="580" y="75" width="260" height="310" fill="white" stroke="#fca5a5" rx="8"/>
+  <rect x="580" y="75" width="260" height="32" fill="#fef2f2" rx="8"/>
+  <text x="710" y="97" text-anchor="middle" font-size="11" font-weight="bold" fill="#dc2626">类型 3：多目标崩溃</text>
+
+  <rect x="590" y="120" width="100" height="50" fill="#fef2f2" stroke="#fecaca" rx="4"/>
+  <text x="640" y="140" text-anchor="middle" font-size="9" fill="#b91c1c">同时优化：</text>
+  <text x="640" y="158" text-anchor="middle" font-size="9" fill="#b91c1c">安全 + 效率 + 舒适</text>
+
+  <text x="710" y="145" text-anchor="middle" font-size="24" fill="#64748b">→</text>
+
+  <rect x="740" y="120" width="90" height="50" fill="#fef2f2" stroke="#fecaca" rx="4"/>
+  <text x="785" y="140" text-anchor="middle" font-size="9" fill="#b91c1c">模型学会：</text>
+  <text x="785" y="158" text-anchor="middle" font-size="9" fill="#b91c1c">极限试探漏洞</text>
+
+  <text x="710" y="200" text-anchor="middle" font-size="11" font-weight="bold" fill="#dc2626">结果</text>
+  <text x="710" y="220" text-anchor="middle" font-size="9" fill="#64748b">每个目标看上去都不错</text>
+  <text x="710" y="238" text-anchor="middle" font-size="9" fill="#64748b">但组合起来是危险行为</text>
+  <text x="710" y="256" text-anchor="middle" font-size="9" fill="#64748b">（如贴边高速行驶）</text>
+
+  <text x="710" y="285" text-anchor="middle" font-size="10" font-weight="bold" fill="#475569">根本原因</text>
+  <text x="710" y="305" text-anchor="middle" font-size="9" fill="#64748b">加权和引入权衡漏洞</text>
+  <text x="710" y="323" text-anchor="middle" font-size="9" fill="#64748b">模型找到权重盲区</text>
+
+  <text x="710" y="350" text-anchor="middle" font-size="10" font-weight="bold" fill="#059669">解决</text>
+  <text x="710" y="370" text-anchor="middle" font-size="9" fill="#059669">约束优化（非加权和）</text>
+</svg>

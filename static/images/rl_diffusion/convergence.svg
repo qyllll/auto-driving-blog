@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 860 380" font-family="system-ui, -apple-system, sans-serif">
+  <rect width="860" height="380" fill="#f8fafc" rx="12"/>
+  <text x="430" y="30" text-anchor="middle" font-size="17" font-weight="bold" fill="#0f172a">不同范式的收敛对比（示意图）</text>
+  <text x="430" y="50" text-anchor="middle" font-size="11" fill="#64748b">横轴：训练迭代 &#160; 纵轴：任务奖励分数</text>
+
+  <!-- Chart area -->
+  <rect x="80" y="70" width="700" height="250" fill="white" stroke="#e2e8f0" rx="6"/>
+
+  <!-- Axis -->
+  <line x1="100" y1="300" x2="100" y2="90" stroke="#64748b" stroke-width="1.5"/>
+  <line x1="100" y1="300" x2="760" y2="300" stroke="#64748b" stroke-width="1.5"/>
+
+  <!-- Expert level line -->
+  <line x1="100" y1="150" x2="760" y2="150" stroke="#94a3b8" stroke-width="1" stroke-dasharray="6,3"/>
+  <text x="770" y="155" font-size="10" fill="#94a3b8">专家水平</text>
+
+  <!-- SFT baseline line -->
+  <line x1="100" y1="135" x2="100" y2="135" stroke="#64748b" stroke-width="1"/>
+  <text x="90" y="315" text-anchor="end" font-size="9" fill="#64748b">SFT</text>
+
+  <!-- SFT curve (flat) -->
+  <path d="M 100 133 Q 200 133 400 132 Q 600 132 760 132" stroke="#94a3b8" stroke-width="2.5" fill="none" stroke-dasharray="5,3"/>
+  <text x="400" y="125" text-anchor="middle" font-size="9" fill="#94a3b8">SFT（永远低于专家）</text>
+
+  <!-- Paradigm 1: Reward Guidance (jumps up but flat) -->
+  <path d="M 100 133 L 130 120 L 200 118 Q 350 115 500 115 Q 650 115 760 115" stroke="#3b82f6" stroke-width="2.5" fill="none"/>
+  <text x="530" y="105" text-anchor="middle" font-size="9" fill="#2563eb">范式一：奖励引导（即刻提升，但无后续增长）</text>
+
+  <!-- Paradigm 2: RFT (stepwise) -->
+  <path d="M 100 133 L 150 120 L 200 120 L 250 108 L 300 108 L 350 100 L 400 100 L 450 95 L 500 95 L 550 92 L 600 92 L 650 90 L 700 90" stroke="#059669" stroke-width="2.5" fill="none"/>
+  <text x="600" y="82" text-anchor="middle" font-size="9" fill="#059669">范式二：RFT（阶梯式提升）</text>
+
+  <!-- Paradigm 3: Policy Gradient (steep but unstable) -->
+  <path d="M 100 133 Q 150 110 180 85 Q 220 70 250 80 Q 300 75 350 60 Q 400 55 450 70 Q 500 50 550 45 Q 600 55 650 42 Q 700 40 760 38" stroke="#7c3aed" stroke-width="2.5" fill="none"/>
+  <text x="380" y="48" text-anchor="middle" font-size="9" fill="#7c3aed">范式三：策略梯度（潜力大，但波动）</text>
+
+  <!-- Annotations -->
+  <circle cx="130" cy="120" r="4" fill="#3b82f6"/>
+  <text x="130" y="110" text-anchor="middle" font-size="8" fill="#2563eb">无训练</text>
+
+  <circle cx="250" cy="108" r="4" fill="#059669"/>
+  <text x="250" y="130" text-anchor="middle" font-size="8" fill="#059669">第1轮RFT</text>
+
+  <circle cx="450" cy="95" r="4" fill="#059669"/>
+  <text x="450" y="130" text-anchor="middle" font-size="8" fill="#059669">第3轮RFT</text>
+
+  <circle cx="250" cy="80" r="4" fill="#7c3aed"/>
+  <text x="220" y="75" text-anchor="middle" font-size="8" fill="#7c3aed">过拟合</text>
+
+  <text x="430" y="360" text-anchor="middle" font-size="10" fill="#64748b">范式三虽然波动最大，但长期趋势好；范式二稳健但增长慢；范式一一步到位但到此为止</text>
+</svg>

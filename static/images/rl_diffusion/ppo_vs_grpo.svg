@@ -1,0 +1,75 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 860 480" font-family="system-ui, -apple-system, sans-serif">
+  <rect width="860" height="480" fill="#f8fafc" rx="12"/>
+  <text x="430" y="30" text-anchor="middle" font-size="17" font-weight="bold" fill="#0f172a">PPO vs GRPO：到底有什么区别？</text>
+  <text x="430" y="50" text-anchor="middle" font-size="11" fill="#64748b">PPO 需要 critic 网络预估基线，GRPO 用组内均值替代，省掉 critic 的显存和训练</text>
+
+  <!-- PPO side -->
+  <rect x="30" y="75" width="380" height="380" fill="white" stroke="#93c5fd" stroke-width="2" rx="10"/>
+  <rect x="30" y="75" width="380" height="32" fill="#eff6ff" rx="10"/>
+  <text x="220" y="97" text-anchor="middle" font-size="14" font-weight="bold" fill="#2563eb">PPO（Proximal Policy Optimization）</text>
+
+  <text x="50" y="128" font-size="11" font-weight="bold" fill="#475569">架构：Actor + Critic（两个网络）</text>
+
+  <!-- Actor box -->
+  <rect x="50" y="140" width="160" height="80" fill="#eff6ff" stroke="#bfdbfe" rx="6"/>
+  <text x="130" y="160" text-anchor="middle" font-size="10" font-weight="bold" fill="#2563eb">Actor（策略网络）</text>
+  <text x="130" y="180" text-anchor="middle" font-size="9" fill="#475569">输入：状态 s</text>
+  <text x="130" y="196" text-anchor="middle" font-size="9" fill="#475569">输出：动作分布 π_θ(a|s)</text>
+  <text x="130" y="212" text-anchor="middle" font-size="9" fill="#64748b">生成式模型（扩散/Flow 网络）</text>
+
+  <!-- Critic box -->
+  <rect x="230" y="140" width="160" height="80" fill="#eff6ff" stroke="#bfdbfe" rx="6"/>
+  <text x="310" y="160" text-anchor="middle" font-size="10" font-weight="bold" fill="#2563eb">Critic（价值网络）</text>
+  <text x="310" y="180" text-anchor="middle" font-size="9" fill="#475569">输入：状态 s</text>
+  <text x="310" y="196" text-anchor="middle" font-size="9" fill="#475569">输出：价值 V(s)</text>
+  <text x="310" y="212" text-anchor="middle" font-size="9" fill="#64748b">额外的神经网络</text>
+
+  <!-- Formula -->
+  <text x="50" y="245" font-size="10" font-weight="bold" fill="#475569">优势估计（GAE）：</text>
+  <text x="50" y="265" font-size="9" fill="#64748b">A_t = Σ(γλ)^{l-t} δ_l</text>
+  <text x="50" y="280" font-size="9" fill="#64748b">δ_t = r_t + γV(s_{t+1}) - V(s_t)</text>
+
+  <text x="50" y="305" font-size="10" font-weight="bold" fill="#475569">更新公式：</text>
+  <text x="50" y="325" font-size="9" fill="#64748b">L = E[ min(ratio · A, clip(ratio, 1-ε, 1+ε) · A) ]</text>
+  <text x="50" y="340" font-size="9" fill="#64748b">ratio = π_θ(a|s) / π_old(a|s)</text>
+
+  <!-- Cons -->
+  <text x="50" y="370" font-size="10" font-weight="bold" fill="#dc2626">缺点：</text>
+  <text x="50" y="390" font-size="9" fill="#b91c1c">• Critic 和 Actor 一样大 → 显存 ×2</text>
+  <text x="50" y="408" font-size="9" fill="#b91c1c">• Critic 训练不稳定 → 收敛慢</text>
+  <text x="50" y="426" font-size="9" fill="#b91c1c">• 需要 GAE 计算 → 实现复杂</text>
+  <text x="50" y="444" font-size="9" fill="#b91c1c">• 对 diffusion 模型来说 critic 训不赢生成器</text>
+
+  <!-- Divider -->
+  <line x1="420" y1="75" x2="420" y2="455" stroke="#e2e8f0" stroke-width="2" stroke-dasharray="4,4"/>
+
+  <!-- GRPO side -->
+  <rect x="450" y="75" width="380" height="380" fill="white" stroke="#c084fc" stroke-width="2" rx="10"/>
+  <rect x="450" y="75" width="380" height="32" fill="#f5f3ff" rx="10"/>
+  <text x="640" y="97" text-anchor="middle" font-size="14" font-weight="bold" fill="#7c3aed">GRPO（Group Relative Policy Optimization）</text>
+
+  <text x="470" y="128" font-size="11" font-weight="bold" fill="#475569">架构：只有 Actor（省掉 Critic！）</text>
+
+  <!-- Actor only box -->
+  <rect x="470" y="140" width="340" height="80" fill="#f5f3ff" stroke="#c084fc" rx="6"/>
+  <text x="640" y="160" text-anchor="middle" font-size="10" font-weight="bold" fill="#7c3aed">Actor（策略网络）= 生成式模型</text>
+  <text x="640" y="180" text-anchor="middle" font-size="9" fill="#475569">输入：状态 s（场景条件）</text>
+  <text x="640" y="196" text-anchor="middle" font-size="9" fill="#475569">输出：多条轨迹 {τ₁, τ₂, ..., τ_G}</text>
+  <text x="640" y="212" text-anchor="middle" font-size="9" fill="#64748b">对同一个场景采样 G 条轨迹（G = Group size）</text>
+
+  <!-- Formula -->
+  <text x="470" y="245" font-size="10" font-weight="bold" fill="#475569">优势估计（组内归一化）：</text>
+  <text x="470" y="265" font-size="9" fill="#64748b">A_i = (R_i - mean(R)) / std(R)</text>
+  <text x="470" y="280" font-size="9" fill="#64748b">不用训练 critic，只需算本组奖励的均值和方差</text>
+
+  <text x="470" y="305" font-size="10" font-weight="bold" fill="#475569">更新公式：</text>
+  <text x="470" y="325" font-size="9" fill="#64748b">L = E[ min(ratio · A_i, clip(ratio, 1-ε, 1+ε) · A_i) ]</text>
+  <text x="470" y="340" font-size="9" fill="#64748b">ratio = π_θ(τ|s) / π_old(τ|s)</text>
+
+  <!-- Pros -->
+  <text x="470" y="370" font-size="10" font-weight="bold" fill="#059669">优点：</text>
+  <text x="470" y="390" font-size="9" fill="#15803d">✓ 省掉 Critic → 显存减半</text>
+  <text x="470" y="408" font-size="9" fill="#15803d">✓ 不需要 critic 训练 → 更稳定</text>
+  <text x="470" y="426" font-size="9" fill="#15803d">✓ 采样 G 条本身是生成模型的优势</text>
+  <text x="470" y="444" font-size="9" fill="#15803d">✓ 组内基线自动消除奖励偏移</text>
+</svg>
