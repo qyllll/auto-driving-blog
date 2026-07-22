@@ -1,0 +1,144 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 720" font-family="'Courier New', monospace" font-size="13">
+  <defs>
+    <linearGradient id="header" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#2563eb"/>
+      <stop offset="100%" stop-color="#7c3aed"/>
+    </linearGradient>
+    <linearGradient id="vlm" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#3b82f6"/>
+      <stop offset="100%" stop-color="#1d4ed8"/>
+    </linearGradient>
+    <linearGradient id="expert" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#f59e0b"/>
+      <stop offset="100%" stop-color="#d97706"/>
+    </linearGradient>
+    <linearGradient id="diff" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#10b981"/>
+      <stop offset="100%" stop-color="#059669"/>
+    </linearGradient>
+    <linearGradient id="action" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#ef4444"/>
+      <stop offset="100%" stop-color="#dc2626"/>
+    </linearGradient>
+    <linearGradient id="geom" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#8b5cf6"/>
+      <stop offset="100%" stop-color="#7c3aed"/>
+    </linearGradient>
+    <linearGradient id="data" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#ec4899"/>
+      <stop offset="100%" stop-color="#db2777"/>
+    </linearGradient>
+    <linearGradient id="utils" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#06b6d4"/>
+      <stop offset="100%" stop-color="#0891b2"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="900" height="720" fill="#0f172a" rx="12"/>
+
+  <!-- Title -->
+  <rect x="200" y="12" width="500" height="36" rx="18" fill="url(#header)"/>
+  <text x="450" y="36" fill="white" text-anchor="middle" font-size="16" font-weight="bold">AlpaMayo-R1 代码结构总览</text>
+
+  <!-- src/alpamayo_r1/ -->
+  <rect x="30" y="65" width="840" height="640" rx="8" fill="#1e293b" stroke="#334155" stroke-width="1.5"/>
+  <text x="50" y="85" fill="#94a3b8" font-size="12">src/alpamayo_r1/</text>
+
+  <!-- models/ section -->
+  <rect x="50" y="100" width="380" height="260" rx="6" fill="none" stroke="#475569" stroke-width="1" stroke-dasharray="4,3"/>
+  <rect x="50" y="100" width="380" height="24" rx="6" fill="#475569"/>
+  <text x="240" y="116" fill="white" text-anchor="middle" font-size="12" font-weight="bold">models/  — 核心模型定义</text>
+
+  <!-- alpamayo_r1.py -->
+  <rect x="65" y="135" width="350" height="40" rx="6" fill="url(#vlm)"/>
+  <text x="240" y="150" fill="white" text-anchor="middle" font-size="12" font-weight="bold">alpamayo_r1.py</text>
+  <text x="240" y="166" fill="#bfdbfe" text-anchor="middle" font-size="11">AlpamayoR1: VLM + Expert + Diffusion 三组件</text>
+
+  <!-- base_model.py -->
+  <rect x="65" y="185" width="350" height="40" rx="6" fill="url(#vlm)"/>
+  <text x="240" y="200" fill="white" text-anchor="middle" font-size="12" font-weight="bold">base_model.py</text>
+  <text x="240" y="216" fill="#bfdbfe" text-anchor="middle" font-size="11">ReasoningVLA: 基类 + 轨迹融合 + 配置系统</text>
+
+  <!-- action_in_proj.py -->
+  <rect x="65" y="235" width="350" height="40" rx="6" fill="url(#vlm)"/>
+  <text x="240" y="250" fill="white" text-anchor="middle" font-size="12" font-weight="bold">action_in_proj.py</text>
+  <text x="240" y="266" fill="#bfdbfe" text-anchor="middle" font-size="11">PerWaypointActionInProj: Fourier编码 + MLP投影</text>
+
+  <!-- token_utils.py + delta_tokenizer.py -->
+  <rect x="65" y="285" width="170" height="40" rx="6" fill="url(#vlm)"/>
+  <text x="150" y="300" fill="white" text-anchor="middle" font-size="12" font-weight="bold">token_utils.py</text>
+  <text x="150" y="316" fill="#bfdbfe" text-anchor="middle" font-size="11">停止条件 / 文本提取</text>
+
+  <rect x="245" y="285" width="170" height="40" rx="6" fill="url(#vlm)"/>
+  <text x="330" y="300" fill="white" text-anchor="middle" font-size="12" font-weight="bold">delta_tokenizer.py</text>
+  <text x="330" y="316" fill="#bfdbfe" text-anchor="middle" font-size="11">Δ轨迹 → 离散 token</text>
+
+  <!-- action_space/ section -->
+  <rect x="50" y="375" width="380" height="160" rx="6" fill="none" stroke="#475569" stroke-width="1" stroke-dasharray="4,3"/>
+  <rect x="50" y="375" width="380" height="24" rx="6" fill="#475569"/>
+  <text x="240" y="391" fill="white" text-anchor="middle" font-size="12" font-weight="bold">action_space/  — 动作空间与轨迹编解码</text>
+
+  <rect x="65" y="410" width="350" height="30" rx="6" fill="url(#action)"/>
+  <text x="240" y="430" fill="white" text-anchor="middle" font-size="12" font-weight="bold">action_space.py  (Abstract: ActionSpace 基类)</text>
+
+  <rect x="65" y="450" width="350" height="30" rx="6" fill="url(#action)"/>
+  <text x="240" y="470" fill="white" text-anchor="middle" font-size="12" font-weight="bold">unicycle_accel_curvature.py  (单轮动力学模型)</text>
+
+  <rect x="65" y="490" width="350" height="30" rx="6" fill="url(#action)"/>
+  <text x="240" y="510" fill="white" text-anchor="middle" font-size="12" font-weight="bold">discrete_action_space.py  (离散轨迹 Tokenizer)</text>
+
+  <!-- diffusion/ section -->
+  <rect x="460" y="100" width="390" height="160" rx="6" fill="none" stroke="#475569" stroke-width="1" stroke-dasharray="4,3"/>
+  <rect x="460" y="100" width="390" height="24" rx="6" fill="#475569"/>
+  <text x="655" y="116" fill="white" text-anchor="middle" font-size="12" font-weight="bold">diffusion/  — 扩散/Flow Matching 解码器</text>
+
+  <rect x="475" y="135" width="360" height="30" rx="6" fill="url(#diff)"/>
+  <text x="655" y="155" fill="white" text-anchor="middle" font-size="12" font-weight="bold">base.py  (BaseDiffusion 抽象基类)</text>
+
+  <rect x="475" y="175" width="360" height="30" rx="6" fill="url(#diff)"/>
+  <text x="655" y="195" fill="white" text-anchor="middle" font-size="12" font-weight="bold">flow_matching.py  (FlowMatching: Euler 采样)</text>
+
+  <!-- geometry/ section -->
+  <rect x="460" y="275" width="390" height="150" rx="6" fill="none" stroke="#475569" stroke-width="1" stroke-dasharray="4,3"/>
+  <rect x="460" y="275" width="390" height="24" rx="6" fill="#475569"/>
+  <text x="655" y="291" fill="white" text-anchor="middle" font-size="12" font-weight="bold">geometry/ common/  — 几何与日志工具</text>
+
+  <rect x="475" y="310" width="360" height="28" rx="6" fill="url(#geom)"/>
+  <text x="655" y="329" fill="white" text-anchor="middle" font-size="11">geometry/: 旋转矩阵 / 坐标变换 / 角度操作</text>
+  <rect x="475" y="348" width="360" height="28" rx="6" fill="url(#geom)"/>
+  <text x="655" y="367" fill="white" text-anchor="middle" font-size="11">common/: 日志包装 / 命名风格</text>
+
+  <!-- Helper & Data files -->
+  <rect x="460" y="440" width="390" height="120" rx="6" fill="none" stroke="#475569" stroke-width="1" stroke-dasharray="4,3"/>
+  <rect x="460" y="440" width="390" height="24" rx="6" fill="#475569"/>
+  <text x="655" y="456" fill="white" text-anchor="middle" font-size="12" font-weight="bold">推理入口与数据加载</text>
+
+  <rect x="475" y="475" width="360" height="28" rx="6" fill="url(#data)"/>
+  <text x="655" y="494" fill="white" text-anchor="middle" font-size="11">test_inference.py  (端到端推理示例)</text>
+  <rect x="475" y="513" width="360" height="28" rx="6" fill="url(#data)"/>
+  <text x="655" y="532" fill="white" text-anchor="middle" font-size="11">load_physical_aiavdataset.py  (数据集加载)</text>
+  <rect x="475" y="551" width="166" height="28" rx="6" fill="url(#data)"/>
+  <text x="558" y="570" fill="white" text-anchor="middle" font-size="11">config.py (配置)</text>
+  <rect x="660" y="551" width="175" height="28" rx="6" fill="url(#data)"/>
+  <text x="747" y="570" fill="white" text-anchor="middle" font-size="11">helper.py (消息构建)</text>
+
+  <!-- Inference Flow arrow -->
+  <rect x="200" y="580" width="500" height="48" rx="24" fill="none" stroke="#f59e0b" stroke-width="2" stroke-dasharray="8,4"/>
+  <text x="450" y="600" fill="#fbbf24" text-anchor="middle" font-size="12" font-weight="bold">推理流程: clip_id → load_physical_aiavdataset → helper.create_message → AlpamayoR1.sample_trajectories → (traj, rot, CoC)</text>
+
+  <!-- Legend -->
+  <rect x="50" y="640" width="800" height="50" rx="6" fill="#1e293b" stroke="#334155" stroke-width="1"/>
+  <rect x="70" y="652" width="14" height="14" rx="3" fill="url(#vlm)"/>
+  <text x="90" y="664" fill="#94a3b8" font-size="11">VLM/Model</text>
+  <rect x="170" y="652" width="14" height="14" rx="3" fill="url(#action)"/>
+  <text x="190" y="664" fill="#94a3b8" font-size="11">Action Space</text>
+  <rect x="290" y="652" width="14" height="14" rx="3" fill="url(#diff)"/>
+  <text x="310" y="664" fill="#94a3b8" font-size="11">Diffusion</text>
+  <rect x="395" y="652" width="14" height="14" rx="3" fill="url(#geom)"/>
+  <text x="415" y="664" fill="#94a3b8" font-size="11">Geom/Utils</text>
+  <rect x="510" y="652" width="14" height="14" rx="3" fill="url(#data)"/>
+  <text x="530" y="664" fill="#94a3b8" font-size="11">Data/Entry</text>
+  <rect x="630" y="652" width="14" height="14" rx="3" fill="url(#expert)"/>
+  <text x="650" y="664" fill="#94a3b8" font-size="11">Expert</text>
+</svg>

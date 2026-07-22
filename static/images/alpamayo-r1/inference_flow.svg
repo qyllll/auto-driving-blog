@@ -1,0 +1,91 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 520" font-family="'Courier New', monospace" font-size="13">
+  <defs>
+    <linearGradient id="step1" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#3b82f6"/>
+      <stop offset="100%" stop-color="#1d4ed8"/>
+    </linearGradient>
+    <linearGradient id="step2" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#8b5cf6"/>
+      <stop offset="100%" stop-color="#7c3aed"/>
+    </linearGradient>
+    <linearGradient id="step3" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#f59e0b"/>
+      <stop offset="100%" stop-color="#d97706"/>
+    </linearGradient>
+    <linearGradient id="step4" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#10b981"/>
+      <stop offset="100%" stop-color="#059669"/>
+    </linearGradient>
+    <linearGradient id="step5" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#ef4444"/>
+      <stop offset="100%" stop-color="#dc2626"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="900" height="520" fill="#0f172a" rx="12"/>
+
+  <!-- Title -->
+  <text x="450" y="30" fill="white" text-anchor="middle" font-size="16" font-weight="bold">AlpaMayo-R1 单次推理流程</text>
+
+  <!-- Step 1: Data Loading -->
+  <rect x="50" y="50" width="180" height="90" rx="8" fill="url(#step1)"/>
+  <text x="140" y="75" fill="white" text-anchor="middle" font-size="12" font-weight="bold">Step 1: 数据加载</text>
+  <text x="140" y="93" fill="#bfdbfe" text-anchor="middle" font-size="11">load_physical_aiavdataset()</text>
+  <text x="140" y="110" fill="#bfdbfe" text-anchor="middle" font-size="11">clip_id + t0_us</text>
+  <text x="140" y="127" fill="#bfdbfe" text-anchor="middle" font-size="11">→ image_frames (4cam×4帧)</text>
+
+  <!-- Arrow 1→2 -->
+  <line x1="230" y1="95" x2="290" y2="95" stroke="#f59e0b" stroke-width="2" marker-end="url(#arrow)"/>
+  <polygon points="285,90 295,95 285,100" fill="#f59e0b"/>
+
+  <!-- Step 2: Message Construction -->
+  <rect x="300" y="50" width="200" height="90" rx="8" fill="url(#step2)"/>
+  <text x="400" y="75" fill="white" text-anchor="middle" font-size="12" font-weight="bold">Step 2: 消息构建</text>
+  <text x="400" y="93" fill="#ddd6fe" text-anchor="middle" font-size="11">helper.create_message()</text>
+  <text x="400" y="110" fill="#ddd6fe" text-anchor="middle" font-size="11">image_frames + traj placeholder</text>
+  <text x="400" y="127" fill="#ddd6fe" text-anchor="middle" font-size="11">→ [system, user, assistant]</text>
+
+  <!-- Arrow 2→3 -->
+  <line x1="500" y1="95" x2="560" y2="95" stroke="#f59e0b" stroke-width="2"/>
+  <polygon points="555,90 565,95 555,100" fill="#f59e0b"/>
+
+  <!-- Step 3: VLM Autoregressive Generation -->
+  <rect x="570" y="40" width="280" height="110" rx="8" fill="url(#step3)"/>
+  <text x="710" y="65" fill="white" text-anchor="middle" font-size="12" font-weight="bold">Step 3: VLM 自回归生成</text>
+  <text x="710" y="83" fill="#fef3c7" text-anchor="middle" font-size="11">vlm.generate() with ExpertLogitsProcessor</text>
+  <text x="710" y="100" fill="#fef3c7" text-anchor="middle" font-size="11">↑ mask离散轨迹token, 仅生成文本CoC</text>
+  <text x="710" y="117" fill="#fef3c7" text-anchor="middle" font-size="11">← 遇到 &lt;traj_future_start&gt; 停止</text>
+  <text x="710" y="134" fill="#fef3c7" text-anchor="middle" font-size="11">得到: CoC推理链 + KV cache</text>
+
+  <!-- Arrow 3→4 -->
+  <line x1="400" y1="140" x2="400" y2="205" stroke="#f59e0b" stroke-width="2"/>
+  <polygon points="395,200 400,210 405,200" fill="#f59e0b"/>
+  <text x="420" y="178" fill="#f59e0b" font-size="11">Position IDs + Attention Mask 对齐</text>
+
+  <!-- Step 4: Diffusion Sampling with Expert -->
+  <rect x="250" y="215" width="400" height="130" rx="8" fill="url(#step4)"/>
+  <text x="450" y="240" fill="white" text-anchor="middle" font-size="12" font-weight="bold">Step 4: Flow Matching 采样 + Expert 去噪</text>
+
+  <rect x="275" y="255" width="350" height="75" rx="6" fill="#064e3b" stroke="#10b981" stroke-width="1"/>
+  <text x="450" y="273" fill="#6ee7b7" text-anchor="middle" font-size="11">for i in range(num_inference_steps):</text>
+  <text x="450" y="291" fill="#6ee7b7" text-anchor="middle" font-size="11">  action_in_proj(noisy_x, t) → token嵌入</text>
+  <text x="450" y="309" fill="#6ee7b7" text-anchor="middle" font-size="11">  expert(inputs_embeds, KV cache) → 预测 v</text>
+  <text x="450" y="327" fill="#6ee7b7" text-anchor="middle" font-size="11">  x = x + dt * v  (Euler 积分)</text>
+
+  <!-- Arrow 4→5 -->
+  <line x1="450" y1="345" x2="450" y2="390" stroke="#f59e0b" stroke-width="2"/>
+  <polygon points="445,385 450,395 455,385" fill="#f59e0b"/>
+
+  <!-- Step 5: Decode & Post-process -->
+  <rect x="300" y="400" width="300" height="90" rx="8" fill="url(#step5)"/>
+  <text x="450" y="425" fill="white" text-anchor="middle" font-size="12" font-weight="bold">Step 5: 解码与后处理</text>
+  <text x="450" y="445" fill="#fecaca" text-anchor="middle" font-size="11">action_to_traj(action, hist_xyz, hist_rot)</text>
+  <text x="450" y="465" fill="#fecaca" text-anchor="middle" font-size="11">→ (accel, kappa) → (xyz, yaw)  via unicycle</text>
+  <text x="450" y="485" fill="#fecaca" text-anchor="middle" font-size="11">extract_text_tokens → CoC 推理链文本</text>
+
+  <!-- Bottom annotations -->
+  <rect x="50" y="462" width="220" height="40" rx="6" fill="#1e293b" stroke="#334155" stroke-width="1"/>
+  <text x="160" y="478" fill="#94a3b8" text-anchor="middle" font-size="11">输入: clip_id, t0=5.1s</text>
+  <text x="160" y="494" fill="#94a3b8" text-anchor="middle" font-size="11">输出: 轨迹 (64点, 6.4s) + CoC</text>
+</svg>

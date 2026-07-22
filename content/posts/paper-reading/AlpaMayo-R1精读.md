@@ -212,9 +212,11 @@ $$A_i = \frac{r_i - \text{mean}(\{r_1,...,r_G\})}{\text{std}(\{r_1,...,r_G\}) + 
 
 GRPO 目标函数：
 
-$$\mathcal{J}_{\text{GRPO}}(\theta) = \mathbb{E}\left[\frac{1}{G}\sum_{i=1}^G\frac{1}{|\tau_i|}\sum_{t=1}^{|\tau_i|} 
+$$
+\mathcal{J}_{\text{GRPO}}(\theta) = \mathbb{E}\left[\frac{1}{G}\sum_{i=1}^G\frac{1}{|\tau_i|}\sum_{t=1}^{|\tau_i|}
 \min\left(w_t^{(i)}A_i,\ \text{clip}(w_t^{(i)}, 1-\epsilon, 1+\epsilon)A_i\right)
-- \beta\,\mathbb{D}_{\text{KL}}(\pi_\theta\|\pi_{\text{ref}})\right]$$
+- \beta\,\mathbb{D}_{\text{KL}}(\pi_\theta\|\pi_{\text{ref}})\right]
+$$
 
 其中 $w_t^{(i)}$ 是 importance ratio，$\pi_{\text{ref}}$ 是参考策略（Stage 2 的模型），KL 散度防止策略退化。
 
