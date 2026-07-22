@@ -1,0 +1,133 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 480" font-family="'Courier New', monospace" font-size="13">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#0f172a"/>
+      <stop offset="100%" stop-color="#1e293b"/>
+    </linearGradient>
+    <linearGradient id="good" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#10b981"/>
+      <stop offset="100%" stop-color="#059669"/>
+    </linearGradient>
+    <linearGradient id="bad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#ef4444"/>
+      <stop offset="100%" stop-color="#dc2626"/>
+    </linearGradient>
+    <marker id="arrowGray" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#64748b"/>
+    </marker>
+  </defs>
+
+  <rect width="900" height="480" fill="url(#bg)" rx="12"/>
+
+  <!-- Title -->
+  <text x="450" y="28" fill="white" text-anchor="middle" font-size="15" font-weight="bold">模式坍缩（Mode Collapse）vs 去相关多样化（Decorrelation）</text>
+
+  <!-- ====== LEFT PANEL: With Mode Collapse ====== -->
+  <rect x="20" y="50" width="420" height="410" rx="8" fill="#1e293b" stroke="#ef4444" stroke-width="1.5"/>
+  <rect x="20" y="50" width="420" height="28" rx="8" fill="url(#bad)"/>
+  <text x="230" y="69" fill="white" text-anchor="middle" font-size="12" font-weight="bold">Without Decorrelation: Mode Collapse</text>
+
+  <!-- Noise inputs -->
+  <text x="60" y="105" fill="#fca5a5" font-size="11">Noise inputs (diverse)</text>
+  <circle cx="100" cy="130" r="8" fill="#fca5a5" stroke="#f87171" stroke-width="1"/>
+  <text x="100" y="135" fill="#1e293b" text-anchor="middle" font-size="8" font-weight="bold">z1</text>
+  <circle cx="150" cy="120" r="8" fill="#fca5a5" stroke="#f87171" stroke-width="1"/>
+  <text x="150" y="125" fill="#1e293b" text-anchor="middle" font-size="8" font-weight="bold">z2</text>
+  <circle cx="200" cy="140" r="8" fill="#fca5a5" stroke="#f87171" stroke-width="1"/>
+  <text x="200" y="145" fill="#1e293b" text-anchor="middle" font-size="8" font-weight="bold">z3</text>
+  <circle cx="250" cy="115" r="8" fill="#fca5a5" stroke="#f87171" stroke-width="1"/>
+  <text x="250" y="120" fill="#1e293b" text-anchor="middle" font-size="8" font-weight="bold">z4</text>
+  <circle cx="300" cy="135" r="8" fill="#fca5a5" stroke="#f87171" stroke-width="1"/>
+  <text x="300" y="140" fill="#1e293b" text-anchor="middle" font-size="8" font-weight="bold">z5</text>
+
+  <!-- Arrow down -->
+  <line x1="200" y1="150" x2="200" y2="180" stroke="#64748b" stroke-width="2" marker-end="url(#arrowGray)"/>
+
+  <!-- Denoising Decoder box -->
+  <rect x="60" y="185" width="280" height="40" rx="6" fill="#3b1a1a" stroke="#ef4444" stroke-width="1"/>
+  <text x="200" y="210" fill="#fca5a5" text-anchor="middle" font-size="11">Denoising Decoder (DDPM, T=10 steps)</text>
+
+  <!-- Arrow down -->
+  <line x1="200" y1="225" x2="200" y2="260" stroke="#64748b" stroke-width="2" marker-end="url(#arrowGray)"/>
+
+  <!-- Collapsed trajectories -->
+  <text x="60" y="285" fill="#fca5a5" font-size="11">Generated trajectories (all similar!)</text>
+
+  <!-- Multiple overlapping trajectories - drawn as nearly identical paths -->
+  <path d="M 80 310 Q 140 290 200 295 Q 260 300 320 280 L 360 270" stroke="#f87171" stroke-width="3" fill="none" opacity="0.4"/>
+  <path d="M 85 315 Q 145 295 205 298 Q 262 305 325 283 L 362 272" stroke="#fca5a5" stroke-width="3" fill="none" opacity="0.4"/>
+  <path d="M 78 305 Q 138 285 198 292 Q 258 297 318 278 L 358 268" stroke="#f87171" stroke-width="3" fill="none" opacity="0.4"/>
+  <path d="M 82 312 Q 142 292 202 296 Q 259 302 322 281 L 361 271" stroke="#fca5a5" stroke-width="3" fill="none" opacity="0.4"/>
+  <path d="M 75 308 Q 135 288 195 293 Q 255 298 315 276 L 355 267" stroke="#f87171" stroke-width="3" fill="none" opacity="0.4"/>
+
+  <!-- Annotation -->
+  <text x="200" y="375" fill="#f87171" text-anchor="middle" font-size="11">Diversity D = 66 (low)</text>
+  <text x="200" y="395" fill="#fca5a5" text-anchor="middle" font-size="10">5 different noise inputs -> nearly identical trajectories</text>
+  <text x="200" y="415" fill="#fca5a5" text-anchor="middle" font-size="10">Condition features are redundant -> mode collapse</text>
+
+  <!-- ====== RIGHT PANEL: With Decorrelation ====== -->
+  <rect x="460" y="50" width="420" height="410" rx="8" fill="#1e293b" stroke="#10b981" stroke-width="1.5"/>
+  <rect x="460" y="50" width="420" height="28" rx="8" fill="url(#good)"/>
+  <text x="670" y="69" fill="white" text-anchor="middle" font-size="12" font-weight="bold">With Decorrelation: Diverse Trajectories</text>
+
+  <!-- Noise inputs -->
+  <text x="500" y="105" fill="#6ee7b7" font-size="11">Noise inputs (diverse)</text>
+  <circle cx="540" cy="130" r="8" fill="#6ee7b7" stroke="#34d399" stroke-width="1"/>
+  <text x="540" y="135" fill="#1e293b" text-anchor="middle" font-size="8" font-weight="bold">z1</text>
+  <circle cx="590" cy="120" r="8" fill="#6ee7b7" stroke="#34d399" stroke-width="1"/>
+  <text x="590" y="125" fill="#1e293b" text-anchor="middle" font-size="8" font-weight="bold">z2</text>
+  <circle cx="640" cy="140" r="8" fill="#6ee7b7" stroke="#34d399" stroke-width="1"/>
+  <text x="640" y="145" fill="#1e293b" text-anchor="middle" font-size="8" font-weight="bold">z3</text>
+  <circle cx="690" cy="115" r="8" fill="#6ee7b7" stroke="#34d399" stroke-width="1"/>
+  <text x="690" y="120" fill="#1e293b" text-anchor="middle" font-size="8" font-weight="bold">z4</text>
+  <circle cx="740" cy="135" r="8" fill="#6ee7b7" stroke="#34d399" stroke-width="1"/>
+  <text x="740" y="140" fill="#1e293b" text-anchor="middle" font-size="8" font-weight="bold">z5</text>
+
+  <!-- Decorrelation module -->
+  <rect x="500" y="148" width="280" height="30" rx="6" fill="#3b1a3b" stroke="#a855f7" stroke-width="1.5" stroke-dasharray="4,2"/>
+  <text x="640" y="168" fill="#c084fc" text-anchor="middle" font-size="11">Decorrelation Regularization (L_reg)</text>
+  <line x1="640" y1="150" x2="640" y2="180" stroke="#a855f7" stroke-width="1" stroke-dasharray="3,2"/>
+
+  <!-- Arrow down -->
+  <line x1="640" y1="178" x2="640" y2="188" stroke="#64748b" stroke-width="2" marker-end="url(#arrowGray)"/>
+
+  <!-- Denoising Decoder box -->
+  <rect x="500" y="193" width="280" height="40" rx="6" fill="#064e3b" stroke="#10b981" stroke-width="1"/>
+  <text x="640" y="218" fill="#6ee7b7" text-anchor="middle" font-size="11">Denoising Decoder (DDPM, T=10 steps)</text>
+
+  <!-- Arrow down -->
+  <line x1="640" y1="233" x2="640" y2="268" stroke="#64748b" stroke-width="2" marker-end="url(#arrowGray)"/>
+
+  <!-- Diverse trajectories -->
+  <text x="500" y="293" fill="#6ee7b7" font-size="11">Generated trajectories (diverse!)</text>
+
+  <!-- Trajectory 1: straight -->
+  <path d="M 520 318 Q 560 308 600 310 Q 640 312 680 305 L 710 300" stroke="#34d399" stroke-width="3" fill="none"/>
+  <text x="720" y="295" fill="#34d399" font-size="9" font-weight="bold">z1</text>
+
+  <!-- Trajectory 2: left turn -->
+  <path d="M 525 325 Q 550 345 580 365 Q 610 385 640 395 L 660 400" stroke="#6ee7b7" stroke-width="3" fill="none"/>
+  <text x="670" y="405" fill="#6ee7b7" font-size="9" font-weight="bold">z2</text>
+
+  <!-- Trajectory 3: right curve -->
+  <path d="M 518 312 Q 570 290 620 280 Q 670 270 710 265 L 735 260" stroke="#a7f3d0" stroke-width="3" fill="none"/>
+  <text x="745" y="258" fill="#a7f3d0" font-size="9" font-weight="bold">z3</text>
+
+  <!-- Trajectory 4: slow -->
+  <path d="M 522 330 Q 560 325 590 328 Q 620 332 650 330 L 670 328" stroke="#6ee7b7" stroke-width="3" fill="none" stroke-dasharray="6,3"/>
+  <text x="680" y="325" fill="#6ee7b7" font-size="9" font-weight="bold">z4</text>
+
+  <!-- Trajectory 5: sharp turn -->
+  <path d="M 515 315 Q 530 370 560 400 Q 580 415 610 420 L 630 422" stroke="#34d399" stroke-width="3" fill="none" stroke-dasharray="3,2"/>
+  <text x="640" y="425" fill="#34d399" font-size="9" font-weight="bold">z5</text>
+
+  <!-- Annotation -->
+  <text x="640" y="383" fill="#34d399" text-anchor="middle" font-size="11">Diversity D = 70 (higher)</text>
+  <text x="640" y="403" fill="#6ee7b7" text-anchor="middle" font-size="10">5 different noise inputs -> 5 different trajectories</text>
+  <text x="640" y="423" fill="#6ee7b7" text-anchor="middle" font-size="10">Decorrelation -> richer condition features -> diverse outputs</text>
+
+  <!-- Arrow connecting the two panels -->
+  <line x1="440" y1="255" x2="460" y2="255" stroke="#64748b" stroke-width="2" stroke-dasharray="4,3"/>
+  <polygon points="455,250 465,255 455,260" fill="#64748b"/>
+  <text x="450" y="245" fill="#64748b" text-anchor="end" font-size="9">Decorrelation</text>
+</svg>
