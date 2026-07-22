@@ -1,0 +1,113 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 520" font-family="system-ui, -apple-system, sans-serif">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#64748b"/>
+    </marker>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#f8fafc"/><stop offset="100%" stop-color="#f1f5f9"/></linearGradient>
+  </defs>
+  <rect width="920" height="520" fill="url(#bg)" rx="14"/>
+
+  <text x="460" y="32" text-anchor="middle" font-size="18" font-weight="bold" fill="#0f172a">强化学习 × 生成式轨迹：四大范式总览</text>
+  <text x="460" y="52" text-anchor="middle" font-size="12" fill="#64748b">从「模仿专家」到「自我改进」—— 强化学习让生成式轨迹规划突破 SFT 天花板</text>
+
+  <!-- === SFT baseline (left side) === -->
+  <rect x="30" y="75" width="200" height="90" fill="white" stroke="#94a3b8" stroke-width="1.5" rx="10"/>
+  <text x="130" y="100" text-anchor="middle" font-size="12" font-weight="bold" fill="#475569">SFT 模仿学习</text>
+  <text x="130" y="118" text-anchor="middle" font-size="10" fill="#64748b">端到端行为克隆</text>
+  <text x="130" y="134" text-anchor="middle" font-size="10" fill="#64748b">看专家数据 &rarr; 学动作</text>
+  <text x="130" y="150" text-anchor="middle" font-size="9" fill="#94a3b8">天花板 = 专家平均水平</text>
+
+  <line x1="235" y1="120" x2="280" y2="120" stroke="#64748b" stroke-width="1.5" marker-end="url(#arrow)" stroke-dasharray="4,3"/>
+
+  <!-- Center question -->
+  <rect x="285" y="80" width="180" height="80" fill="#fef2f2" stroke="#fca5a5" stroke-width="1.5" rx="10"/>
+  <text x="375" y="105" text-anchor="middle" font-size="11" font-weight="bold" fill="#dc2626">如何超越专家？</text>
+  <text x="375" y="125" text-anchor="middle" font-size="10" fill="#64748b">引入奖励信号</text>
+  <text x="375" y="142" text-anchor="middle" font-size="10" fill="#64748b">让模型自我改进</text>
+
+  <line x1="470" y1="120" x2="520" y2="120" stroke="#64748b" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- Four paradigms -->
+  <text x="670" y="82" text-anchor="middle" font-size="13" font-weight="bold" fill="#0f172a">RL × 生成的四种范式</text>
+
+  <!-- Paradigm 1 -->
+  <rect x="490" y="95" width="200" height="70" fill="white" stroke="#93c5fd" stroke-width="2" rx="8"/>
+  <rect x="490" y="95" width="200" height="24" fill="#eff6ff" rx="8"/>
+  <text x="590" y="112" text-anchor="middle" font-size="10" font-weight="bold" fill="#2563eb">范式一：推理时奖励引导</text>
+  <text x="590" y="132" text-anchor="middle" font-size="9" fill="#475569">训练好的模型 + 推理时用</text>
+  <text x="590" y="148" text-anchor="middle" font-size="9" fill="#475569">reward/cost 引导采样方向</text>
+  <text x="590" y="162" text-anchor="middle" font-size="8" fill="#94a3b8">Diffusion Planner, CTG++</text>
+
+  <!-- Paradigm 2 -->
+  <rect x="700" y="95" width="200" height="70" fill="white" stroke="#6ee7b7" stroke-width="2" rx="8"/>
+  <rect x="700" y="95" width="200" height="24" fill="#ecfdf5" rx="8"/>
+  <text x="800" y="112" text-anchor="middle" font-size="10" font-weight="bold" fill="#059669">范式二：拒绝采样微调</text>
+  <text x="800" y="132" text-anchor="middle" font-size="9" fill="#475569">采样多条 &rarr; 打分 &rarr; 挑好的</text>
+  <text x="800" y="148" text-anchor="middle" font-size="9" fill="#475569">当正样本继续训</text>
+  <text x="800" y="162" text-anchor="middle" font-size="8" fill="#94a3b8">AutoVLA RFT</text>
+
+  <!-- Paradigm 3 -->
+  <rect x="490" y="175" width="200" height="70" fill="white" stroke="#c084fc" stroke-width="2" rx="8"/>
+  <rect x="490" y="175" width="200" height="24" fill="#f5f3ff" rx="8"/>
+  <text x="590" y="192" text-anchor="middle" font-size="10" font-weight="bold" fill="#7c3aed">范式三：策略梯度优化</text>
+  <text x="590" y="212" text-anchor="middle" font-size="9" fill="#475569">直接对生成目标算策略梯度</text>
+  <text x="590" y="228" text-anchor="middle" font-size="9" fill="#475569">PPO / GRPO / DPO 框架</text>
+  <text x="590" y="242" text-anchor="middle" font-size="8" fill="#94a3b8">Flow-GRPO, DPO for Diffusion</text>
+
+  <!-- Paradigm 4 -->
+  <rect x="700" y="175" width="200" height="70" fill="white" stroke="#fbbf24" stroke-width="2" rx="8"/>
+  <rect x="700" y="175" width="200" height="24" fill="#fef3c7" rx="8"/>
+  <text x="800" y="192" text-anchor="middle" font-size="10" font-weight="bold" fill="#d97706">范式四：世界模型 + RL</text>
+  <text x="800" y="212" text-anchor="middle" font-size="9" fill="#475569">世界模型做 rollout 环境</text>
+  <text x="800" y="228" text-anchor="middle" font-size="9" fill="#475569">生成模型做策略</text>
+  <text x="800" y="242" text-anchor="middle" font-size="8" fill="#94a3b8">DriveVLA-W0, Dreamer</text>
+
+  <!-- Divider line -->
+  <line x1="30" y1="270" x2="890" y2="270" stroke="#e2e8f0" stroke-width="1"/>
+
+  <!-- Bottom: Key dimensions comparison -->
+  <text x="460" y="295" text-anchor="middle" font-size="13" font-weight="bold" fill="#0f172a">关键维度对比</text>
+
+  <g font-size="10">
+    <text x="160" y="320" text-anchor="middle" font-weight="bold" fill="#475569"></text>
+    <text x="310" y="320" text-anchor="middle" font-weight="bold" fill="#2563eb">范式一</text>
+    <text x="440" y="320" text-anchor="middle" font-weight="bold" fill="#059669">范式二</text>
+    <text x="570" y="320" text-anchor="middle" font-weight="bold" fill="#7c3aed">范式三</text>
+    <text x="700" y="320" text-anchor="middle" font-weight="bold" fill="#d97706">范式四</text>
+
+    <line x1="50" y1="328" x2="870" y2="328" stroke="#e2e8f0" stroke-width="1"/>
+
+    <text x="80" y="350" fill="#475569">是否需要奖励模型</text>
+    <text x="310" y="350" text-anchor="middle" fill="#2563eb">需要（cost func）</text>
+    <text x="440" y="350" text-anchor="middle" fill="#059669">需要（规则奖励）</text>
+    <text x="570" y="350" text-anchor="middle" fill="#7c3aed">需要（reward model）</text>
+    <text x="700" y="350" text-anchor="middle" fill="#d97706">需要（世界模型）</text>
+
+    <text x="80" y="375" fill="#475569">是否改模型权重</text>
+    <text x="310" y="375" text-anchor="middle" fill="#2563eb">否（推理时引导）</text>
+    <text x="440" y="375" text-anchor="middle" fill="#059669">是（SFT 再训练）</text>
+    <text x="570" y="375" text-anchor="middle" fill="#7c3aed">是（策略梯度）</text>
+    <text x="700" y="375" text-anchor="middle" fill="#d97706">是（联合训练）</text>
+
+    <text x="80" y="400" fill="#475569">实现难度</text>
+    <text x="310" y="400" text-anchor="middle" fill="#2563eb">低（不改模型）</text>
+    <text x="440" y="400" text-anchor="middle" fill="#059669">低（退化到 SFT）</text>
+    <text x="570" y="400" text-anchor="middle" fill="#7c3aed">高（log-prob 难算）</text>
+    <text x="700" y="400" text-anchor="middle" fill="#d97706">高（训世界模型）</text>
+
+    <text x="80" y="425" fill="#475569">性能上限</text>
+    <text x="310" y="425" text-anchor="middle" fill="#2563eb">有限（受预训练限）</text>
+    <text x="440" y="425" text-anchor="middle" fill="#059669">中等</text>
+    <text x="570" y="425" text-anchor="middle" fill="#7c3aed">高</text>
+    <text x="700" y="425" text-anchor="middle" fill="#d97706">最高（可长远规划）</text>
+
+    <text x="80" y="450" fill="#475569">训飞风险</text>
+    <text x="310" y="450" text-anchor="middle" fill="#2563eb">无（不改权重）</text>
+    <text x="440" y="450" text-anchor="middle" fill="#059669">低</text>
+    <text x="570" y="450" text-anchor="middle" fill="#7c3aed">高（reward hacking）</text>
+    <text x="700" y="450" text-anchor="middle" fill="#d97706">中（世界模型偏差）</text>
+  </g>
+
+  <!-- Bottom note -->
+  <text x="460" y="500" text-anchor="middle" font-size="11" fill="#64748b">四种范式不是替代关系，而是互补——实践中可以组合使用（如先 RFT 粗调、再 GRPO 精修）</text>
+</svg>

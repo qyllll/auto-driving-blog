@@ -1,0 +1,65 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 860 480" font-family="system-ui, -apple-system, sans-serif">
+  <defs><marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" fill="#3b82f6"/></marker></defs>
+  <rect width="860" height="480" fill="#f8fafc" rx="12"/>
+  <text x="430" y="30" text-anchor="middle" font-size="17" font-weight="bold" fill="#0f172a">范式一：推理时奖励引导采样</text>
+  <text x="430" y="50" text-anchor="middle" font-size="11" fill="#64748b">不修改模型权重，在采样过程中用 cost/reward 函数引导生成方向</text>
+
+  <!-- Process flow -->
+  <rect x="40" y="75" width="780" height="180" fill="white" stroke="#93c5fd" stroke-width="2" rx="10"/>
+
+  <!-- Step 1 -->
+  <rect x="60" y="100" width="160" height="90" fill="#eff6ff" stroke="#bfdbfe" rx="8"/>
+  <text x="140" y="122" text-anchor="middle" font-size="11" font-weight="bold" fill="#2563eb">① 预训练模型</text>
+  <text x="140" y="142" text-anchor="middle" font-size="9" fill="#475569">扩散/Flow 模型</text>
+  <text x="140" y="158" text-anchor="middle" font-size="9" fill="#475569">权重完全固定</text>
+  <text x="140" y="174" text-anchor="middle" font-size="9" fill="#64748b">不参与引导</text>
+
+  <line x1="225" y1="145" x2="260" y2="145" stroke="#3b82f6" stroke-width="2" marker-end="url(#ar)"/>
+
+  <!-- Step 2 -->
+  <rect x="265" y="100" width="200" height="90" fill="#eff6ff" stroke="#bfdbfe" rx="8"/>
+  <text x="365" y="122" text-anchor="middle" font-size="11" font-weight="bold" fill="#2563eb">② 采样 + 引导</text>
+  <text x="365" y="142" text-anchor="middle" font-size="9" fill="#475569">每一步去噪时</text>
+  <text x="365" y="158" text-anchor="middle" font-size="9" fill="#475569">额外计算 cost 梯度</text>
+  <text x="365" y="174" text-anchor="middle" font-size="9" fill="#64748b">∇_x J(x) 引导方向</text>
+
+  <line x1="470" y1="145" x2="505" y2="145" stroke="#3b82f6" stroke-width="2" marker-end="url(#ar)"/>
+
+  <!-- Step 3 -->
+  <rect x="510" y="100" width="160" height="90" fill="#eff6ff" stroke="#bfdbfe" rx="8"/>
+  <text x="590" y="122" text-anchor="middle" font-size="11" font-weight="bold" fill="#2563eb">③ 修正方向</text>
+  <text x="590" y="142" text-anchor="middle" font-size="9" fill="#475569">v_t' = v_t - λ·∇J</text>
+  <text x="590" y="158" text-anchor="middle" font-size="9" fill="#475569">沿 cost 减小方向</text>
+  <text x="590" y="174" text-anchor="middle" font-size="9" fill="#64748b">偏移动作</text>
+
+  <line x1="675" y1="145" x2="710" y2="145" stroke="#3b82f6" stroke-width="2" marker-end="url(#ar)"/>
+
+  <!-- Step 4 -->
+  <rect x="715" y="100" width="90" height="90" fill="#dbeafe" stroke="#93c5fd" rx="8"/>
+  <text x="760" y="145" text-anchor="middle" font-size="11" font-weight="bold" fill="#1d4ed8">生成</text>
+
+  <!-- Example -->
+  <rect x="40" y="275" width="780" height="180" fill="white" stroke="#e2e8f0" rx="10"/>
+  <text x="430" y="300" text-anchor="middle" font-size="12" font-weight="bold" fill="#475569">具体例子：Diffusion Planner 的无训练引导</text>
+
+  <!-- Left: Without guidance -->
+  <rect x="60" y="315" width="330" height="120" fill="white" stroke="#fca5a5" rx="8"/>
+  <text x="225" y="338" text-anchor="middle" font-size="10" font-weight="bold" fill="#dc2626">无引导：模型默认输出</text>
+  <path d="M 80 400 Q 140 380 200 385 Q 260 390 320 370 Q 340 362 370 355" stroke="#dc2626" stroke-width="2" fill="none"/>
+  <circle cx="80" cy="400" r="3" fill="#dc2626"/>
+  <circle cx="370" cy="355" r="3" fill="#dc2626"/>
+  <text x="225" y="425" text-anchor="middle" font-size="9" fill="#64748b">可能压线、不够舒适</text>
+
+  <line x1="395" y1="375" x2="425" y2="375" stroke="#3b82f6" stroke-width="2" marker-end="url(#ar)"/>
+
+  <!-- Right: With guidance -->
+  <rect x="430" y="315" width="370" height="120" fill="white" stroke="#86efac" rx="8"/>
+  <text x="615" y="338" text-anchor="middle" font-size="10" font-weight="bold" fill="#059669">有引导：cost 梯度偏移</text>
+  <path d="M 450 400 Q 510 370 570 360 Q 620 350 670 345 Q 710 342 780 340" stroke="#059669" stroke-width="2" fill="none"/>
+  <circle cx="450" cy="400" r="3" fill="#059669"/>
+  <circle cx="780" cy="340" r="3" fill="#059669"/>
+  <text x="615" y="425" text-anchor="middle" font-size="9" fill="#64748b">碰撞 cost ↓ + 舒适 cost ↓ → 轨迹更优</text>
+
+  <!-- Guidance formula -->
+  <text x="430" y="470" text-anchor="middle" font-size="10" fill="#64748b">公式：v_t' = v_θ(x_t, t) - λ · ∇_x[J_collision(x) + J_comfort(x) + ...]</text>
+</svg>

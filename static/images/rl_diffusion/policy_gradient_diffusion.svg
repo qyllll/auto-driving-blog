@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 860 500" font-family="system-ui, -apple-system, sans-serif">
+  <defs><marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" fill="#7c3aed"/></marker></defs>
+  <rect width="860" height="500" fill="#f8fafc" rx="12"/>
+  <text x="430" y="30" text-anchor="middle" font-size="17" font-weight="bold" fill="#0f172a">范式三：策略梯度直接优化</text>
+  <text x="430" y="50" text-anchor="middle" font-size="11" fill="#64748b">对生成过程的每一时间步算梯度，用 PPO/GRPO/DPO 框架优化</text>
+
+  <!-- Core challenge -->
+  <rect x="50" y="75" width="760" height="100" fill="#f5f3ff" stroke="#c084fc" stroke-width="2" rx="10"/>
+  <text x="430" y="98" text-anchor="middle" font-size="13" font-weight="bold" fill="#7c3aed">核心挑战：扩散/Flow 生成的 log-prob 怎么算？</text>
+  <text x="60" y="122" font-size="10" fill="#475569">PPO/GRPO 里更新公式需要：∇L = E[... · ∇log π_θ(a|s)]</text>
+  <text x="60" y="142" font-size="10" fill="#475569">但扩散/Flow 的生成过程有几十步迭代，不像单步动作那样直接算 log-prob</text>
+  <text x="60" y="162" font-size="10" fill="#64748b">解决方案①：把整个去噪链看作一个「扩展 MDP」—— 每一步去噪 = 一步「动作」（Diffusion Policy Gradient）</text>
+
+  <!-- Flow-GRPO -->
+  <rect x="50" y="195" width="760" height="130" fill="white" stroke="#c084fc" stroke-width="2" rx="10"/>
+  <text x="430" y="220" text-anchor="middle" font-size="13" font-weight="bold" fill="#7c3aed">代表方法对比</text>
+
+  <rect x="70" y="240" width="220" height="70" fill="#f5f3ff" stroke="#c084fc" rx="8"/>
+  <text x="180" y="260" text-anchor="middle" font-size="11" font-weight="bold" fill="#7c3aed">Flow-GRPO</text>
+  <text x="180" y="278" text-anchor="middle" font-size="9" fill="#475569">用 Flow 的瞬时速度 v_θ</text>
+  <text x="180" y="294" text-anchor="middle" font-size="9" fill="#475569">把去噪过程看作 ODE 积分</text>
+  <text x="180" y="308" text-anchor="middle" font-size="9" fill="#64748b">用 Stoch. Adjoint 算梯度</text>
+
+  <rect x="320" y="240" width="220" height="70" fill="#f5f3ff" stroke="#c084fc" rx="8"/>
+  <text x="430" y="260" text-anchor="middle" font-size="11" font-weight="bold" fill="#7c3aed">DPO for Diffusion</text>
+  <text x="430" y="278" text-anchor="middle" font-size="9" fill="#475569">用扩散 ELBO 替代 log-prob</text>
+  <text x="430" y="294" text-anchor="middle" font-size="9" fill="#475569">不需要 reward model</text>
+  <text x="430" y="308" text-anchor="middle" font-size="9" fill="#64748b">只需要偏好标注对</text>
+
+  <rect x="570" y="240" width="220" height="70" fill="#f5f3ff" stroke="#c084fc" rx="8"/>
+  <text x="680" y="260" text-anchor="middle" font-size="11" font-weight="bold" fill="#7c3aed">DRaC</text>
+  <text x="680" y="278" text-anchor="middle" font-size="9" fill="#475569">Diffusion 作为策略</text>
+  <text x="680" y="294" text-anchor="middle" font-size="9" fill="#475569">动作值函数近似</text>
+  <text x="680" y="308" text-anchor="middle" font-size="9" fill="#64748b">类似 Actor-Critic</text>
+
+  <!-- GRPO illustration -->
+  <rect x="50" y="340" width="760" height="140" fill="#fef2f2" stroke="#fca5a5" stroke-width="1.5" rx="8"/>
+  <text x="430" y="362" text-anchor="middle" font-size="11" font-weight="bold" fill="#dc2626">关键挑战详解：为什么 log-prob 这么难？</text>
+
+  <text x="70" y="385" font-size="10" fill="#475569">生成过程：x₀ → x₁ → x₂ → ... → x_T（扩散的 T 步去噪，或 Flow 的 ODE 积分）</text>
+
+  <rect x="70" y="395" width="220" height="32" fill="#fef2f2" stroke="#fecaca" rx="5"/>
+  <text x="180" y="409" text-anchor="middle" font-size="9" fill="#b91c1c">每步预测 v¹, v², ..., vᵀ</text>
+  <text x="180" y="422" text-anchor="middle" font-size="9" fill="#64748b">这么多动作的联合 log-prob 怎么算？</text>
+
+  <rect x="310" y="395" width="200" height="32" fill="#fef2f2" stroke="#fecaca" rx="5"/>
+  <text x="410" y="409" text-anchor="middle" font-size="9" fill="#b91c1c">步骤之间强相关</text>
+  <text x="410" y="422" text-anchor="middle" font-size="9" fill="#64748b">不能假设每步独立</text>
+
+  <rect x="530" y="395" width="230" height="32" fill="#fef2f2" stroke="#fecaca" rx="5"/>
+  <text x="645" y="409" text-anchor="middle" font-size="9" fill="#b91c1c">高维连续动作空间</text>
+  <text x="645" y="422" text-anchor="middle" font-size="9" fill="#64748b">每个时刻动作维度几十到几百</text>
+
+  <text x="430" y="475" text-anchor="middle" font-size="10" fill="#64748b">注：策略梯度方法理论上上限最高，但实现难度也最大，至今没有特别成熟普适的 pipeline</text>
+</svg>

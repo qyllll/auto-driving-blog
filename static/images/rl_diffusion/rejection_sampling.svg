@@ -1,0 +1,66 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 860 420" font-family="system-ui, -apple-system, sans-serif">
+  <defs><marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" fill="#059669"/></marker></defs>
+  <rect width="860" height="420" fill="#f8fafc" rx="12"/>
+  <text x="430" y="30" text-anchor="middle" font-size="17" font-weight="bold" fill="#0f172a">范式二：拒绝采样微调（RFT）</text>
+  <text x="430" y="50" text-anchor="middle" font-size="11" fill="#64748b">采样 → 打分 → 筛选 → 再训练，简单但有效</text>
+
+  <!-- Flow -->
+  <rect x="30" y="75" width="190" height="100" fill="white" stroke="#6ee7b7" stroke-width="2" rx="8"/>
+  <rect x="30" y="75" width="190" height="28" fill="#ecfdf5" rx="8"/>
+  <text x="125" y="94" text-anchor="middle" font-size="11" font-weight="bold" fill="#059669">① 采样多条轨迹</text>
+  <text x="125" y="115" text-anchor="middle" font-size="9" fill="#475569">对每个场景/条件</text>
+  <text x="125" y="131" text-anchor="middle" font-size="9" fill="#475569">从扩散/Flow 模型中</text>
+  <text x="125" y="147" text-anchor="middle" font-size="9" fill="#475569">采样 K 条候选轨迹</text>
+  <text x="125" y="163" text-anchor="middle" font-size="8" fill="#94a3b8">K=4~8 条</text>
+
+  <line x1="225" y1="125" x2="260" y2="125" stroke="#059669" stroke-width="2" marker-end="url(#ar)"/>
+
+  <rect x="265" y="75" width="190" height="100" fill="white" stroke="#6ee7b7" stroke-width="2" rx="8"/>
+  <rect x="265" y="75" width="190" height="28" fill="#ecfdf5" rx="8"/>
+  <text x="360" y="94" text-anchor="middle" font-size="11" font-weight="bold" fill="#059669">② 用规则奖励打分</text>
+  <text x="360" y="115" text-anchor="middle" font-size="9" fill="#475569">碰撞检测（几何/语义）</text>
+  <text x="360" y="131" text-anchor="middle" font-size="9" fill="#475569">舒适性（jerk, 加速度）</text>
+  <text x="360" y="147" text-anchor="middle" font-size="9" fill="#475569">交通规则遵守</text>
+  <text x="360" y="163" text-anchor="middle" font-size="9" fill="#475569">任务完成度</text>
+
+  <line x1="460" y1="125" x2="495" y2="125" stroke="#059669" stroke-width="2" marker-end="url(#ar)"/>
+
+  <rect x="500" y="75" width="190" height="100" fill="white" stroke="#6ee7b7" stroke-width="2" rx="8"/>
+  <rect x="500" y="75" width="190" height="28" fill="#ecfdf5" rx="8"/>
+  <text x="595" y="94" text-anchor="middle" font-size="11" font-weight="bold" fill="#059669">③ 筛选最好/坏样本</text>
+  <text x="595" y="115" text-anchor="middle" font-size="9" fill="#475569">挑 Top-K 高分轨迹</text>
+  <text x="595" y="131" text-anchor="middle" font-size="9" fill="#475569">（或同时挑低分做负样本）</text>
+  <text x="595" y="147" text-anchor="middle" font-size="9" fill="#475569">构成新的训练集 D'</text>
+
+  <line x1="695" y1="125" x2="730" y2="125" stroke="#059669" stroke-width="2" marker-end="url(#ar)"/>
+
+  <rect x="735" y="75" width="100" height="100" fill="#ecfdf5" stroke="#34d399" rx="8"/>
+  <text x="785" y="125" text-anchor="middle" font-size="11" font-weight="bold" fill="#059669">SFT</text>
+  <text x="785" y="145" text-anchor="middle" font-size="9" fill="#475569">再训练</text>
+
+  <!-- Iterative arrow -->
+  <path d="M 785 180 Q 785 210 430 210 Q 75 210 75 180" stroke="#94a3b8" stroke-width="1.5" fill="none" stroke-dasharray="5,3" marker-end="url(#ar)"/>
+  <text x="430" y="225" text-anchor="middle" font-size="9" fill="#94a3b8">可以多轮迭代：SFT 后的模型再采样 → 再打分 → 再训练</text>
+
+  <!-- Pros/Cons -->
+  <rect x="30" y="250" width="380" height="145" fill="white" stroke="#6ee7b7" rx="8"/>
+  <rect x="30" y="250" width="380" height="26" fill="#ecfdf5" rx="8"/>
+  <text x="220" y="269" text-anchor="middle" font-size="11" font-weight="bold" fill="#059669">优点</text>
+  <text x="50" y="296" font-size="10" fill="#15803d">✓ 实现简单，稳定可靠</text>
+  <text x="50" y="316" font-size="10" fill="#15803d">✓ 不要求 log-prob 可微</text>
+  <text x="50" y="336" font-size="10" fill="#15803d">✓ 任何生成模型都适用</text>
+  <text x="50" y="356" font-size="10" fill="#15803d">✓ 不会出现 reward hacking（因为只采样不优化）</text>
+  <text x="50" y="376" font-size="10" fill="#15803d">✓ 采样越多，效果越好</text>
+
+  <rect x="450" y="250" width="380" height="145" fill="white" stroke="#fca5a5" rx="8"/>
+  <rect x="450" y="250" width="380" height="26" fill="#fef2f2" rx="8"/>
+  <text x="640" y="269" text-anchor="middle" font-size="11" font-weight="bold" fill="#dc2626">缺点</text>
+  <text x="470" y="296" font-size="10" fill="#b91c1c">✗ 样本效率低（大量采样只有少量可用）</text>
+  <text x="470" y="316" font-size="10" fill="#b91c1c">✗ 上限受模型当前分布限制</text>
+  <text x="470" y="336" font-size="10" fill="#b91c1c">✗ 对高维连续空间采样效率差</text>
+  <text x="470" y="356" font-size="10" fill="#b91c1c">✗ 不改变模型方差，只移动均值</text>
+  <text x="470" y="376" font-size="10" fill="#b91c1c">✗ 本质上还是 SFT，没有真正的探索</text>
+
+  <!-- Note -->
+  <text x="430" y="410" text-anchor="middle" font-size="10" fill="#64748b">AutoVLA 论文就是这个做法：生成器采样 → 规则打分筛选 → 当 SFT 数据重新训练</text>
+</svg>

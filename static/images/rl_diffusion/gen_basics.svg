@@ -1,0 +1,62 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 400" font-family="system-ui, -apple-system, sans-serif">
+  <defs>
+    <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" fill="#3b82f6"/></marker>
+  </defs>
+  <rect width="900" height="400" fill="#f8fafc" rx="12"/>
+  <text x="450" y="28" text-anchor="middle" font-size="17" font-weight="bold" fill="#0f172a">扩散/Flow 模型怎么做轨迹生成</text>
+
+  <!-- Training -->
+  <rect x="30" y="55" width="400" height="150" fill="white" stroke="#e2e8f0" rx="10"/>
+  <rect x="30" y="55" width="400" height="28" fill="#f1f5f9" rx="10"/>
+  <text x="230" y="74" text-anchor="middle" font-size="12" font-weight="bold" fill="#475569">训练：学一个去噪/速度网络</text>
+
+  <text x="80" y="105" fill="#475569" font-size="11">真实轨迹 x₁</text>
+  <text x="80" y="125" fill="#64748b" font-size="10">（专家驾驶数据）</text>
+  <text x="280" y="105" fill="#475569" font-size="11">加噪声</text>
+  <text x="280" y="125" fill="#64748b" font-size="10">扩散：逐步加噪 x₀=x₁+ε</text>
+  <text x="280" y="140" fill="#64748b" font-size="10">Flow：线性插值 xₜ=(1-t)x₀+tx₁</text>
+  <text x="80" y="165" fill="#475569" font-size="11">目标：预测噪声 ε 或速度 v</text>
+  <text x="80" y="185" fill="#64748b" font-size="10">损失：MSE(ε_pred, ε) 或 MSE(v_pred, v)</text>
+
+  <line x1="435" y1="130" x2="470" y2="130" stroke="#3b82f6" stroke-width="2" marker-end="url(#ar)"/>
+
+  <!-- Inference -->
+  <rect x="475" y="55" width="400" height="150" fill="white" stroke="#e2e8f0" rx="10"/>
+  <rect x="475" y="55" width="400" height="28" fill="#f1f5f9" rx="10"/>
+  <text x="675" y="74" text-anchor="middle" font-size="12" font-weight="bold" fill="#475569">推理：从噪声逐步生成轨迹</text>
+
+  <text x="525" y="105" fill="#475569" font-size="11">初始噪声 x₀</text>
+  <text x="525" y="125" fill="#64748b" font-size="10">随机采样一条轨迹</text>
+  <text x="525" y="165" fill="#475569" font-size="11">逐步去噪/积分</text>
+  <text x="525" y="185" fill="#64748b" font-size="10">x_{t-1} = x_t + v_θ(x_t,t)·dt</text>
+  <text x="750" y="105" fill="#475569" font-size="11">生成轨迹 x₁</text>
+  <text x="750" y="125" fill="#64748b" font-size="10">可执行的动作序列</text>
+
+  <!-- Trajectory illustration -->
+  <rect x="30" y="220" width="840" height="160" fill="white" stroke="#e2e8f0" rx="10"/>
+  <text x="450" y="245" text-anchor="middle" font-size="12" font-weight="bold" fill="#475569">一个驾驶轨迹生成的例子</text>
+
+  <!-- Start point -->
+  <circle cx="100" cy="340" r="6" fill="#dc2626"/>
+  <text x="100" y="362" text-anchor="middle" font-size="9" fill="#dc2626">起点</text>
+
+  <!-- Waypoints -->
+  <circle cx="220" cy="310" r="4" fill="#3b82f6" opacity="0.6"/>
+  <circle cx="340" cy="280" r="4" fill="#3b82f6" opacity="0.6"/>
+  <circle cx="460" cy="260" r="4" fill="#3b82f6" opacity="0.6"/>
+  <circle cx="580" cy="250" r="4" fill="#3b82f6" opacity="0.6"/>
+  <circle cx="700" cy="255" r="4" fill="#3b82f6" opacity="0.6"/>
+
+  <!-- Path -->
+  <path d="M 100 340 Q 160 320 220 310 Q 280 290 340 280 Q 400 265 460 260 Q 520 252 580 250 Q 640 250 700 255" stroke="#3b82f6" stroke-width="2.5" fill="none" opacity="0.7"/>
+
+  <!-- End point -->
+  <circle cx="780" cy="265" r="6" fill="#059669"/>
+  <text x="780" y="248" text-anchor="middle" font-size="9" fill="#059669">终点</text>
+
+  <!-- Multiple trajectories (multimodal) -->
+  <path d="M 100 340 Q 160 350 220 345 Q 280 340 340 330 Q 400 320 460 315 Q 520 310 580 305" stroke="#94a3b8" stroke-width="1.5" fill="none" opacity="0.4" stroke-dasharray="4,3"/>
+  <path d="M 100 340 Q 160 300 220 280 Q 280 260 340 245 Q 400 235 460 230 Q 520 225 580 220" stroke="#94a3b8" stroke-width="1.5" fill="none" opacity="0.4" stroke-dasharray="4,3"/>
+
+  <text x="450" y="380" text-anchor="middle" font-size="10" fill="#64748b">同一场景可生成多条不同轨迹（多模态） &nbsp;&nbsp; 扩散/Flow 天然支持多模态输出</text>
+</svg>
