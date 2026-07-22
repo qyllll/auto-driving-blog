@@ -58,5 +58,5 @@
   <path d="M 100 340 Q 160 350 220 345 Q 280 340 340 330 Q 400 320 460 315 Q 520 310 580 305" stroke="#94a3b8" stroke-width="1.5" fill="none" opacity="0.4" stroke-dasharray="4,3"/>
   <path d="M 100 340 Q 160 300 220 280 Q 280 260 340 245 Q 400 235 460 230 Q 520 225 580 220" stroke="#94a3b8" stroke-width="1.5" fill="none" opacity="0.4" stroke-dasharray="4,3"/>
 
-  <text x="450" y="380" text-anchor="middle" font-size="10" fill="#64748b">同一场景可生成多条不同轨迹（多模态） &nbsp;&nbsp; 扩散/Flow 天然支持多模态输出</text>
+  <text x="450" y="380" text-anchor="middle" font-size="10" fill="#64748b">同一场景可生成多条不同轨迹（多模态） &#160;&#160; 扩散/Flow 天然支持多模态输出</text>
 </svg>
