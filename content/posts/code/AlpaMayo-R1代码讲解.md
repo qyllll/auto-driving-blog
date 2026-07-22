@@ -4,7 +4,7 @@ date: 2026-07-22
 draft: false
 categories: ["代码讲解"]
 tags: ["VLA", "扩散模型", "因果推理", "GRPO", "代码讲解", "NVIDIA"]
-summary: "零基础逐文件拆解 NVIDIA AlpaMayo-R1 推理源码：从 VLM/Expert/Diffusion 三组件架构到单轮动力学动作空间，从 Flow Matching 去噪到 Fourier 特征编码，用伪代码 + 大白话讲清这个 10B 参数的 VLA 模型是怎么从传感器数据一路"推理"到轨迹输出的。"
+summary: "零基础逐文件拆解 NVIDIA AlpaMayo-R1 推理源码：从 VLM/Expert/Diffusion 三组件架构到单轮动力学动作空间，从 Flow Matching 去噪到 Fourier 特征编码，用伪代码 + 大白话讲清这个 10B 参数的 VLA 模型是怎么从传感器数据一路「推理」到轨迹输出的。"
 ---
 
 ## 写给零基础读者：读这篇之前先搞懂几个名词
