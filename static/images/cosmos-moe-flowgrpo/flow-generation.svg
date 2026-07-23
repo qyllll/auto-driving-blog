@@ -52,7 +52,7 @@
   <rect x="650" y="140" width="220" height="80" rx="10" fill="#2b4c7e" stroke="#4a9eff" stroke-width="2"/>
   <text x="760" y="168" text-anchor="middle" fill="#e2e8f0" font-size="16" font-weight="bold">连续轨迹</text>
   <text x="760" y="190" text-anchor="middle" fill="#90cdf4" font-size="14">A = {a₁, a₂, ..., a_T}</text>
-  <text x="760" y="208" text-anchor="middle" fill="#90cdf4" font-size="12">6轮扭矩 + 6轮转角</text>
+  <text x="760" y="208" text-anchor="middle" fill="#90cdf4" font-size="12">(x, y, yaw)</text>
 
   <!-- Formula bar -->
   <rect x="50" y="260" width="820" height="55" rx="8" fill="#1a2332" stroke="#718096" stroke-width="1"/>
