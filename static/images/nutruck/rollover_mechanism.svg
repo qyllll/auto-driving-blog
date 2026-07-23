@@ -1,0 +1,126 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 520" font-family="'Courier New', monospace" font-size="13">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#0f172a"/>
+      <stop offset="100%" stop-color="#1e293b"/>
+    </linearGradient>
+    <linearGradient id="safeGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#10b981"/>
+      <stop offset="100%" stop-color="#059669"/>
+    </linearGradient>
+    <linearGradient id="warnGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#f59e0b"/>
+      <stop offset="100%" stop-color="#d97706"/>
+    </linearGradient>
+    <linearGradient id="dangerGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#ef4444"/>
+      <stop offset="100%" stop-color="#dc2626"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="900" height="520" fill="url(#bg)" rx="12"/>
+
+  <text x="450" y="28" fill="white" text-anchor="middle" font-size="15" font-weight="bold">侧翻机理：垂直载荷转移与 LTR 指标</text>
+
+  <!-- ====== Top: Truck in corner ====== -->
+  <text x="450" y="55" fill="#93c5fd" text-anchor="middle" font-size="11">过弯时的侧向力与载荷转移</text>
+
+  <!-- Road surface -->
+  <rect x="50" y="130" width="800" height="8" rx="2" fill="#334155"/>
+
+  <!-- Truck body (seen from behind) -->
+  <rect x="350" y="60" width="200" height="70" rx="6" fill="#4d3d11" stroke="#fbbf24" stroke-width="1.5"/>
+  <!-- Cargo -->
+  <rect x="360" y="65" width="180" height="40" rx="3" fill="#78350f" stroke="#f59e0b" stroke-width="1"/>
+
+  <!-- Suspension springs -->
+  <line x1="380" y1="130" x2="380" y2="100" stroke="#60a5fa" stroke-width="2"/>
+  <line x1="520" y1="130" x2="520" y2="100" stroke="#60a5fa" stroke-width="2"/>
+
+  <!-- Wheels -->
+  <rect x="365" y="130" width="30" height="40" rx="6" fill="#1e293b" stroke="#60a5fa" stroke-width="2"/>
+  <rect x="505" y="130" width="30" height="40" rx="6" fill="#1e293b" stroke="#60a5fa" stroke-width="2"/>
+
+  <!-- Center of mass -->
+  <circle cx="450" cy="80" r="6" fill="#ef4444"/>
+  <text x="460" y="78" fill="#fca5a5" font-size="9">CoG</text>
+
+  <!-- Lateral force arrow -->
+  <line x1="450" y1="80" x2="300" y2="80" stroke="#f87171" stroke-width="2.5" marker-end="url(#arrowRed)"/>
+  <text x="370" y="72" fill="#f87171" font-size="10" text-anchor="end">侧向力 F_y = m * a_y</text>
+
+  <!-- Gravity -->
+  <line x1="450" y1="80" x2="450" y2="140" stroke="#34d399" stroke-width="2" stroke-dasharray="4,3"/>
+  <text x="460" y="115" fill="#34d399" font-size="9">mg</text>
+
+  <!-- Torque arm -->
+  <path d="M 450 80 L 520 80" stroke="#fca5a5" stroke-width="1.5" stroke-dasharray="3,2"/>
+  <text x="485" y="75" fill="#fca5a5" font-size="9">w/2</text>
+
+  <!-- Roll angle indicator -->
+  <path d="M 380 100 Q 390 95 395 105" stroke="#fca5a5" stroke-width="1" fill="none"/>
+  <text x="385" y="92" fill="#fca5a5" font-size="9">Φ</text>
+
+  <!-- Load transfer arrows -->
+  <text x="380" y="185" fill="#60a5fa" text-anchor="middle" font-size="10">F_z_left ↓</text>
+  <text x="520" y="185" fill="#fca5a5" text-anchor="middle" font-size="10">F_z_right ↑</text>
+  <line x1="380" y1="170" x2="380" y2="180" stroke="#60a5fa" stroke-width="1.5"/>
+  <line x1="520" y1="170" x2="520" y2="180" stroke="#fca5a5" stroke-width="1.5"/>
+
+  <!-- ====== Bottom: LTR visualization ====== -->
+  <text x="450" y="215" fill="white" text-anchor="middle" font-size="12" font-weight="bold">LTR（侧翻指标）计算</text>
+
+  <text x="450" y="240" fill="#93c5fd" text-anchor="middle" font-size="11">LTR = (F_z_right - F_z_left) / (F_z_right + F_z_left)</text>
+
+  <!-- LTR scale bar -->
+  <rect x="150" y="260" width="600" height="30" rx="6" fill="#1e293b" stroke="#334155" stroke-width="1"/>
+
+  <!-- Gradient fill -->
+  <rect x="150" y="260" width="200" height="30" fill="url(#safeGrad)" rx="6" opacity="0.3"/>
+  <rect x="350" y="260" width="200" height="30" fill="url(#warnGrad)" rx="6" opacity="0.3"/>
+  <rect x="550" y="260" width="200" height="30" fill="url(#dangerGrad)" rx="6" opacity="0.3"/>
+
+  <text x="250" y="280" fill="#6ee7b7" text-anchor="middle" font-size="10">Safe: 0 - 0.5</text>
+  <text x="450" y="280" fill="#fde68a" text-anchor="middle" font-size="10">Warning: 0.5 - 0.9</text>
+  <text x="650" y="280" fill="#fca5a5" text-anchor="middle" font-size="10">Critical: 0.9 - 1.0</text>
+
+  <!-- LTR markers -->
+  <line x1="150" y1="295" x2="150" y2="305" stroke="#64748b" stroke-width="1.5"/>
+  <text x="150" y="315" fill="#64748b" text-anchor="middle" font-size="9">0</text>
+
+  <line x1="350" y1="295" x2="350" y2="305" stroke="#64748b" stroke-width="1.5"/>
+  <text x="350" y="315" fill="#64748b" text-anchor="middle" font-size="9">0.5</text>
+
+  <line x1="550" y1="295" x2="550" y2="305" stroke="#64748b" stroke-width="1.5"/>
+  <text x="550" y="315" fill="#64748b" text-anchor="middle" font-size="9">0.9</text>
+
+  <line x1="750" y1="295" x2="750" y2="305" stroke="#64748b" stroke-width="1.5"/>
+  <text x="750" y="315" fill="#64748b" text-anchor="middle" font-size="9">1.0</text>
+
+  <!-- Example scenario -->
+  <text x="450" y="350" fill="white" text-anchor="middle" font-size="12" font-weight="bold">典型场景 LTR 变化</text>
+
+  <text x="60" y="380" fill="#93c5fd" font-size="11">直行匀速</text>
+  <rect x="150" y="370" width="120" height="16" rx="4" fill="#064e3b"/>
+  <text x="210" y="382" fill="#6ee7b7" text-anchor="middle" font-size="10">LTR = 0.0 - 0.1</text>
+
+  <text x="60" y="410" fill="#93c5fd" font-size="11">正常转弯</text>
+  <rect x="150" y="400" width="120" height="16" rx="4" fill="#4d3d11"/>
+  <text x="210" y="412" fill="#fde68a" text-anchor="middle" font-size="10">LTR = 0.2 - 0.5</text>
+
+  <text x="60" y="440" fill="#93c5fd" font-size="11">急转弯 / 高速过弯</text>
+  <rect x="150" y="430" width="120" height="16" rx="4" fill="#3b1a1a"/>
+  <text x="210" y="442" fill="#fca5a5" text-anchor="middle" font-size="10">LTR = 0.5 - 0.9</text>
+
+  <text x="60" y="470" fill="#93c5fd" font-size="11">即将侧翻</text>
+  <rect x="150" y="460" width="120" height="16" rx="4" fill="#7f1d1d"/>
+  <text x="210" y="472" fill="#fca5a5" text-anchor="middle" font-size="10">LTR > 0.9 -> 侧翻</text>
+
+  <!-- NRS formula -->
+  <rect x="350" y="370" width="500" height="110" rx="8" fill="#1e293b" stroke="#3b82f6" stroke-width="1"/>
+  <text x="600" y="395" fill="#93c5fd" text-anchor="middle" font-size="12" font-weight="bold">NRS（Non-Rollover Score）</text>
+  <text x="370" y="420" fill="#bfdbfe" font-size="11">NRS = 100 * (1 - mean((LTR - 0.5) / (0.9 - 0.5)))^2</text>
+  <text x="370" y="440" fill="#bfdbfe" font-size="11">当 max(LTR) > 0.9: NRS = 0</text>
+  <text x="370" y="460" fill="#bfdbfe" font-size="11">当 max(LTR) < 0.5: NRS = 100</text>
+  <text x="370" y="480" fill="#64748b" font-size="10">在 0.5-0.9 之间按二次函数衰减，惩罚「没翻但接近翻」的轨迹</text>
+</svg>

@@ -1,0 +1,103 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 500" font-family="'Courier New', monospace" font-size="13">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#0f172a"/>
+      <stop offset="100%" stop-color="#1e293b"/>
+    </linearGradient>
+    <linearGradient id="planGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#3b82f6"/>
+      <stop offset="100%" stop-color="#1d4ed8"/>
+    </linearGradient>
+    <linearGradient id="ctrlGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#10b981"/>
+      <stop offset="100%" stop-color="#059669"/>
+    </linearGradient>
+    <linearGradient id="gapGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#ef4444"/>
+      <stop offset="100%" stop-color="#dc2626"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="900" height="500" fill="url(#bg)" rx="12"/>
+
+  <text x="450" y="28" fill="white" text-anchor="middle" font-size="15" font-weight="bold">规划-控制分工在 DET 上的致命漏洞</text>
+
+  <!-- ====== LEFT: Traditional pipeline (works for passenger cars) ====== -->
+  <rect x="20" y="50" width="420" height="200" rx="8" fill="#1e293b" stroke="#3b82f6" stroke-width="1.5"/>
+  <rect x="20" y="50" width="420" height="24" rx="8" fill="url(#planGrad)"/>
+  <text x="230" y="66" fill="white" text-anchor="middle" font-size="11" font-weight="bold">乘用车：规划-控制分工有效</text>
+
+  <!-- Planning box -->
+  <rect x="50" y="90" width="160" height="50" rx="6" fill="#1e3a5f" stroke="#60a5fa" stroke-width="1.5"/>
+  <text x="130" y="112" fill="#93c5fd" text-anchor="middle" font-size="11" font-weight="bold">规划器</text>
+  <text x="130" y="130" fill="#93c5fd" text-anchor="middle" font-size="10">输出轨迹 (x, y, θ)</text>
+
+  <!-- Controller box -->
+  <rect x="250" y="90" width="160" height="50" rx="6" fill="#064e3b" stroke="#34d399" stroke-width="1.5"/>
+  <text x="330" y="112" fill="#6ee7b7" text-anchor="middle" font-size="11" font-weight="bold">控制器</text>
+  <text x="330" y="130" fill="#6ee7b7" text-anchor="middle" font-size="10">iLQR 跟踪轨迹</text>
+
+  <!-- Arrow -->
+  <line x1="210" y1="115" x2="250" y2="115" stroke="#60a5fa" stroke-width="2"/>
+  <polygon points="245,110 255,115 245,120" fill="#60a5fa"/>
+
+  <!-- Notes -->
+  <text x="60" y="175" fill="#6ee7b7" font-size="11">✓ 规划管运动学（避障、路径）</text>
+  <text x="60" y="195" fill="#6ee7b7" font-size="11">✓ 控制器管动力学（油门、刹车、转向）</text>
+  <text x="60" y="215" fill="#6ee7b7" font-size="11">✓ 质心低，侧翻风险几乎为零</text>
+  <text x="60" y="235" fill="#6ee7b7" font-size="11">✓ 「无碰撞 = 安全」成立</text>
+
+  <!-- ====== RIGHT: DET pipeline ====== -->
+  <rect x="460" y="50" width="420" height="200" rx="8" fill="#1e293b" stroke="#ef4444" stroke-width="1.5"/>
+  <rect x="460" y="50" width="420" height="24" rx="8" fill="url(#gapGrad)"/>
+  <text x="670" y="66" fill="white" text-anchor="middle" font-size="11" font-weight="bold">DET 重卡：规划-控制分工失效</text>
+
+  <!-- Planning box -->
+  <rect x="490" y="90" width="160" height="50" rx="6" fill="#3b1a1a" stroke="#f87171" stroke-width="1.5"/>
+  <text x="570" y="112" fill="#fca5a5" text-anchor="middle" font-size="11" font-weight="bold">规划器</text>
+  <text x="570" y="130" fill="#fca5a5" text-anchor="middle" font-size="10">输出轨迹（无动力学意识）</text>
+
+  <!-- Controller box -->
+  <rect x="690" y="90" width="160" height="50" rx="6" fill="#3b1a1a" stroke="#f87171" stroke-width="1.5"/>
+  <text x="770" y="112" fill="#fca5a5" text-anchor="middle" font-size="11" font-weight="bold">控制器</text>
+  <text x="770" y="130" fill="#fca5a5" text-anchor="middle" font-size="10">iLQR 补救侧翻</text>
+
+  <!-- Arrow -->
+  <line x1="650" y1="115" x2="690" y2="115" stroke="#f87171" stroke-width="2"/>
+  <polygon points="685,110 695,115 685,120" fill="#f87171"/>
+
+  <!-- Notes -->
+  <text x="500" y="175" fill="#fca5a5" font-size="11">✗ 规划只管运动学，不知道侧翻风险</text>
+  <text x="500" y="195" fill="#fca5a5" font-size="11">✗ 控制器被迫补救，但为时已晚</text>
+  <text x="500" y="215" fill="#fca5a5" font-size="11">✗ 质心高（1.8m），极易侧翻</text>
+  <text x="500" y="235" fill="#fca5a5" font-size="11">✗ 「无碰撞 != 安全」——还会翻车</text>
+
+  <!-- ====== BOTTOM: Experimental evidence ====== -->
+  <rect x="20" y="270" width="860" height="210" rx="8" fill="#1e293b" stroke="#f59e0b" stroke-width="1.5"/>
+
+  <text x="450" y="298" fill="white" text-anchor="middle" font-size="13" font-weight="bold">实验证据：Plan-R1 在 DET 上的「割裂」对比</text>
+
+  <!-- Plan-R1 + iLQR -->
+  <rect x="50" y="315" width="380" height="70" rx="6" fill="#3b1a1a" stroke="#ef4444" stroke-width="1"/>
+  <text x="240" y="338" fill="#fca5a5" text-anchor="middle" font-size="12" font-weight="bold">Plan-R1 + iLQR（无侧翻防护）</text>
+  <text x="240" y="358" fill="#fca5a5" text-anchor="middle" font-size="11">EPAR=88.43  CLS=78.49  NRS=9.84</text>
+  <text x="240" y="375" fill="#fca5a5" text-anchor="middle" font-size="10">开得不错，但几乎每跑必翻</text>
+
+  <!-- Arrow down -->
+  <line x1="240" y1="385" x2="240" y2="395" stroke="#f87171" stroke-width="1.5"/>
+  <text x="260" y="393" fill="#f87171" font-size="9">控制器补救</text>
+
+  <!-- Plan-R1 + iLQR+S -->
+  <rect x="50" y="400" width="380" height="70" rx="6" fill="#4d3d11" stroke="#f59e0b" stroke-width="1"/>
+  <text x="240" y="423" fill="#fde68a" text-anchor="middle" font-size="12" font-weight="bold">Plan-R1 + iLQR+S（加侧翻惩罚）</text>
+  <text x="240" y="443" fill="#fde68a" text-anchor="middle" font-size="11">EPAR=65.57  CLS=55.18  NRS=61.21</text>
+  <text x="240" y="460" fill="#fca5a5" text-anchor="middle" font-size="10">翻得少了，但任务完成度断崖下跌</text>
+
+  <!-- Callout box -->
+  <rect x="470" y="315" width="380" height="150" rx="6" fill="#1e293b" stroke="#f59e0b" stroke-width="1.5" stroke-dasharray="6,3"/>
+  <text x="660" y="340" fill="#fde68a" text-anchor="middle" font-size="11" font-weight="bold">核心结论</text>
+  <text x="490" y="365" fill="#fde68a" font-size="11">NRS +51.37 是以 EPAR -22.86 换来的</text>
+  <text x="490" y="390" fill="#fca5a5" font-size="11">控制器补救有根本性的天花板</text>
+  <text x="490" y="415" fill="#fca5a5" font-size="11">规划不安全，控制器背不了这个锅</text>
+  <text x="490" y="445" fill="#6ee7b7" font-size="11" font-weight="bold">规划必须内生地考虑动力学安全</text>
+</svg>
