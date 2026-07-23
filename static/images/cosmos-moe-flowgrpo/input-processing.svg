@@ -19,7 +19,7 @@
   <text x="485" y="88" text-anchor="middle" fill="#fbd38d" font-size="13">位姿/速度/状态</text>
 
   <rect x="595" y="40" width="150" height="65" rx="8" fill="#2d3748" stroke="#fc8181" stroke-width="1.5"/>
-  <text x="670" y="68" text-anchor="middle" fill="#e2e8f0" font-size="15" font-weight="bold">Scene & Goal</text>
+  <text x="670" y="68" text-anchor="middle" fill="#e2e8f0" font-size="15" font-weight="bold">Scene &amp; Goal</text>
   <text x="670" y="88" text-anchor="middle" fill="#feb2b2" font-size="13">场景/任务目标</text>
 
   <!-- Arrows down -->
