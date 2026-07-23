@@ -1,0 +1,95 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 560" font-family="'Noto Sans SC','Microsoft YaHei',sans-serif">
+  <defs>
+    <linearGradient id="bgGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#f8f9fa"/>
+      <stop offset="100%" stop-color="#e9ecef"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="900" height="560" fill="url(#bgGrad)" rx="12"/>
+
+  <text x="450" y="35" text-anchor="middle" font-size="20" font-weight="bold" fill="#2c3e50">重卡 VLA 世界模型：重构物理因果链</text>
+  <text x="450" y="55" text-anchor="middle" font-size="12" fill="#888">对比现有世界模型与重卡所需世界模型的根本差异</text>
+
+  <!-- Top: Existing world models -->
+  <rect x="30" y="75" width="840" height="195" fill="#fff" rx="10" stroke="#bdc3c7" stroke-width="1"/>
+  <text x="450" y="100" text-anchor="middle" font-size="15" font-weight="bold" fill="#2c3e50">现有世界模型（GAIA-1, DriveDreamer, Cosmos, VLA-World）</text>
+
+  <rect x="50" y="118" width="240" height="65" fill="#eaf2f8" rx="6" stroke="#3498db" stroke-width="1"/>
+  <text x="170" y="140" text-anchor="middle" font-size="12" font-weight="bold" fill="#2980b9">输入</text>
+  <text x="60" y="158" font-size="11" fill="#555">多视角图像 + 动作指令</text>
+  <text x="60" y="173" font-size="11" fill="#555">(转向角, 速度, 加速度)</text>
+
+  <text x="310" y="153" font-size="20" fill="#3498db">→</text>
+
+  <rect x="350" y="118" width="240" height="65" fill="#eaf2f8" rx="6" stroke="#3498db" stroke-width="1"/>
+  <text x="470" y="140" text-anchor="middle" font-size="12" font-weight="bold" fill="#2980b9">预测</text>
+  <text x="360" y="158" font-size="11" fill="#555">未来帧图像 / BEV / 3D occupancy</text>
+  <text x="360" y="173" font-size="11" fill="#555">自车 + 障碍物未来轨迹</text>
+
+  <text x="610" y="153" font-size="20" fill="#3498db">→</text>
+
+  <rect x="650" y="118" width="200" height="65" fill="#eaf2f8" rx="6" stroke="#3498db" stroke-width="1"/>
+  <text x="750" y="140" text-anchor="middle" font-size="12" font-weight="bold" fill="#2980b9">局限</text>
+  <text x="660" y="158" font-size="11" fill="#e74c3c">忽略动力学安全性</text>
+  <text x="660" y="173" font-size="11" fill="#e74c3c">无法预测侧翻风险</text>
+
+  <text x="450" y="205" text-anchor="middle" font-size="12" font-weight="bold" fill="#e74c3c">核心缺失：现有世界模型预测的是"视觉上合理的未来"，而非"物理上安全的未来"</text>
+
+  <!-- Key missing piece -->
+  <rect x="50" y="225" width="800" height="35" fill="#fadbd8" rx="6" stroke="#e74c3c" stroke-width="1.5"/>
+  <text x="450" y="248" text-anchor="middle" font-size="12" font-weight="bold" fill="#c0392b">它们不预测任何动力学安全指标（LTR、轮荷、侧倾角、轮胎附着力利用率），因此 VLA 无法从中学习"安全驾驶"</text>
+
+  <!-- Bottom: Proposed truck world model -->
+  <rect x="30" y="285" width="840" height="260" fill="#fff" rx="10" stroke="#27ae60" stroke-width="1.5"/>
+  <text x="450" y="310" text-anchor="middle" font-size="15" font-weight="bold" fill="#1e8449">重卡 VLA 世界模型：必须预测的物理量</text>
+
+  <rect x="50" y="328" width="250" height="85" fill="#d5f5e3" rx="6" stroke="#27ae60" stroke-width="1"/>
+  <text x="175" y="350" text-anchor="middle" font-size="12" font-weight="bold" fill="#1e8449">🔴 侧翻安全指标</text>
+  <text x="60" y="370" font-size="11" fill="#555">• LTR(t:t+n) 时序预测</text>
+  <text x="60" y="386" font-size="11" fill="#555">• NRS (Non-Rollover Score)</text>
+  <text x="60" y="402" font-size="11" fill="#555">• 侧倾角 φ(t) 预测</text>
+
+  <rect x="320" y="328" width="250" height="85" fill="#d5f5e3" rx="6" stroke="#27ae60" stroke-width="1"/>
+  <text x="445" y="350" text-anchor="middle" font-size="12" font-weight="bold" fill="#1e8449">🟡 载荷与质心</text>
+  <text x="330" y="370" font-size="11" fill="#555">• 动态载荷转移预测</text>
+  <text x="330" y="386" font-size="11" fill="#555">• CG 高度变化预测</text>
+  <text x="330" y="402" font-size="11" fill="#555">• 各轴瞬时轴荷</text>
+
+  <rect x="590" y="328" width="260" height="85" fill="#d5f5e3" rx="6" stroke="#27ae60" stroke-width="1"/>
+  <text x="720" y="350" text-anchor="middle" font-size="12" font-weight="bold" fill="#1e8449">🟢 轮胎-路面交互</text>
+  <text x="600" y="370" font-size="11" fill="#555">• 各轮附着力利用率 μ_util</text>
+  <text x="600" y="386" font-size="11" fill="#555">• 轮胎侧偏角预测</text>
+  <text x="600" y="402" font-size="11" fill="#555">• 滑移率预测</text>
+
+  <!-- How world model integrates -->
+  <text x="450" y="435" text-anchor="middle" font-size="13" font-weight="bold" fill="#2c3e50">世界模型在 VLA 训练中的角色</text>
+
+  <rect x="50" y="452" width="190" height="80" fill="#fef9e7" rx="6" stroke="#f39c12" stroke-width="1"/>
+  <text x="145" y="475" text-anchor="middle" font-size="11" font-weight="bold" fill="#d68910">梦境回放 (Dreaming)</text>
+  <text x="60" y="495" font-size="10" fill="#555">用世界模型生成大量</text>
+  <text x="60" y="510" font-size="10" fill="#555">安全/非安全轨迹对比</text>
+  <text x="60" y="525" font-size="10" fill="#555">训练 VLA 安全偏好</text>
+
+  <text x="265" y="495" font-size="16" fill="#f39c12">+</text>
+
+  <rect x="290" y="452" width="190" height="80" fill="#fef9e7" rx="6" stroke="#f39c12" stroke-width="1"/>
+  <text x="385" y="475" text-anchor="middle" font-size="11" font-weight="bold" fill="#d68910">想象 Rollout</text>
+  <text x="300" y="495" font-size="10" fill="#555">在想象中展开轨迹</text>
+  <text x="300" y="510" font-size="10" fill="#555">预测每一步的安全度</text>
+  <text x="300" y="525" font-size="10" fill="#555">指导 VLA 策略更新</text>
+
+  <text x="505" y="495" font-size="16" fill="#f39c12">+</text>
+
+  <rect x="530" y="452" width="190" height="80" fill="#fef9e7" rx="6" stroke="#f39c12" stroke-width="1"/>
+  <text x="625" y="475" text-anchor="middle" font-size="11" font-weight="bold" fill="#d68910">安全约束蒸馏</text>
+  <text x="540" y="495" font-size="10" fill="#555">将世界模型的安全知识</text>
+  <text x="540" y="510" font-size="10" fill="#555">蒸馏到 VLA 动作头</text>
+  <text x="540" y="525" font-size="10" fill="#555">实现实时安全推理</text>
+
+  <text x="745" y="495" font-size="16" fill="#f39c12">=</text>
+
+  <rect x="770" y="452" width="80" height="80" fill="#d5f5e3" rx="8" stroke="#27ae60" stroke-width="1.5"/>
+  <text x="810" y="485" text-anchor="middle" font-size="11" font-weight="bold" fill="#1e8449">安全</text>
+  <text x="810" y="503" text-anchor="middle" font-size="11" font-weight="bold" fill="#1e8449">VLA</text>
+</svg>

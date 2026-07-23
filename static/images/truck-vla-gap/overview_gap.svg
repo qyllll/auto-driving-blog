@@ -1,0 +1,94 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 580" font-family="'Noto Sans SC','Microsoft YaHei',sans-serif">
+  <defs>
+    <marker id="arrowR" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#e74c3c"/>
+    </marker>
+    <marker id="arrowB" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#3498db"/>
+    </marker>
+    <marker id="arrowG" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#27ae60"/>
+    </marker>
+    <linearGradient id="bgGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#f8f9fa"/>
+      <stop offset="100%" stop-color="#e9ecef"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="900" height="580" fill="url(#bgGrad)" rx="12"/>
+
+  <!-- Title -->
+  <text x="450" y="40" text-anchor="middle" font-size="22" font-weight="bold" fill="#2c3e50">VLA for Autonomous Driving：乘用车 vs 重卡研究现状对比</text>
+
+  <!-- Passenger car side (left) -->
+  <rect x="30" y="65" width="400" height="230" fill="#d5f5e3" rx="10" stroke="#27ae60" stroke-width="2"/>
+  <text x="230" y="95" text-anchor="middle" font-size="18" font-weight="bold" fill="#1e8449">乘用车 VLA ✅ 密集研究</text>
+
+  <text x="50" y="125" font-size="13" fill="#2c3e50">📊 数据集：</text>
+  <text x="50" y="145" font-size="12" fill="#555">nuScenes, Waymo Open Dataset, Bench2Drive</text>
+  <text x="50" y="162" font-size="12" fill="#555">NAVSIM, CARLA, nuPlan</text>
+
+  <text x="50" y="185" font-size="13" fill="#2c3e50">🧠 代表模型（2024-2026）：</text>
+  <text x="50" y="205" font-size="12" fill="#555">AutoVLA, DriveVLM, EMMA, OpenDriveVLA</text>
+  <text x="50" y="222" font-size="12" fill="#555">SAMoE-VLA, LaST-VLA, UniDriveVLA</text>
+  <text x="50" y="239" font-size="12" fill="#555">CoVLA, Impromptu VLA, VLA-World</text>
+
+  <text x="50" y="262" font-size="13" fill="#2c3e50">🔬 研究数量：</text>
+  <text x="50" y="282" font-size="12" fill="#27ae60" font-weight="bold">100+ 篇论文，20+ 开源模型</text>
+
+  <!-- Heavy truck side (right) -->
+  <rect x="470" y="65" width="400" height="230" fill="#fadbd8" rx="10" stroke="#e74c3c" stroke-width="2"/>
+  <text x="670" y="95" text-anchor="middle" font-size="18" font-weight="bold" fill="#c0392b">重卡 VLA ❌ 研究空白</text>
+
+  <text x="490" y="125" font-size="13" fill="#2c3e50">📊 数据集：</text>
+  <text x="490" y="145" font-size="12" fill="#e74c3c" font-weight="bold">0 个 VLA 专用数据集</text>
+  <text x="490" y="162" font-size="12" fill="#555">仅有传统感知数据集：</text>
+  <text x="490" y="179" font-size="12" fill="#555">MAN TruckScenes, TruckDrive, TruckV2X</text>
+
+  <text x="490" y="205" font-size="13" fill="#2c3e50">🧠 代表模型：</text>
+  <text x="490" y="225" font-size="12" fill="#e74c3c" font-weight="bold">0 篇 VLA 论文</text>
+  <text x="490" y="242" font-size="12" fill="#555">仅有传统控制/规划方法：</text>
+  <text x="490" y="259" font-size="12" fill="#555">MPC, APF, iLQR, 规则式规划器</text>
+
+  <text x="490" y="282" font-size="13" fill="#2c3e50">🔬 研究数量：</text>
+  <text x="490" y="300" font-size="12" fill="#e74c3c" font-weight="bold">0 篇 VLA 论文</text>
+
+  <!-- Middle gap arrow -->
+  <line x1="430" y1="180" x2="470" y2="180" stroke="#e74c3c" stroke-width="3" stroke-dasharray="6,4" marker-end="url(#arrowR)"/>
+  <text x="450" y="170" text-anchor="middle" font-size="11" fill="#e74c3c" transform="rotate(-90,450,170)">巨大鸿沟</text>
+
+  <!-- Bottom section: Why this gap exists -->
+  <rect x="30" y="320" width="840" height="245" fill="#fff" rx="10" stroke="#3498db" stroke-width="1.5"/>
+  <text x="450" y="350" text-anchor="middle" font-size="17" font-weight="bold" fill="#2c3e50">为什么重卡 VLA 还是空白？核心挑战</text>
+
+  <!-- 4 challenge boxes -->
+  <rect x="50" y="370" width="185" height="85" fill="#eaf2f8" rx="8" stroke="#3498db" stroke-width="1"/>
+  <text x="142" y="392" text-anchor="middle" font-size="13" font-weight="bold" fill="#2980b9">① 动力学差异</text>
+  <text x="60" y="410" font-size="11" fill="#555">乘用车运动学模型(VMC)</text>
+  <text x="60" y="425" font-size="11" fill="#555">对重卡完全失效</text>
+  <text x="60" y="440" font-size="11" fill="#555">必须用高维动力学模型</text>
+
+  <rect x="255" y="370" width="185" height="85" fill="#eaf2f8" rx="8" stroke="#3498db" stroke-width="1"/>
+  <text x="347" y="392" text-anchor="middle" font-size="13" font-weight="bold" fill="#2980b9">② 感知视角不同</text>
+  <text x="265" y="410" font-size="11" fill="#555">传统 VLA 用6相机环视</text>
+  <text x="265" y="425" font-size="11" fill="#555">重卡传感器位置/高度</text>
+  <text x="265" y="440" font-size="11" fill="#555">完全不同，盲区更大</text>
+
+  <rect x="460" y="370" width="185" height="85" fill="#eaf2f8" rx="8" stroke="#3498db" stroke-width="1"/>
+  <text x="552" y="392" text-anchor="middle" font-size="13" font-weight="bold" fill="#2980b9">③ 挂车遮挡</text>
+  <text x="470" y="410" font-size="11" fill="#555">牵引车+挂车铰接结构</text>
+  <text x="470" y="425" font-size="11" fill="#555">自身遮挡动态变化</text>
+  <text x="470" y="440" font-size="11" fill="#555">现有 VLA 未考虑</text>
+
+  <rect x="665" y="370" width="185" height="85" fill="#fdedec" rx="8" stroke="#e74c3c" stroke-width="1"/>
+  <text x="757" y="392" text-anchor="middle" font-size="13" font-weight="bold" fill="#c0392b">④ 侧翻风险</text>
+  <text x="675" y="410" font-size="11" fill="#555">乘用车 VLA 完全无视</text>
+  <text x="675" y="425" font-size="11" fill="#555">重卡必须将侧翻指标</text>
+  <text x="675" y="440" font-size="11" fill="#555">(LTR/NRS) 引入动作空间</text>
+
+  <!-- Bottom callout -->
+  <rect x="150" y="475" width="600" height="75" fill="#fef9e7" rx="10" stroke="#f39c12" stroke-width="2"/>
+  <text x="450" y="498" text-anchor="middle" font-size="14" font-weight="bold" fill="#d68910">核心结论</text>
+  <text x="450" y="520" text-anchor="middle" font-size="12" fill="#555">现有 100+ VLA 论文全在乘用车设定下验证，其模型架构、动作空间、安全假设</text>
+  <text x="450" y="538" text-anchor="middle" font-size="12" fill="#555">均无法直接迁移到重卡场景。—— 这是自动驾驶 VLA 领域最大的研究空白之一</text>
+</svg>

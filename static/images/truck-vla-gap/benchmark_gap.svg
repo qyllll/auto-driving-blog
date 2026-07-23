@@ -1,0 +1,129 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 580" font-family="'Noto Sans SC','Microsoft YaHei',sans-serif">
+  <defs>
+    <linearGradient id="bgGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#f8f9fa"/>
+      <stop offset="100%" stop-color="#e9ecef"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="900" height="580" fill="url(#bgGrad)" rx="12"/>
+
+  <text x="450" y="35" text-anchor="middle" font-size="20" font-weight="bold" fill="#2c3e50">重卡 VLA 的数据集、基准与仿真平台现状</text>
+  <text x="450" y="55" text-anchor="middle" font-size="12" fill="#888">现有资源全都不支持 VLA 训练与评测</text>
+
+  <!-- Top: Datasets comparison -->
+  <rect x="30" y="75" width="840" height="170" fill="#fff" rx="10" stroke="#bdc3c7" stroke-width="1"/>
+  <text x="450" y="100" text-anchor="middle" font-size="15" font-weight="bold" fill="#2c3e50">数据集对比：乘用车 VLA vs 重卡</text>
+
+  <!-- Column headers -->
+  <rect x="50" y="115" width="230" height="28" fill="#2c3e50" rx="4"/>
+  <text x="165" y="134" text-anchor="middle" font-size="12" fill="#fff" font-weight="bold">数据集</text>
+  <rect x="290" y="115" width="180" height="28" fill="#3498db" rx="4"/>
+  <text x="380" y="134" text-anchor="middle" font-size="12" fill="#fff" font-weight="bold">类型</text>
+  <rect x="480" y="115" width="170" height="28" fill="#27ae60" rx="4"/>
+  <text x="565" y="134" text-anchor="middle" font-size="12" fill="#fff" font-weight="bold">支持 VLA？</text>
+  <rect x="660" y="115" width="190" height="28" fill="#e74c3c" rx="4"/>
+  <text x="755" y="134" text-anchor="middle" font-size="12" fill="#fff" font-weight="bold">支持重卡？</text>
+
+  <!-- Row 1 -->
+  <text x="60" y="162" font-size="12" fill="#2c3e50">nuScenes</text>
+  <text x="380" y="162" text-anchor="middle" font-size="11" fill="#555">感知+规划</text>
+  <text x="565" y="162" text-anchor="middle" font-size="11" fill="#27ae60">✅ (CoVLA等)</text>
+  <text x="755" y="162" text-anchor="middle" font-size="11" fill="#e74c3c">❌ 仅有乘用车</text>
+
+  <!-- Row 2 -->
+  <line x1="50" y1="172" x2="850" y2="172" stroke="#ecf0f1" stroke-width="1"/>
+  <text x="60" y="190" font-size="12" fill="#2c3e50">Waymo Open Dataset</text>
+  <text x="380" y="190" text-anchor="middle" font-size="11" fill="#555">感知+运动预测</text>
+  <text x="565" y="190" text-anchor="middle" font-size="11" fill="#27ae60">✅ (EMMA等)</text>
+  <text x="755" y="190" text-anchor="middle" font-size="11" fill="#e74c3c">❌ 仅有乘用车</text>
+
+  <!-- Row 3 -->
+  <line x1="50" y1="200" x2="850" y2="200" stroke="#ecf0f1" stroke-width="1"/>
+  <text x="60" y="218" font-size="12" fill="#2c3e50">Bench2Drive</text>
+  <text x="380" y="218" text-anchor="middle" font-size="11" fill="#555">闭环规划</text>
+  <text x="565" y="218" text-anchor="middle" font-size="11" fill="#27ae60">✅</text>
+  <text x="755" y="218" text-anchor="middle" font-size="11" fill="#e74c3c">❌ CARLA 乘用车</text>
+
+  <!-- Row 4 - Gap -->
+  <line x1="50" y1="228" x2="850" y2="228" stroke="#e74c3c" stroke-width="1" stroke-dasharray="4,3"/>
+  <text x="60" y="246" font-size="12" fill="#2c3e50">MAN TruckScenes</text>
+  <text x="380" y="246" text-anchor="middle" font-size="11" fill="#555">感知</text>
+  <text x="565" y="246" text-anchor="middle" font-size="11" fill="#e74c3c">❌ 无语言标注</text>
+  <text x="755" y="246" text-anchor="middle" font-size="11" fill="#27ae60">✅ 首个卡车感知</text>
+
+  <!-- Row 5 -->
+  <line x1="50" y1="256" x2="850" y2="256" stroke="#ecf0f1" stroke-width="1"/>
+  <text x="60" y="274" font-size="12" fill="#2c3e50">TruckDrive</text>
+  <text x="380" y="274" text-anchor="middle" font-size="11" fill="#555">远距感知</text>
+  <text x="565" y="274" text-anchor="middle" font-size="11" fill="#e74c3c">❌ 无语言标注</text>
+  <text x="755" y="274" text-anchor="middle" font-size="11" fill="#27ae60">✅ 高速场景</text>
+
+  <!-- Row 6 -->
+  <line x1="50" y1="284" x2="850" y2="284" stroke="#ecf0f1" stroke-width="1"/>
+  <text x="60" y="302" font-size="12" fill="#2c3e50">nuTruck (基于 nuPlan)</text>
+  <text x="380" y="302" text-anchor="middle" font-size="11" fill="#555">规划闭环</text>
+  <text x="565" y="302" text-anchor="middle" font-size="11" fill="#e74c3c">❌ 无语言/VLA</text>
+  <text x="755" y="302" text-anchor="middle" font-size="11" fill="#27ae60">✅ 重卡动力学</text>
+
+  <!-- Bottom left: Simulation platforms -->
+  <rect x="30" y="265" width="400" height="150" fill="#fff" rx="10" stroke="#bdc3c7" stroke-width="1"/>
+  <text x="230" y="290" text-anchor="middle" font-size="14" font-weight="bold" fill="#2c3e50">仿真平台对比</text>
+
+  <rect x="50" y="305" width="170" height="40" fill="#eaf2f8" rx="5" stroke="#3498db" stroke-width="1"/>
+  <text x="135" y="322" text-anchor="middle" font-size="11" font-weight="bold" fill="#2980b9">CARLA / MetaDrive</text>
+  <text x="135" y="338" text-anchor="middle" font-size="10" fill="#555">乘用车物理引擎</text>
+
+  <rect x="240" y="305" width="170" height="40" fill="#fadbd8" rx="5" stroke="#e74c3c" stroke-width="1"/>
+  <text x="325" y="322" text-anchor="middle" font-size="11" font-weight="bold" fill="#c0392b">TruckSim / VI-CarRealTime</text>
+  <text x="325" y="338" text-anchor="middle" font-size="10" fill="#555">商业重卡物理引擎</text>
+
+  <rect x="50" y="355" width="170" height="40" fill="#fadbd8" rx="5" stroke="#e74c3c" stroke-width="1"/>
+  <text x="135" y="372" text-anchor="middle" font-size="11" font-weight="bold" fill="#c0392b">nuTruck 仿真器</text>
+  <text x="135" y="388" text-anchor="middle" font-size="10" fill="#555">重卡动力学闭环</text>
+
+  <rect x="240" y="355" width="170" height="40" fill="#fef9e7" rx="5" stroke="#f39c12" stroke-width="1"/>
+  <text x="325" y="372" text-anchor="middle" font-size="11" font-weight="bold" fill="#d68910">❌ 缺 VLA 仿真平台</text>
+  <text x="325" y="388" text-anchor="middle" font-size="10" fill="#555">需集成语言+重卡物理</text>
+
+  <!-- Gap callout -->
+  <rect x="470" y="340" width="400" height="110" fill="#fef9e7" rx="10" stroke="#f39c12" stroke-width="2"/>
+  <text x="670" y="365" text-anchor="middle" font-size="13" font-weight="bold" fill="#d68910">🚨 四项缺失构成完整研究空白</text>
+  <text x="670" y="390" text-anchor="middle" font-size="11" fill="#555">缺少：重卡 VLA 数据集 → 无法训练</text>
+  <text x="670" y="408" text-anchor="middle" font-size="11" fill="#555">缺少：重卡 VLA 基准 → 无法评测</text>
+  <text x="670" y="426" text-anchor="middle" font-size="11" fill="#555">缺少：重卡 VLA 仿真 → 无法闭环验证</text>
+  <text x="670" y="444" text-anchor="middle" font-size="11" fill="#e74c3c" font-weight="bold">缺少：重卡 VLA 模型 → 无 baseline</text>
+
+  <!-- Bottom: Roadmap -->
+  <rect x="30" y="430" width="840" height="135" fill="#fff" rx="10" stroke="#27ae60" stroke-width="1.5"/>
+  <text x="450" y="455" text-anchor="middle" font-size="15" font-weight="bold" fill="#1e8449">重卡 VLA 研究路线图（建议）</text>
+
+  <rect x="50" y="475" width="185" height="80" fill="#d5f5e3" rx="8" stroke="#27ae60" stroke-width="1"/>
+  <text x="142" y="498" text-anchor="middle" font-size="12" font-weight="bold" fill="#1e8449">Phase 1</text>
+  <text x="142" y="516" text-anchor="middle" font-size="11" fill="#555">构建重卡 VLA 数据集</text>
+  <text x="142" y="533" text-anchor="middle" font-size="10" fill="#888">在现有数据上+语言标注</text>
+  <text x="142" y="548" text-anchor="middle" font-size="10" fill="#888">+载荷/动力学标签</text>
+
+  <text x="260" y="520" font-size="18" fill="#27ae60">→</text>
+
+  <rect x="285" y="475" width="185" height="80" fill="#d5f5e3" rx="8" stroke="#27ae60" stroke-width="1"/>
+  <text x="377" y="498" text-anchor="middle" font-size="12" font-weight="bold" fill="#1e8449">Phase 2</text>
+  <text x="377" y="516" text-anchor="middle" font-size="11" fill="#555">建设重卡 VLA 仿真平台</text>
+  <text x="377" y="533" text-anchor="middle" font-size="10" fill="#888">扩展 nuTruck 仿真器</text>
+  <text x="377" y="548" text-anchor="middle" font-size="10" fill="#888">+语言交互接口</text>
+
+  <text x="495" y="520" font-size="18" fill="#27ae60">→</text>
+
+  <rect x="520" y="475" width="185" height="80" fill="#d5f5e3" rx="8" stroke="#27ae60" stroke-width="1"/>
+  <text x="612" y="498" text-anchor="middle" font-size="12" font-weight="bold" fill="#1e8449">Phase 3</text>
+  <text x="612" y="516" text-anchor="middle" font-size="11" fill="#555">首次重卡 VLA 基线模型</text>
+  <text x="612" y="533" text-anchor="middle" font-size="10" fill="#888">基于现有 VLA 架构改造</text>
+  <text x="612" y="548" text-anchor="middle" font-size="10" fill="#888">+动力学适配层</text>
+
+  <text x="730" y="520" font-size="18" fill="#27ae60">→</text>
+
+  <rect x="755" y="475" width="95" height="80" fill="#fef9e7" rx="8" stroke="#f39c12" stroke-width="1"/>
+  <text x="802" y="498" text-anchor="middle" font-size="12" font-weight="bold" fill="#d68910">Phase 4</text>
+  <text x="802" y="520" text-anchor="middle" font-size="11" fill="#555">闭环</text>
+  <text x="802" y="538" text-anchor="middle" font-size="11" fill="#555">验证</text>
+</svg>

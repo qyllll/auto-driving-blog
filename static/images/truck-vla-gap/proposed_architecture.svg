@@ -1,0 +1,104 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 950 680" font-family="'Noto Sans SC','Microsoft YaHei',sans-serif">
+  <defs>
+    <linearGradient id="bgGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#f8f9fa"/>
+      <stop offset="100%" stop-color="#e9ecef"/>
+    </linearGradient>
+    <marker id="arrowDown" markerWidth="10" markerHeight="7" refX="5" refY="7" orient="auto">
+      <polygon points="0 0, 5 7, 10 0" fill="#555"/>
+    </marker>
+  </defs>
+
+  <rect width="950" height="680" fill="url(#bgGrad)" rx="12"/>
+
+  <text x="475" y="35" text-anchor="middle" font-size="20" font-weight="bold" fill="#2c3e50">重卡 VLA 模型架构设计（Truck-VLA 提案）</text>
+  <text x="475" y="55" text-anchor="middle" font-size="12" fill="#888">基于双系统 VLA 范式 + 重卡专用物理感知层</text>
+
+  <!-- Level 1: Perception -->
+  <rect x="40" y="75" width="870" height="120" fill="#eaf2f8" rx="10" stroke="#3498db" stroke-width="1.5"/>
+  <text x="475" y="98" text-anchor="middle" font-size="14" font-weight="bold" fill="#2980b9">Level 1：多模态感知层</text>
+
+  <rect x="60" y="110" width="195" height="75" fill="#fff" rx="6" stroke="#3498db" stroke-width="1"/>
+  <text x="157" y="132" text-anchor="middle" font-size="12" font-weight="bold" fill="#2c3e50">📷 视觉流</text>
+  <text x="70" y="152" font-size="11" fill="#555">多视角相机 (前/侧/后)</text>
+  <text x="70" y="168" font-size="11" fill="#555">远距长焦 + 广角环视</text>
+  <text x="70" y="182" font-size="11" fill="#555">→ BEV / 语义特征</text>
+
+  <rect x="275" y="110" width="195" height="75" fill="#fff" rx="6" stroke="#3498db" stroke-width="1"/>
+  <text x="372" y="132" text-anchor="middle" font-size="12" font-weight="bold" fill="#2c3e50">📡 3D 感知流</text>
+  <text x="285" y="152" font-size="11" fill="#555">LiDAR + 4D 雷达</text>
+  <text x="285" y="168" font-size="11" fill="#555">远距检测 (300m+)</text>
+  <text x="285" y="182" font-size="11" fill="#555">→ 3D 检测/Tracking</text>
+
+  <rect x="490" y="110" width="195" height="75" fill="#fadbd8" rx="6" stroke="#e74c3c" stroke-width="1.5"/>
+  <text x="587" y="132" text-anchor="middle" font-size="12" font-weight="bold" fill="#c0392b">⚖️ 物理状态流 (新增)</text>
+  <text x="500" y="152" font-size="11" fill="#555">轴荷传感器 → 载重/CG</text>
+  <text x="500" y="168" font-size="11" fill="#555">悬挂行程 → 侧倾角</text>
+  <text x="500" y="182" font-size="11" fill="#555">铰接角 → 挂车姿态</text>
+
+  <rect x="705" y="110" width="185" height="75" fill="#fff" rx="6" stroke="#27ae60" stroke-width="1"/>
+  <text x="797" y="132" text-anchor="middle" font-size="12" font-weight="bold" fill="#1e8449">🗣️ 语言流</text>
+  <text x="715" y="152" font-size="11" fill="#555">导航指令 / 用户查询</text>
+  <text x="715" y="168" font-size="11" fill="#555">场景文本描述</text>
+  <text x="715" y="182" font-size="11" fill="#555">→ 语言 token 序列</text>
+
+  <!-- Arrow down -->
+  <polygon points="475,200 460,200 475,215 490,200" fill="#555"/>
+
+  <!-- Level 2: VLM Reasoning -->
+  <rect x="40" y="225" width="870" height="130" fill="#d5f5e3" rx="10" stroke="#27ae60" stroke-width="1.5"/>
+  <text x="475" y="248" text-anchor="middle" font-size="14" font-weight="bold" fill="#1e8449">Level 2：重卡专用 VLM 推理层</text>
+
+  <rect x="60" y="262" width="410" height="80" fill="#fff" rx="6" stroke="#27ae60" stroke-width="1"/>
+  <text x="265" y="284" text-anchor="middle" font-size="12" font-weight="bold" fill="#1e8449">慢思考回路 (System 2)</text>
+  <text x="70" y="304" font-size="11" fill="#555">• 场景理解："前方弯道半径 50m，当前载重 20t，CG 高度 1.6m"</text>
+  <text x="70" y="320" font-size="11" fill="#555">• 侧翻风险评估："以 60km/h 过弯，LTR 预测值为 0.7，超过安全阈值"</text>
+  <text x="70" y="336" font-size="11" fill="#555">• 决策推理："建议减速至 40km/h，减少转向角 15%"</text>
+
+  <rect x="500" y="262" width="390" height="80" fill="#fef9e7" rx="6" stroke="#f39c12" stroke-width="1"/>
+  <text x="695" y="284" text-anchor="middle" font-size="12" font-weight="bold" fill="#d68910">可解释输出</text>
+  <text x="510" y="304" font-size="11" fill="#555">• CoT 推理链：感知→物理分析→决策→动作</text>
+  <text x="510" y="320" font-size="11" fill="#555">• 自然语言解释："减速是因为满载过弯风险高"</text>
+  <text x="510" y="336" font-size="11" fill="#555">• 安全边际报告："预计侧翻裕度 30%"</text>
+
+  <!-- Arrow down -->
+  <polygon points="475,360 460,360 475,375 490,360" fill="#555"/>
+
+  <!-- Level 3: Action -->
+  <rect x="40" y="385" width="870" height="130" fill="#fadbd8" rx="10" stroke="#e74c3c" stroke-width="1.5"/>
+  <text x="475" y="408" text-anchor="middle" font-size="14" font-weight="bold" fill="#c0392b">Level 3：重卡专用动作层</text>
+
+  <rect x="60" y="422" width="410" height="80" fill="#fff" rx="6" stroke="#e74c3c" stroke-width="1"/>
+  <text x="265" y="444" text-anchor="middle" font-size="12" font-weight="bold" fill="#c0392b">快执行回路 (System 1)</text>
+  <text x="70" y="464" font-size="11" fill="#555">• 12 维动作空间：τ₁-τ₆ (各轮扭矩) + δ₁-δ₆ (各轮转角)</text>
+  <text x="70" y="480" font-size="11" fill="#555">• 轨迹生成：路径点序列 (x₁, y₁, θ₁, v₁)...(xₙ, yₙ, θₙ, vₙ)</text>
+  <text x="70" y="496" font-size="11" fill="#555">• 安全过滤：LTR ≤ 0.6, NRS ≥ 80, 避撞约束</text>
+
+  <rect x="500" y="422" width="390" height="80" fill="#fef9e7" rx="6" stroke="#f39c12" stroke-width="1"/>
+  <text x="695" y="444" text-anchor="middle" font-size="12" font-weight="bold" fill="#d68910">世界模型预测</text>
+  <text x="510" y="464" font-size="11" fill="#555">• 未来 n 帧场景推演（自车 + 障碍物运动预测）</text>
+  <text x="510" y="480" font-size="11" fill="#555">• 侧翻时序预测：LTR(t), LTR(t+1), ..., LTR(t+n)</text>
+  <text x="510" y="496" font-size="11" fill="#555">• 安全约束穿透：如果 LTR 超限，触发 replan</text>
+
+  <!-- Arrow down -->
+  <polygon points="475,520 460,520 475,535 490,520" fill="#555"/>
+
+  <!-- Level 4: Training -->
+  <rect x="40" y="545" width="870" height="120" fill="#f5e6ff" rx="10" stroke="#8e44ad" stroke-width="1.5"/>
+  <text x="475" y="568" text-anchor="middle" font-size="14" font-weight="bold" fill="#8e44ad">训练范式</text>
+
+  <rect x="60" y="583" width="270" height="70" fill="#fff" rx="6" stroke="#8e44ad" stroke-width="1"/>
+  <text x="195" y="605" text-anchor="middle" font-size="12" font-weight="bold" fill="#8e44ad">阶段一：预训练</text>
+  <text x="70" y="625" font-size="11" fill="#555">重卡仿真数据 + 模仿学习</text>
+  <text x="70" y="641" font-size="11" fill="#555">对齐视觉/语言/物理状态</text>
+
+  <rect x="355" y="583" width="270" height="70" fill="#fff" rx="6" stroke="#8e44ad" stroke-width="1"/>
+  <text x="490" y="605" text-anchor="middle" font-size="12" font-weight="bold" fill="#8e44ad">阶段二：RL 微调</text>
+  <text x="365" y="625" font-size="11" fill="#555">GRPO/PPO 策略优化</text>
+  <text x="365" y="641" font-size="11" fill="#555">奖励：安全 + 效率 + 舒适</text>
+
+  <rect x="650" y="583" width="240" height="70" fill="#fff" rx="6" stroke="#8e44ad" stroke-width="1"/>
+  <text x="770" y="605" text-anchor="middle" font-size="12" font-weight="bold" fill="#8e44ad">阶段三：闭环对齐</text>
+  <text x="660" y="625" font-size="11" fill="#555">真实卡车数据微调</text>
+  <text x="660" y="641" font-size="11" fill="#555">安全约束 fine-tuning</text>
+</svg>
