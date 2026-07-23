@@ -1,68 +1,66 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 420" font-family="sans-serif">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1040 460" font-family="sans-serif">
   <defs>
-    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 Z" fill="#8a8a8a"/></marker>
-    <marker id="arrow-blue" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 Z" fill="#4a9eff"/></marker>
-    <marker id="arrow-dashed" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 Z" fill="#ff6b6b"/></marker>
+    <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 Z" fill="#8a8a8a"/></marker>
+    <marker id="arr-red" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 Z" fill="#ff6b6b"/></marker>
   </defs>
-  <!-- Main flow (horizontal) -->
-  <rect x="10" y="140" width="130" height="60" rx="8" fill="#2d3748" stroke="#8a8a8a" stroke-width="1.5"/>
-  <text x="75" y="168" text-anchor="middle" fill="#e2e8f0" font-size="14" font-weight="bold">多模态输入</text>
-  <text x="75" y="186" text-anchor="middle" fill="#a0aec0" font-size="11">图像/语言/状态/目标</text>
+  <!-- Row 1: Main pipeline -->
+  <rect x="10" y="100" width="130" height="70" rx="8" fill="#2d3748" stroke="#8a8a8a" stroke-width="1.5"/>
+  <text x="75" y="130" text-anchor="middle" fill="#e2e8f0" font-size="15" font-weight="bold">多模态输入</text>
+  <text x="75" y="152" text-anchor="middle" fill="#a0aec0" font-size="12">图像/语言/状态/目标</text>
 
-  <line x1="140" y1="170" x2="175" y2="170" stroke="#8a8a8a" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="140" y1="135" x2="175" y2="135" stroke="#8a8a8a" stroke-width="2" marker-end="url(#arr)"/>
 
-  <rect x="180" y="140" width="120" height="60" rx="8" fill="#2d3748" stroke="#8a8a8a" stroke-width="1.5"/>
-  <text x="240" y="168" text-anchor="middle" fill="#e2e8f0" font-size="14" font-weight="bold">统一</text>
-  <text x="240" y="186" text-anchor="middle" fill="#e2e8f0" font-size="14" font-weight="bold">Tokenization</text>
+  <rect x="180" y="100" width="130" height="70" rx="8" fill="#2d3748" stroke="#8a8a8a" stroke-width="1.5"/>
+  <text x="245" y="130" text-anchor="middle" fill="#e2e8f0" font-size="15" font-weight="bold">统一 Tokenization</text>
+  <text x="245" y="152" text-anchor="middle" fill="#a0aec0" font-size="12">多模态 token 序列</text>
 
-  <line x1="300" y1="170" x2="335" y2="170" stroke="#8a8a8a" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="310" y1="135" x2="345" y2="135" stroke="#8a8a8a" stroke-width="2" marker-end="url(#arr)"/>
 
-  <rect x="340" y="130" width="130" height="80" rx="8" fill="#2b4c7e" stroke="#4a9eff" stroke-width="1.5"/>
-  <text x="405" y="158" text-anchor="middle" fill="#e2e8f0" font-size="13" font-weight="bold">Cosmos-3</text>
-  <text x="405" y="176" text-anchor="middle" fill="#90cdf4" font-size="12">Dual-Tower</text>
-  <text x="405" y="193" text-anchor="middle" fill="#90cdf4" font-size="12">MoT</text>
+  <rect x="350" y="90" width="150" height="90" rx="8" fill="#2b4c7e" stroke="#4a9eff" stroke-width="2"/>
+  <text x="425" y="120" text-anchor="middle" fill="#e2e8f0" font-size="15" font-weight="bold">Cosmos-3</text>
+  <text x="425" y="142" text-anchor="middle" fill="#90cdf4" font-size="14">Dual-Tower MoT</text>
+  <text x="425" y="164" text-anchor="middle" fill="#90cdf4" font-size="12">Reasoner + Generator</text>
 
-  <line x1="470" y1="170" x2="505" y2="170" stroke="#8a8a8a" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="500" y1="135" x2="535" y2="135" stroke="#8a8a8a" stroke-width="2" marker-end="url(#arr)"/>
 
-  <rect x="510" y="130" width="130" height="80" rx="8" fill="#553c7b" stroke="#b794f4" stroke-width="1.5"/>
-  <text x="575" y="158" text-anchor="middle" fill="#e2e8f0" font-size="13" font-weight="bold">DeepSeek-style</text>
-  <text x="575" y="176" text-anchor="middle" fill="#d6bcfa" font-size="12">Sparse MoE</text>
-  <text x="575" y="193" text-anchor="middle" fill="#d6bcfa" font-size="12">(Router + Experts)</text>
+  <rect x="540" y="90" width="150" height="90" rx="8" fill="#553c7b" stroke="#b794f4" stroke-width="2"/>
+  <text x="615" y="120" text-anchor="middle" fill="#e2e8f0" font-size="15" font-weight="bold">Sparse MoE</text>
+  <text x="615" y="142" text-anchor="middle" fill="#d6bcfa" font-size="14">DeepSeek-style</text>
+  <text x="615" y="164" text-anchor="middle" fill="#d6bcfa" font-size="12">Router + Top-K Experts</text>
 
-  <line x1="640" y1="170" x2="675" y2="170" stroke="#8a8a8a" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="690" y1="135" x2="725" y2="135" stroke="#8a8a8a" stroke-width="2" marker-end="url(#arr)"/>
 
-  <rect x="680" y="130" width="120" height="80" rx="8" fill="#276749" stroke="#68d391" stroke-width="1.5"/>
-  <text x="740" y="158" text-anchor="middle" fill="#e2e8f0" font-size="13" font-weight="bold">Flow</text>
-  <text x="740" y="176" text-anchor="middle" fill="#9ae6b4" font-size="12">轨迹生成</text>
-  <text x="740" y="193" text-anchor="middle" fill="#9ae6b4" font-size="12">(Flow Head)</text>
+  <rect x="730" y="90" width="150" height="90" rx="8" fill="#276749" stroke="#68d391" stroke-width="2"/>
+  <text x="805" y="120" text-anchor="middle" fill="#e2e8f0" font-size="15" font-weight="bold">Flow 轨迹生成</text>
+  <text x="805" y="142" text-anchor="middle" fill="#9ae6b4" font-size="14">Flow Head</text>
+  <text x="805" y="164" text-anchor="middle" fill="#9ae6b4" font-size="12">噪声 → 连续轨迹</text>
 
-  <line x1="800" y1="170" x2="835" y2="170" stroke="#8a8a8a" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="880" y1="135" x2="915" y2="135" stroke="#8a8a8a" stroke-width="2" marker-end="url(#arr)"/>
 
-  <rect x="840" y="140" width="30" height="60" rx="4" fill="#2d3748" stroke="#e2e8f0" stroke-width="1"/>
-  <text x="855" y="178" text-anchor="middle" fill="#e2e8f0" font-size="10" transform="rotate(90,855,178)">连续轨迹</text>
+  <rect x="920" y="100" width="100" height="70" rx="6" fill="#2d3748" stroke="#e2e8f0" stroke-width="1.5"/>
+  <text x="970" y="135" text-anchor="middle" fill="#e2e8f0" font-size="14" font-weight="bold">连续轨迹</text>
+  <text x="970" y="155" text-anchor="middle" fill="#a0aec0" font-size="12">12D 动作块</text>
 
-  <!-- Environment and Reward below -->
-  <rect x="375" y="260" width="110" height="50" rx="8" fill="#2d3748" stroke="#718096" stroke-width="1.5"/>
-  <text x="430" y="284" text-anchor="middle" fill="#e2e8f0" font-size="14" font-weight="bold">环境执行</text>
-  <text x="430" y="299" text-anchor="middle" fill="#a0aec0" font-size="11">评估轨迹</text>
+  <!-- Row 2: Environment & Reward -->
+  <rect x="370" y="240" width="150" height="55" rx="8" fill="#2d3748" stroke="#718096" stroke-width="1.5"/>
+  <text x="445" y="266" text-anchor="middle" fill="#e2e8f0" font-size="15" font-weight="bold">环境执行</text>
+  <text x="445" y="285" text-anchor="middle" fill="#a0aec0" font-size="12">评估候选轨迹</text>
+  <line x1="445" y1="240" x2="445" y2="185" stroke="#718096" stroke-width="1.5" marker-end="url(#arr)"/>
 
-  <line x1="430" y1="260" x2="430" y2="215" stroke="#718096" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <line x1="520" y1="267" x2="559" y2="267" stroke="#8a8a8a" stroke-width="2" marker-end="url(#arr)"/>
 
-  <rect x="535" y="260" width="110" height="50" rx="8" fill="#2d3748" stroke="#718096" stroke-width="1.5"/>
-  <text x="590" y="284" text-anchor="middle" fill="#e2e8f0" font-size="14" font-weight="bold">任务奖励</text>
-  <text x="590" y="299" text-anchor="middle" fill="#a0aec0" font-size="11">成功/安全/效率</text>
+  <rect x="565" y="240" width="150" height="55" rx="8" fill="#2d3748" stroke="#718096" stroke-width="1.5"/>
+  <text x="640" y="266" text-anchor="middle" fill="#e2e8f0" font-size="15" font-weight="bold">任务奖励</text>
+  <text x="640" y="285" text-anchor="middle" fill="#a0aec0" font-size="12">成功/安全/效率</text>
 
-  <line x1="485" y1="285" x2="530" y2="285" stroke="#718096" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <!-- Feedback arrows (dashed red) -->
+  <path d="M 640,240 Q 640,190 805,185" fill="none" stroke="#ff6b6b" stroke-width="1.5" stroke-dasharray="6,4" marker-end="url(#arr-red)"/>
+  <rect x="680" y="195" width="120" height="24" rx="4" fill="#2d3748" opacity="0.85"/>
+  <text x="740" y="212" text-anchor="middle" fill="#ff6b6b" font-size="12" font-weight="bold">Flow-GRPO 更新</text>
 
-  <!-- Feedback arrows (dashed) -->
-  <!-- Reward → Flow Head -->
-  <path d="M 590,260 Q 590,230 740,215" fill="none" stroke="#ff6b6b" stroke-width="1.5" stroke-dasharray="6,4" marker-end="url(#arrow-dashed)"/>
-  <text x="640" y="233" text-anchor="middle" fill="#ff6b6b" font-size="11" font-style="italic">Flow-GRPO更新</text>
-
-  <!-- Reward → Sparse MoE -->
-  <path d="M 535,285 Q 490,310 575,325" fill="none" stroke="#ff6b6b" stroke-width="1.5" stroke-dasharray="6,4" marker-end="url(#arrow-dashed)"/>
+  <path d="M 565,267 Q 490,320 615,330" fill="none" stroke="#ff6b6b" stroke-width="1.5" stroke-dasharray="6,4" marker-end="url(#arr-red)"/>
   
-  <rect x="375" y="320" width="210" height="40" rx="6" fill="none" stroke="#fc8181" stroke-width="1" stroke-dasharray="4,3"/>
-  <text x="480" y="345" text-anchor="middle" fill="#fc8181" font-size="12">更新 Router 与激活专家</text>
-  <line x1="480" y1="320" x2="575" y2="310" stroke="#ff6b6b" stroke-width="1.5" stroke-dasharray="6,4" marker-end="url(#arrow-dashed)"/>
+  <rect x="400" y="325" width="230" height="24" rx="4" fill="#2d3748" opacity="0.85"/>
+  <text x="515" y="341" text-anchor="middle" fill="#fc8181" font-size="12">更新 Router 与激活专家</text>
+  <line x1="515" y1="325" x2="615" y2="295" stroke="#ff6b6b" stroke-width="1.5" stroke-dasharray="6,4"/>
 </svg>

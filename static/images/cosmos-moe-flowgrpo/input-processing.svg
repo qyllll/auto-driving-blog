@@ -1,71 +1,83 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 460" font-family="sans-serif">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 520" font-family="sans-serif">
   <defs>
-    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 Z" fill="#8a8a8a"/></marker>
+    <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 Z" fill="#8a8a8a"/></marker>
   </defs>
 
-  <!-- Input Nodes -->
-  <rect x="30" y="20" width="130" height="60" rx="8" fill="#2d3748" stroke="#63b3ed" stroke-width="1.5"/>
-  <text x="95" y="46" text-anchor="middle" fill="#e2e8f0" font-size="14" font-weight="bold">Visual</text>
-  <text x="95" y="64" text-anchor="middle" fill="#bee3f8" font-size="12">图像或短视频</text>
+  <text x="400" y="18" text-anchor="middle" fill="#e2e8f0" font-size="16" font-weight="bold">多模态输入 → 统一 Token 空间</text>
 
-  <rect x="205" y="20" width="130" height="60" rx="8" fill="#2d3748" stroke="#68d391" stroke-width="1.5"/>
-  <text x="270" y="46" text-anchor="middle" fill="#e2e8f0" font-size="14" font-weight="bold">Language</text>
-  <text x="270" y="64" text-anchor="middle" fill="#c6f6d5" font-size="12">任务或语言指令</text>
+  <!-- Row 1: Inputs -->
+  <rect x="40" y="40" width="150" height="65" rx="8" fill="#2d3748" stroke="#63b3ed" stroke-width="1.5"/>
+  <text x="115" y="68" text-anchor="middle" fill="#e2e8f0" font-size="15" font-weight="bold">Visual</text>
+  <text x="115" y="88" text-anchor="middle" fill="#bee3f8" font-size="13">图像或短视频</text>
 
-  <rect x="380" y="20" width="130" height="60" rx="8" fill="#2d3748" stroke="#f6ad55" stroke-width="1.5"/>
-  <text x="445" y="46" text-anchor="middle" fill="#e2e8f0" font-size="14" font-weight="bold">Agent State</text>
-  <text x="445" y="64" text-anchor="middle" fill="#fbd38d" font-size="12">位姿/速度/状态</text>
+  <rect x="225" y="40" width="150" height="65" rx="8" fill="#2d3748" stroke="#68d391" stroke-width="1.5"/>
+  <text x="300" y="68" text-anchor="middle" fill="#e2e8f0" font-size="15" font-weight="bold">Language</text>
+  <text x="300" y="88" text-anchor="middle" fill="#c6f6d5" font-size="13">任务或语言指令</text>
 
-  <rect x="550" y="20" width="130" height="60" rx="8" fill="#2d3748" stroke="#fc8181" stroke-width="1.5"/>
-  <text x="615" y="46" text-anchor="middle" fill="#e2e8f0" font-size="14" font-weight="bold">Scene & Goal</text>
-  <text x="615" y="64" text-anchor="middle" fill="#feb2b2" font-size="12">场景/任务目标</text>
+  <rect x="410" y="40" width="150" height="65" rx="8" fill="#2d3748" stroke="#f6ad55" stroke-width="1.5"/>
+  <text x="485" y="68" text-anchor="middle" fill="#e2e8f0" font-size="15" font-weight="bold">Agent State</text>
+  <text x="485" y="88" text-anchor="middle" fill="#fbd38d" font-size="13">位姿/速度/状态</text>
 
-  <!-- Arrows down to encoders -->
-  <line x1="95" y1="80" x2="95" y2="125" stroke="#8a8a8a" stroke-width="2" marker-end="url(#arrow)"/>
-  <line x1="270" y1="80" x2="270" y2="125" stroke="#8a8a8a" stroke-width="2" marker-end="url(#arrow)"/>
-  <line x1="445" y1="80" x2="445" y2="125" stroke="#8a8a8a" stroke-width="2" marker-end="url(#arrow)"/>
-  <line x1="615" y1="80" x2="615" y2="125" stroke="#8a8a8a" stroke-width="2" marker-end="url(#arrow)"/>
+  <rect x="595" y="40" width="150" height="65" rx="8" fill="#2d3748" stroke="#fc8181" stroke-width="1.5"/>
+  <text x="670" y="68" text-anchor="middle" fill="#e2e8f0" font-size="15" font-weight="bold">Scene & Goal</text>
+  <text x="670" y="88" text-anchor="middle" fill="#feb2b2" font-size="13">场景/任务目标</text>
 
-  <!-- Encoder Nodes -->
-  <rect x="20" y="130" width="150" height="50" rx="8" fill="#2b4c7e" stroke="#4a9eff" stroke-width="1.5"/>
-  <text x="95" y="155" text-anchor="middle" fill="#e2e8f0" font-size="14" font-weight="bold">Vision Encoder</text>
-  <text x="95" y="170" text-anchor="middle" fill="#90cdf4" font-size="11">ViT / CNN</text>
+  <!-- Arrows down -->
+  <line x1="115" y1="105" x2="115" y2="145" stroke="#8a8a8a" stroke-width="2" marker-end="url(#arr)"/>
+  <line x1="300" y1="105" x2="300" y2="145" stroke="#8a8a8a" stroke-width="2" marker-end="url(#arr)"/>
+  <line x1="485" y1="105" x2="485" y2="145" stroke="#8a8a8a" stroke-width="2" marker-end="url(#arr)"/>
+  <line x1="670" y1="105" x2="670" y2="145" stroke="#8a8a8a" stroke-width="2" marker-end="url(#arr)"/>
 
-  <rect x="195" y="130" width="150" height="50" rx="8" fill="#2b4c7e" stroke="#4a9eff" stroke-width="1.5"/>
-  <text x="270" y="155" text-anchor="middle" fill="#e2e8f0" font-size="14" font-weight="bold">Language Encoder</text>
-  <text x="270" y="170" text-anchor="middle" fill="#90cdf4" font-size="11">LLM Tokenizer</text>
+  <!-- Row 2: Encoders -->
+  <rect x="40" y="150" width="150" height="55" rx="8" fill="#2b4c7e" stroke="#4a9eff" stroke-width="1.5"/>
+  <text x="115" y="177" text-anchor="middle" fill="#e2e8f0" font-size="14" font-weight="bold">Vision Encoder</text>
+  <text x="115" y="195" text-anchor="middle" fill="#90cdf4" font-size="12">ViT / CNN</text>
 
-  <rect x="370" y="130" width="150" height="50" rx="8" fill="#2b4c7e" stroke="#4a9eff" stroke-width="1.5"/>
-  <text x="445" y="155" text-anchor="middle" fill="#e2e8f0" font-size="14" font-weight="bold">State Projector</text>
-  <text x="445" y="170" text-anchor="middle" fill="#90cdf4" font-size="11">MLP</text>
+  <rect x="225" y="150" width="150" height="55" rx="8" fill="#2b4c7e" stroke="#4a9eff" stroke-width="1.5"/>
+  <text x="300" y="177" text-anchor="middle" fill="#e2e8f0" font-size="14" font-weight="bold">Language Encoder</text>
+  <text x="300" y="195" text-anchor="middle" fill="#90cdf4" font-size="12">LLM Tokenizer</text>
 
-  <rect x="540" y="130" width="150" height="50" rx="8" fill="#2b4c7e" stroke="#4a9eff" stroke-width="1.5"/>
-  <text x="615" y="155" text-anchor="middle" fill="#e2e8f0" font-size="14" font-weight="bold">Context Projector</text>
-  <text x="615" y="170" text-anchor="middle" fill="#90cdf4" font-size="11">MLP</text>
+  <rect x="410" y="150" width="150" height="55" rx="8" fill="#2b4c7e" stroke="#4a9eff" stroke-width="1.5"/>
+  <text x="485" y="177" text-anchor="middle" fill="#e2e8f0" font-size="14" font-weight="bold">State Projector</text>
+  <text x="485" y="195" text-anchor="middle" fill="#90cdf4" font-size="12">MLP</text>
 
-  <!-- Arrows down to unified space -->
-  <line x1="95" y1="180" x2="95" y2="230" stroke="#8a8a8a" stroke-width="2" marker-end="url(#arrow)"/>
-  <line x1="270" y1="180" x2="270" y2="230" stroke="#8a8a8a" stroke-width="2" marker-end="url(#arrow)"/>
-  <line x1="445" y1="180" x2="445" y2="230" stroke="#8a8a8a" stroke-width="2" marker-end="url(#arrow)"/>
-  <line x1="615" y1="180" x2="615" y2="230" stroke="#8a8a8a" stroke-width="2" marker-end="url(#arrow)"/>
+  <rect x="595" y="150" width="150" height="55" rx="8" fill="#2b4c7e" stroke="#4a9eff" stroke-width="1.5"/>
+  <text x="670" y="177" text-anchor="middle" fill="#e2e8f0" font-size="14" font-weight="bold">Context Projector</text>
+  <text x="670" y="195" text-anchor="middle" fill="#90cdf4" font-size="12">MLP</text>
 
-  <!-- Arrow labels -->
-  <text x="95" y="210" text-anchor="middle" fill="#68d391" font-size="11">Visual tokens</text>
-  <text x="270" y="210" text-anchor="middle" fill="#68d391" font-size="11">Language tokens</text>
-  <text x="445" y="210" text-anchor="middle" fill="#68d391" font-size="11">State tokens</text>
-  <text x="615" y="210" text-anchor="middle" fill="#68d391" font-size="11">Context tokens</text>
+  <!-- Arrows down with labels -->
+  <line x1="115" y1="205" x2="115" y2="280" stroke="#8a8a8a" stroke-width="2" marker-end="url(#arr)"/>
+  <text x="115" y="250" text-anchor="middle" fill="#68d391" font-size="13" font-weight="bold">Visual tokens</text>
 
-  <!-- Unified Token Space -->
-  <rect x="100" y="240" width="490" height="160" rx="12" fill="#1a2332" stroke="#e2e8f0" stroke-width="2" stroke-dasharray="8,4"/>
-  <text x="345" y="270" text-anchor="middle" fill="#e2e8f0" font-size="18" font-weight="bold">Unified Token Space</text>
-  <text x="345" y="295" text-anchor="middle" fill="#a0aec0" font-size="13">拼接所有 token 序列</text>
-  
-  <rect x="130" y="310" width="60" height="28" rx="5" fill="#4a9eff" opacity="0.7"/>
-  <rect x="200" y="310" width="60" height="28" rx="5" fill="#68d391" opacity="0.7"/>
-  <rect x="270" y="310" width="60" height="28" rx="5" fill="#f6ad55" opacity="0.7"/>
-  <rect x="340" y="310" width="60" height="28" rx="5" fill="#fc8181" opacity="0.7"/>
-  <rect x="410" y="310" width="60" height="28" rx="5" fill="#4a9eff" opacity="0.7"/>
-  <rect x="480" y="310" width="60" height="28" rx="5" fill="#68d391" opacity="0.7"/>
-  <text x="345" y="365" text-anchor="middle" fill="#a0aec0" font-size="12">token₁, token₂, ..., tokenₙ</text>
-  <text x="345" y="385" text-anchor="middle" fill="#718096" font-size="11">输入到 Cosmos-3 双塔 MoT</text>
+  <line x1="300" y1="205" x2="300" y2="280" stroke="#8a8a8a" stroke-width="2" marker-end="url(#arr)"/>
+  <text x="300" y="250" text-anchor="middle" fill="#68d391" font-size="13" font-weight="bold">Language tokens</text>
+
+  <line x1="485" y1="205" x2="485" y2="280" stroke="#8a8a8a" stroke-width="2" marker-end="url(#arr)"/>
+  <text x="485" y="250" text-anchor="middle" fill="#68d391" font-size="13" font-weight="bold">State tokens</text>
+
+  <line x1="670" y1="205" x2="670" y2="280" stroke="#8a8a8a" stroke-width="2" marker-end="url(#arr)"/>
+  <text x="670" y="250" text-anchor="middle" fill="#68d391" font-size="13" font-weight="bold">Context tokens</text>
+
+  <!-- Row 3: Unified Token Space -->
+  <rect x="60" y="290" width="680" height="200" rx="14" fill="#1a2332" stroke="#e2e8f0" stroke-width="2" stroke-dasharray="8,4"/>
+  <text x="400" y="325" text-anchor="middle" fill="#e2e8f0" font-size="20" font-weight="bold">Unified Token Space</text>
+  <text x="400" y="350" text-anchor="middle" fill="#a0aec0" font-size="14">拼接所有 token 序列</text>
+
+  <!-- Token blocks -->
+  <rect x="110" y="370" width="70" height="32" rx="4" fill="#4a9eff" opacity="0.75"/>
+  <text x="145" y="390" text-anchor="middle" fill="#fff" font-size="12" font-weight="bold">Visual</text>
+  <rect x="190" y="370" width="70" height="32" rx="4" fill="#68d391" opacity="0.75"/>
+  <text x="225" y="390" text-anchor="middle" fill="#1a202c" font-size="12" font-weight="bold">Lang</text>
+  <rect x="270" y="370" width="70" height="32" rx="4" fill="#f6ad55" opacity="0.75"/>
+  <text x="305" y="390" text-anchor="middle" fill="#1a202c" font-size="12" font-weight="bold">State</text>
+  <rect x="350" y="370" width="70" height="32" rx="4" fill="#fc8181" opacity="0.75"/>
+  <text x="385" y="390" text-anchor="middle" fill="#1a202c" font-size="12" font-weight="bold">Ctxt</text>
+  <rect x="430" y="370" width="70" height="32" rx="4" fill="#4a9eff" opacity="0.75"/>
+  <text x="465" y="390" text-anchor="middle" fill="#fff" font-size="12" font-weight="bold">Visual</text>
+  <rect x="510" y="370" width="70" height="32" rx="4" fill="#f6ad55" opacity="0.75"/>
+  <text x="545" y="390" text-anchor="middle" fill="#1a202c" font-size="12" font-weight="bold">State</text>
+  <rect x="590" y="370" width="70" height="32" rx="4" fill="#68d391" opacity="0.75"/>
+  <text x="625" y="390" text-anchor="middle" fill="#1a202c" font-size="12" font-weight="bold">Lang</text>
+  <text x="400" y="430" text-anchor="middle" fill="#a0aec0" font-size="13">token₁, token₂, token₃, ..., tokenₙ</text>
+  <text x="400" y="460" text-anchor="middle" fill="#718096" font-size="13">→ 输入到 Cosmos-3 双塔 MoT 的 AR / DM 分支</text>
 </svg>
