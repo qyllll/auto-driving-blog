@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 480" font-family="sans-serif">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 Z" fill="#8a8a8a"/></marker>
+    <marker id="arrow-green" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 Z" fill="#68d391"/></marker>
+  </defs>
+
+  <!-- Step 1: 当前观测 -->
+  <rect x="150" y="15" width="220" height="55" rx="10" fill="#2d3748" stroke="#e2e8f0" stroke-width="1.5"/>
+  <text x="260" y="38" text-anchor="middle" fill="#e2e8f0" font-size="16" font-weight="bold">① 当前观测</text>
+  <text x="260" y="58" text-anchor="middle" fill="#a0aec0" font-size="12">编码视觉/状态/目标</text>
+
+  <line x1="260" y1="70" x2="260" y2="105" stroke="#8a8a8a" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- Step 2: Reasoner 推理 -->
+  <rect x="150" y="110" width="220" height="55" rx="10" fill="#1a365d" stroke="#4a9eff" stroke-width="2"/>
+  <text x="260" y="133" text-anchor="middle" fill="#e2e8f0" font-size="16" font-weight="bold">② Reasoner 推理</text>
+  <text x="260" y="153" text-anchor="middle" fill="#90cdf4" font-size="12">生成场景与任务上下文</text>
+
+  <line x1="260" y1="165" x2="260" y2="200" stroke="#8a8a8a" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- Step 3: MoE 路由 -->
+  <rect x="150" y="205" width="220" height="55" rx="10" fill="#553c7b" stroke="#b794f4" stroke-width="2"/>
+  <text x="260" y="228" text-anchor="middle" fill="#e2e8f0" font-size="16" font-weight="bold">③ Generator MoE 路由</text>
+  <text x="260" y="248" text-anchor="middle" fill="#d6bcfa" font-size="12">为轨迹 token 选择专家</text>
+
+  <line x1="260" y1="260" x2="260" y2="295" stroke="#8a8a8a" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- Step 4: Flow 生成 -->
+  <rect x="150" y="300" width="220" height="55" rx="10" fill="#276749" stroke="#68d391" stroke-width="2"/>
+  <text x="260" y="323" text-anchor="middle" fill="#e2e8f0" font-size="16" font-weight="bold">④ Flow 轨迹生成</text>
+  <text x="260" y="343" text-anchor="middle" fill="#9ae6b4" font-size="12">生成未来轨迹块</text>
+
+  <line x1="260" y1="355" x2="260" y2="390" stroke="#8a8a8a" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- Step 5: 执行前 K 步 -->
+  <rect x="150" y="395" width="220" height="55" rx="10" fill="#7b341e" stroke="#f6ad55" stroke-width="2"/>
+  <text x="260" y="418" text-anchor="middle" fill="#e2e8f0" font-size="16" font-weight="bold">⑤ 执行前 K 步</text>
+  <text x="260" y="438" text-anchor="middle" fill="#fbd38d" font-size="12">只执行轨迹块的前几步</text>
+
+  <!-- Feedback arrow: back to step 1 -->
+  <path d="M 150,422 L 60,422 L 60,42 L 145,42" fill="none" stroke="#68d391" stroke-width="2" stroke-dasharray="8,4" marker-end="url(#arrow-green)"/>
+  <text x="60" y="240" text-anchor="middle" fill="#68d391" font-size="13" font-weight="bold" transform="rotate(-90,60,240)">获取新观测 · 重新生成</text>
+</svg>

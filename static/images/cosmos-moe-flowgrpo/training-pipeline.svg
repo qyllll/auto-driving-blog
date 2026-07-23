@@ -1,0 +1,60 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 860 260" font-family="sans-serif">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0,0 L10,5 L0,10 Z" fill="#8a8a8a"/></marker>
+  </defs>
+
+  <!-- Stage 1 -->
+  <rect x="20" y="40" width="170" height="100" rx="12" fill="#1a365d" stroke="#4a9eff" stroke-width="2"/>
+  <text x="105" y="65" text-anchor="middle" fill="#e2e8f0" font-size="16" font-weight="bold">Stage 1</text>
+  <rect x="35" y="75" width="140" height="28" rx="5" fill="#2b4c7e"/>
+  <text x="105" y="94" text-anchor="middle" fill="#90cdf4" font-size="12">Cosmos-3</text>
+  <text x="105" y="125" text-anchor="middle" fill="#a0aec0" font-size="12">初始化</text>
+
+  <line x1="190" y1="90" x2="235" y2="90" stroke="#8a8a8a" stroke-width="2.5" marker-end="url(#arrow)"/>
+
+  <!-- Stage 2 -->
+  <rect x="245" y="40" width="170" height="100" rx="12" fill="#553c7b" stroke="#b794f4" stroke-width="2"/>
+  <text x="330" y="65" text-anchor="middle" fill="#e2e8f0" font-size="16" font-weight="bold">Stage 2</text>
+  <rect x="260" y="75" width="140" height="28" rx="5" fill="#6b46c1"/>
+  <text x="330" y="94" text-anchor="middle" fill="#d6bcfa" font-size="12">Sparse MoE</text>
+  <text x="330" y="125" text-anchor="middle" fill="#a0aec0" font-size="12">转换与预热</text>
+
+  <line x1="415" y1="90" x2="460" y2="90" stroke="#8a8a8a" stroke-width="2.5" marker-end="url(#arrow)"/>
+
+  <!-- Stage 3 -->
+  <rect x="470" y="40" width="170" height="100" rx="12" fill="#22543d" stroke="#68d391" stroke-width="2"/>
+  <text x="555" y="65" text-anchor="middle" fill="#e2e8f0" font-size="16" font-weight="bold">Stage 3</text>
+  <rect x="485" y="75" width="140" height="28" rx="5" fill="#276749"/>
+  <text x="555" y="94" text-anchor="middle" fill="#9ae6b4" font-size="12">Supervised Flow</text>
+  <text x="555" y="125" text-anchor="middle" fill="#a0aec0" font-size="12">监督训练</text>
+
+  <line x1="640" y1="90" x2="685" y2="90" stroke="#8a8a8a" stroke-width="2.5" marker-end="url(#arrow)"/>
+
+  <!-- Stage 4 -->
+  <rect x="695" y="40" width="150" height="100" rx="12" fill="#7b341e" stroke="#fc8181" stroke-width="2"/>
+  <text x="770" y="65" text-anchor="middle" fill="#e2e8f0" font-size="16" font-weight="bold">Stage 4</text>
+  <rect x="707" y="75" width="126" height="28" rx="5" fill="#9b2c2c"/>
+  <text x="770" y="94" text-anchor="middle" fill="#feb2b2" font-size="12">Flow-GRPO</text>
+  <text x="770" y="125" text-anchor="middle" fill="#a0aec0" font-size="12">强化学习</text>
+
+  <!-- Description boxes below -->
+  <rect x="20" y="170" width="170" height="70" rx="8" fill="#1a2332" stroke="#4a9eff" stroke-width="1" stroke-dasharray="4,3"/>
+  <text x="105" y="192" text-anchor="middle" fill="#a0aec0" font-size="11">继承 Cosmos-3 的</text>
+  <text x="105" y="208" text-anchor="middle" fill="#a0aec0" font-size="11">多模态理解与</text>
+  <text x="105" y="224" text-anchor="middle" fill="#a0aec0" font-size="11">连续生成能力</text>
+
+  <rect x="245" y="170" width="170" height="70" rx="8" fill="#1a2332" stroke="#b794f4" stroke-width="1" stroke-dasharray="4,3"/>
+  <text x="330" y="192" text-anchor="middle" fill="#a0aec0" font-size="11">替换 Dense FFN</text>
+  <text x="330" y="208" text-anchor="middle" fill="#a0aec0" font-size="11">为 Shared + Routed</text>
+  <text x="330" y="224" text-anchor="middle" fill="#a0aec0" font-size="11">稳定 Router 负载</text>
+
+  <rect x="470" y="170" width="170" height="70" rx="8" fill="#1a2332" stroke="#68d391" stroke-width="1" stroke-dasharray="4,3"/>
+  <text x="555" y="192" text-anchor="middle" fill="#a0aec0" font-size="11">使用示范轨迹</text>
+  <text x="555" y="208" text-anchor="middle" fill="#a0aec0" font-size="11">训练 Flow Head</text>
+  <text x="555" y="224" text-anchor="middle" fill="#a0aec0" font-size="11">建立生成能力</text>
+
+  <rect x="695" y="170" width="150" height="70" rx="8" fill="#1a2332" stroke="#fc8181" stroke-width="1" stroke-dasharray="4,3"/>
+  <text x="770" y="192" text-anchor="middle" fill="#a0aec0" font-size="11">环境奖励优化</text>
+  <text x="770" y="208" text-anchor="middle" fill="#a0aec0" font-size="11">Flow Head +</text>
+  <text x="770" y="224" text-anchor="middle" fill="#a0aec0" font-size="11">Generator MoE</text>
+</svg>
