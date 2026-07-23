@@ -16,6 +16,9 @@
       <stop offset="0%" stop-color="#ef4444"/>
       <stop offset="100%" stop-color="#dc2626"/>
     </linearGradient>
+    <marker id="arrowRed" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#f87171"/>
+    </marker>
   </defs>
 
   <rect width="900" height="520" fill="url(#bg)" rx="12"/>
