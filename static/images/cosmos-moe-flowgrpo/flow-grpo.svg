@@ -4,77 +4,72 @@
     <marker id="arr-red" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 Z" fill="#ff6b6b"/></marker>
   </defs>
 
-  <text x="450" y="22" text-anchor="middle" fill="#e2e8f0" font-size="16" font-weight="bold">Flow-GRPO：基于环境奖励的强化学习优化</text>
+  <text x="450" y="22" text-anchor="middle" fill="#e2e8f0" font-size="16" font-weight="bold">Flow-GRPO 强化学习</text>
 
-  <!-- Row 1: Sampling -->
-  <rect x="330" y="45" width="240" height="38" rx="8" fill="#2d3748" stroke="#e2e8f0" stroke-width="1.5"/>
-  <text x="450" y="69" text-anchor="middle" fill="#e2e8f0" font-size="14" font-weight="bold">相同任务条件</text>
+  <!-- Main pipeline (top to bottom, centered) -->
+  <rect x="340" y="50" width="220" height="40" rx="8" fill="#2d3748" stroke="#e2e8f0" stroke-width="1.5"/>
+  <text x="450" y="75" text-anchor="middle" fill="#e2e8f0" font-size="14" font-weight="bold">相同任务条件</text>
 
-  <line x1="450" y1="83" x2="450" y2="108" stroke="#8a8a8a" stroke-width="2" marker-end="url(#arr)"/>
+  <line x1="450" y1="90" x2="450" y2="115" stroke="#8a8a8a" stroke-width="2" marker-end="url(#arr)"/>
 
-  <rect x="320" y="112" width="260" height="38" rx="8" fill="#553c7b" stroke="#b794f4" stroke-width="1.5"/>
-  <text x="450" y="136" text-anchor="middle" fill="#d6bcfa" font-size="14" font-weight="bold">随机 Flow Sampling（G 条候选）</text>
+  <rect x="320" y="120" width="260" height="40" rx="8" fill="#553c7b" stroke="#b794f4" stroke-width="1.5"/>
+  <text x="450" y="145" text-anchor="middle" fill="#d6bcfa" font-size="14" font-weight="bold">随机 Flow Sampling</text>
 
-  <!-- Branch to candidates -->
-  <line x1="370" y1="150" x2="160" y2="180" stroke="#8a8a8a" stroke-width="1.5" marker-end="url(#arr)"/>
-  <line x1="450" y1="150" x2="450" y2="180" stroke="#8a8a8a" stroke-width="1.5" marker-end="url(#arr)"/>
-  <line x1="530" y1="150" x2="740" y2="180" stroke="#8a8a8a" stroke-width="1.5" marker-end="url(#arr)"/>
+  <line x1="370" y1="160" x2="160" y2="190" stroke="#8a8a8a" stroke-width="1.5" marker-end="url(#arr)"/>
+  <line x1="450" y1="160" x2="450" y2="190" stroke="#8a8a8a" stroke-width="1.5" marker-end="url(#arr)"/>
+  <line x1="530" y1="160" x2="740" y2="190" stroke="#8a8a8a" stroke-width="1.5" marker-end="url(#arr)"/>
 
-  <!-- Row 2: G Candidates -->
-  <rect x="70" y="185" width="180" height="48" rx="8" fill="#2b4c7e" stroke="#4a9eff" stroke-width="1.5"/>
-  <text x="160" y="208" text-anchor="middle" fill="#e2e8f0" font-size="14" font-weight="bold">Candidate 1</text>
-  <text x="160" y="225" text-anchor="middle" fill="#90cdf4" font-size="11">轨迹采样结果</text>
+  <!-- Candidates -->
+  <rect x="60" y="195" width="200" height="45" rx="8" fill="#2b4c7e" stroke="#4a9eff" stroke-width="1.5"/>
+  <text x="160" y="218" text-anchor="middle" fill="#e2e8f0" font-size="14" font-weight="bold">Candidate 1</text>
+  <text x="160" y="233" text-anchor="middle" fill="#90cdf4" font-size="12">轨迹采样结果</text>
 
-  <rect x="360" y="185" width="180" height="48" rx="8" fill="#2b4c7e" stroke="#4a9eff" stroke-width="1.5"/>
-  <text x="450" y="208" text-anchor="middle" fill="#e2e8f0" font-size="14" font-weight="bold">Candidate 2</text>
-  <text x="450" y="225" text-anchor="middle" fill="#90cdf4" font-size="11">轨迹采样结果</text>
+  <rect x="350" y="195" width="200" height="45" rx="8" fill="#2b4c7e" stroke="#4a9eff" stroke-width="1.5"/>
+  <text x="450" y="218" text-anchor="middle" fill="#e2e8f0" font-size="14" font-weight="bold">Candidate 2</text>
+  <text x="450" y="233" text-anchor="middle" fill="#90cdf4" font-size="12">轨迹采样结果</text>
 
-  <text x="575" y="214" text-anchor="middle" fill="#718096" font-size="22">⋯</text>
+  <text x="580" y="223" text-anchor="middle" fill="#718096" font-size="22">⋯</text>
 
-  <rect x="650" y="185" width="180" height="48" rx="8" fill="#2b4c7e" stroke="#4a9eff" stroke-width="1.5"/>
-  <text x="740" y="208" text-anchor="middle" fill="#e2e8f0" font-size="14" font-weight="bold">Candidate G</text>
-  <text x="740" y="225" text-anchor="middle" fill="#90cdf4" font-size="11">轨迹采样结果</text>
+  <rect x="640" y="195" width="200" height="45" rx="8" fill="#2b4c7e" stroke="#4a9eff" stroke-width="1.5"/>
+  <text x="740" y="218" text-anchor="middle" fill="#e2e8f0" font-size="14" font-weight="bold">Candidate G</text>
+  <text x="740" y="233" text-anchor="middle" fill="#90cdf4" font-size="12">轨迹采样结果</text>
 
-  <!-- Vertical arrows down -->
-  <line x1="160" y1="233" x2="160" y2="268" stroke="#8a8a8a" stroke-width="1.5" marker-end="url(#arr)"/>
-  <line x1="450" y1="233" x2="450" y2="268" stroke="#8a8a8a" stroke-width="1.5" marker-end="url(#arr)"/>
-  <line x1="740" y1="233" x2="740" y2="268" stroke="#8a8a8a" stroke-width="1.5" marker-end="url(#arr)"/>
+  <!-- Arrows down -->
+  <line x1="160" y1="240" x2="160" y2="275" stroke="#8a8a8a" stroke-width="1.5" marker-end="url(#arr)"/>
+  <line x1="450" y1="240" x2="450" y2="275" stroke="#8a8a8a" stroke-width="1.5" marker-end="url(#arr)"/>
+  <line x1="740" y1="240" x2="740" y2="275" stroke="#8a8a8a" stroke-width="1.5" marker-end="url(#arr)"/>
 
-  <!-- Row 3: Environment -->
-  <rect x="70" y="273" width="350" height="48" rx="8" fill="#2d3748" stroke="#718096" stroke-width="1.5"/>
-  <text x="245" y="296" text-anchor="middle" fill="#e2e8f0" font-size="15" font-weight="bold">Environment Rollouts</text>
-  <text x="245" y="313" text-anchor="middle" fill="#a0aec0" font-size="12">在环境中分别执行 / 评估 G 条候选轨迹</text>
+  <!-- Row: Environment + Reward + Advantages + Update -->
+  <rect x="60" y="280" width="380" height="45" rx="8" fill="#2d3748" stroke="#718096" stroke-width="1.5"/>
+  <text x="250" y="303" text-anchor="middle" fill="#e2e8f0" font-size="14" font-weight="bold">Environment Rollouts</text>
+  <text x="250" y="318" text-anchor="middle" fill="#a0aec0" font-size="12">分别执行 G 条候选轨迹</text>
 
-  <line x1="420" y1="297" x2="479" y2="297" stroke="#8a8a8a" stroke-width="2" marker-end="url(#arr)"/>
+  <line x1="440" y1="302" x2="479" y2="302" stroke="#8a8a8a" stroke-width="2" marker-end="url(#arr)"/>
 
-  <!-- Right column: Reward → Advantage → Update -->
-  <rect x="485" y="273" width="350" height="48" rx="8" fill="#2d3748" stroke="#718096" stroke-width="1.5"/>
-  <text x="660" y="296" text-anchor="middle" fill="#e2e8f0" font-size="15" font-weight="bold">Task Rewards</text>
-  <text x="660" y="313" text-anchor="middle" fill="#a0aec0" font-size="12">成功 / 安全 / 效率 / 平滑性</text>
+  <rect x="485" y="280" width="350" height="45" rx="8" fill="#2d3748" stroke="#718096" stroke-width="1.5"/>
+  <text x="660" y="303" text-anchor="middle" fill="#e2e8f0" font-size="14" font-weight="bold">Task Rewards</text>
+  <text x="660" y="318" text-anchor="middle" fill="#a0aec0" font-size="12">成功 / 安全 / 效率 / 平滑性</text>
 
-  <line x1="660" y1="321" x2="660" y2="352" stroke="#8a8a8a" stroke-width="2" marker-end="url(#arr)"/>
+  <line x1="660" y1="325" x2="660" y2="360" stroke="#8a8a8a" stroke-width="2" marker-end="url(#arr)"/>
 
-  <rect x="485" y="357" width="350" height="48" rx="8" fill="#7b341e" stroke="#f6ad55" stroke-width="1.5"/>
-  <text x="660" y="380" text-anchor="middle" fill="#e2e8f0" font-size="15" font-weight="bold">Group-Relative Advantages</text>
-  <text x="660" y="397" text-anchor="middle" fill="#fbd38d" font-size="12">在组内比较奖励，计算相对优势</text>
+  <rect x="485" y="365" width="350" height="45" rx="8" fill="#7b341e" stroke="#f6ad55" stroke-width="1.5"/>
+  <text x="660" y="388" text-anchor="middle" fill="#e2e8f0" font-size="14" font-weight="bold">Group-Relative Advantages</text>
+  <text x="660" y="403" text-anchor="middle" fill="#fbd38d" font-size="12">组内比较奖励，计算相对优势</text>
 
-  <line x1="660" y1="405" x2="660" y2="436" stroke="#8a8a8a" stroke-width="2" marker-end="url(#arr)"/>
+  <line x1="660" y1="410" x2="660" y2="445" stroke="#8a8a8a" stroke-width="2" marker-end="url(#arr)"/>
 
-  <rect x="485" y="441" width="350" height="55" rx="10" fill="#9b2c2c" stroke="#ff6b6b" stroke-width="2"/>
-  <text x="660" y="465" text-anchor="middle" fill="#fff5f5" font-size="15" font-weight="bold">Clipped Flow-GRPO Policy Update</text>
-  <text x="660" y="485" text-anchor="middle" fill="#fed7d7" font-size="12">使用 clipping + KL 约束优化策略</text>
+  <rect x="485" y="450" width="350" height="50" rx="10" fill="#9b2c2c" stroke="#ff6b6b" stroke-width="2"/>
+  <text x="660" y="473" text-anchor="middle" fill="#fff5f5" font-size="15" font-weight="bold">Clipped Flow-GRPO Policy Update</text>
+  <text x="660" y="490" text-anchor="middle" fill="#fed7d7" font-size="12">clipping + KL 约束</text>
 
-  <!-- Update arrows (leftward, to Flow Head) -->
-  <path d="M 485,470 L 430,470 L 430,420 L 350,420" fill="none" stroke="#ff6b6b" stroke-width="1.5" stroke-dasharray="6,4" marker-end="url(#arr-red)"/>
-  <rect x="370" y="425" width="130" height="24" rx="4" fill="#2d3748" opacity="0.9"/>
-  <text x="435" y="442" text-anchor="middle" fill="#ff6b6b" font-size="12" font-weight="bold">主要更新 Flow Head</text>
+  <!-- Update arrows going DOWN (not left), update targets below -->
+  <line x1="550" y1="500" x2="550" y2="530" stroke="#ff6b6b" stroke-width="1.5" stroke-dasharray="6,4" marker-end="url(#arr-red)"/>
 
-  <!-- Update arrow to Generator MoE Router -->
-  <path d="M 485,450 L 420,450 L 420,380 L 320,380" fill="none" stroke="#fc8181" stroke-width="1.5" stroke-dasharray="6,4" marker-end="url(#arr-red)"/>
-  <rect x="230" y="375" width="200" height="24" rx="4" fill="#2d3748" opacity="0.9"/>
-  <text x="330" y="392" text-anchor="middle" fill="#fc8181" font-size="12" font-weight="bold">更新 Generator Router + 激活的 Experts</text>
+  <rect x="320" y="515" width="230" height="32" rx="6" fill="#2d3748" stroke="#fc8181" stroke-width="1"/>
+  <text x="435" y="536" text-anchor="middle" fill="#fc8181" font-size="13" font-weight="bold">→ 更新 Flow Head</text>
 
-  <!-- Note about Reasoner -->
-  <rect x="70" y="470" width="350" height="40" rx="8" fill="#1a2332" stroke="#718096" stroke-width="1" stroke-dasharray="4,3"/>
-  <text x="245" y="492" text-anchor="middle" fill="#a0aec0" font-size="12">Reasoner 保持冻结或仅微调，保护多模态理解能力</text>
+  <line x1="660" y1="500" x2="660" y2="530" stroke="#fc8181" stroke-width="1.5" stroke-dasharray="6,4" marker-end="url(#arr-red)"/>
+
+  <rect x="550" y="515" width="300" height="32" rx="6" fill="#2d3748" stroke="#fc8181" stroke-width="1"/>
+  <text x="700" y="536" text-anchor="middle" fill="#fc8181" font-size="13" font-weight="bold">→ 更新 Generator Router + 激活的 Experts</text>
 </svg>
