@@ -1,0 +1,79 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 500" font-family="Arial, sans-serif">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#666"/>
+    </marker>
+  </defs>
+  
+  <rect width="600" height="500" fill="#fff"/>
+  <text x="300" y="35" text-anchor="middle" font-size="18" font-weight="bold" fill="#333">MAN TruckScenes 4D 雷达 360° 覆盖布局</text>
+  
+  <!-- Background grid -->
+  <circle cx="300" cy="280" r="180" fill="none" stroke="#eee" stroke-width="1"/>
+  <circle cx="300" cy="280" r="120" fill="none" stroke="#eee" stroke-width="1"/>
+  <circle cx="300" cy="280" r="60" fill="none" stroke="#eee" stroke-width="1"/>
+  
+  <!-- Directions -->
+  <text x="300" y="90" text-anchor="middle" font-size="12" fill="#999">前方</text>
+  <text x="300" y="490" text-anchor="middle" font-size="12" fill="#999">后方</text>
+  <text x="110" y="285" text-anchor="middle" font-size="12" fill="#999">左侧</text>
+  <text x="490" y="285" text-anchor="middle" font-size="12" fill="#999">右侧</text>
+  
+  <!-- Truck body - simplified top view -->
+  <rect x="260" y="220" width="80" height="120" rx="5" fill="#4A4A4A" stroke="#333" stroke-width="1.5"/>
+  <!-- Cabin -->
+  <rect x="260" y="200" width="80" height="25" rx="5" fill="#6B6B6B" stroke="#333" stroke-width="1.5"/>
+  <text x="300" y="216" text-anchor="middle" font-size="9" fill="#fff">驾驶室</text>
+  <!-- Trailer -->
+  <rect x="250" y="280" width="100" height="140" rx="3" fill="#8B4513" stroke="#5C2D0E" stroke-width="1.5" opacity="0.5"/>
+  <text x="300" y="355" text-anchor="middle" font-size="11" fill="#fff" opacity="0.6">挂车</text>
+  
+  <!-- Radar cones -->
+  <!-- Radar 1: Front-left corner module -->
+  <path d="M 260 220 L 120 110 L 190 30 Z" fill="#E74C3C" opacity="0.25" stroke="#E74C3C" stroke-width="1.5"/>
+  <circle cx="260" cy="220" r="5" fill="#E74C3C"/>
+  <text x="158" y="65" text-anchor="middle" font-size="10" fill="#E74C3C">雷达1(前左)</text>
+  
+  <!-- Radar 2: Front-right corner module -->
+  <path d="M 340 220 L 480 110 L 410 30 Z" fill="#E74C3C" opacity="0.25" stroke="#E74C3C" stroke-width="1.5"/>
+  <circle cx="340" cy="220" r="5" fill="#E74C3C"/>
+  <text x="442" y="65" text-anchor="middle" font-size="10" fill="#E74C3C">雷达2(前右)</text>
+  
+  <!-- Radar 3: Left side front (corner module) -->
+  <path d="M 250 240 L 80 190 L 80 310 Z" fill="#3498DB" opacity="0.25" stroke="#3498DB" stroke-width="1.5"/>
+  <circle cx="250" cy="240" r="5" fill="#3498DB"/>
+  <text x="65" y="255" text-anchor="middle" font-size="10" fill="#3498DB">雷达3(左侧)</text>
+  
+  <!-- Radar 4: Right side front (corner module) -->
+  <path d="M 350 240 L 520 190 L 520 310 Z" fill="#3498DB" opacity="0.25" stroke="#3498DB" stroke-width="1.5"/>
+  <circle cx="350" cy="240" r="5" fill="#3498DB"/>
+  <text x="535" y="255" text-anchor="middle" font-size="10" fill="#3498DB">雷达4(右侧)</text>
+  
+  <!-- Radar 5: Left rear -->
+  <path d="M 260 350 L 100 360 L 100 440 Z" fill="#2ECC71" opacity="0.25" stroke="#2ECC71" stroke-width="1.5"/>
+  <circle cx="260" cy="350" r="5" fill="#2ECC71"/>
+  <text x="85" y="410" text-anchor="middle" font-size="10" fill="#2ECC71">雷达5(左后)</text>
+  
+  <!-- Radar 6: Right rear -->
+  <path d="M 340 350 L 500 360 L 500 440 Z" fill="#2ECC71" opacity="0.25" stroke="#2ECC71" stroke-width="1.5"/>
+  <circle cx="340" cy="350" r="5" fill="#2ECC71"/>
+  <text x="515" y="410" text-anchor="middle" font-size="10" fill="#2ECC71">雷达6(右后)</text>
+  
+  <!-- Trailer rear occlusion -->
+  <path d="M 280 420 L 280 470 L 380 470 L 380 420 Z" fill="#FF4444" opacity="0.12"/>
+  <text x="330" y="455" text-anchor="middle" font-size="10" fill="#CC0000">挂车遮挡盲区</text>
+  
+  <!-- 360° coverage arc label -->
+  <path d="M 180 440 A 200 200 0 0 1 420 440" fill="none" stroke="#F39C12" stroke-width="2" stroke-dasharray="5,3"/>
+  <text x="300" y="430" text-anchor="middle" font-size="11" fill="#F39C12">~310° 有效覆盖</text>
+  
+  <!-- Legend -->
+  <rect x="20" y="478" width="10" height="10" fill="#E74C3C" opacity="0.5"/>
+  <text x="35" y="487" font-size="10" fill="#666">前向雷达</text>
+  <rect x="160" y="478" width="10" height="10" fill="#3498DB" opacity="0.5"/>
+  <text x="175" y="487" font-size="10" fill="#666">侧向雷达</text>
+  <rect x="310" y="478" width="10" height="10" fill="#2ECC71" opacity="0.5"/>
+  <text x="325" y="487" font-size="10" fill="#666">后向雷达</text>
+  <rect x="440" y="478" width="10" height="10" fill="#FF4444" opacity="0.3"/>
+  <text x="455" y="487" font-size="10" fill="#666">盲区</text>
+</svg>

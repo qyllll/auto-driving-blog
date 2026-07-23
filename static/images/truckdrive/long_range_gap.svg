@@ -1,0 +1,71 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 400" font-family="Arial">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#666"/>
+    </marker>
+  </defs>
+  
+  <!-- Background -->
+  <rect width="800" height="400" fill="#fff"/>
+  
+  <!-- Title -->
+  <text x="400" y="35" text-anchor="middle" font-size="18" font-weight="bold" fill="#333">乘用车 vs 重卡感知距离需求对比</text>
+  
+  <!-- Distance axis -->
+  <line x1="50" y1="320" x2="750" y2="320" stroke="#333" stroke-width="2" marker-end="url(#arrow)"/>
+  <text x="750" y="350" text-anchor="middle" font-size="14" fill="#666">距离 (m)</text>
+  
+  <!-- Tick marks and labels -->
+  <line x1="50" y1="315" x2="50" y2="325" stroke="#333" stroke-width="1.5"/>
+  <text x="50" y="340" text-anchor="middle" font-size="12" fill="#666">0</text>
+  <line x1="190" y1="315" x2="190" y2="325" stroke="#333" stroke-width="1.5"/>
+  <text x="190" y="340" text-anchor="middle" font-size="12" fill="#666">100</text>
+  <line x1="330" y1="315" x2="330" y2="325" stroke="#333" stroke-width="1.5"/>
+  <text x="330" y="340" text-anchor="middle" font-size="12" fill="#666">200</text>
+  <line x1="470" y1="315" x2="470" y2="325" stroke="#333" stroke-width="1.5"/>
+  <text x="470" y="340" text-anchor="middle" font-size="12" fill="#666">300</text>
+  <line x1="610" y1="315" x2="610" y2="325" stroke="#333" stroke-width="1.5"/>
+  <text x="610" y="340" text-anchor="middle" font-size="12" fill="#666">400</text>
+  <line x1="750" y1="315" x2="750" y2="325" stroke="#333" stroke-width="1.5"/>
+  <text x="750" y="340" text-anchor="middle" font-size="12" fill="#666">500</text>
+  
+  <!-- Scale: 1px = 1.4m, so 500m = 700px from x=50 to x=750 -->
+  
+  <!-- Car sensing zone -->
+  <rect x="50" y="110" width="140" height="40" rx="6" fill="#4A90D9" opacity="0.3"/>
+  <rect x="50" y="110" width="70" height="40" rx="6" fill="#4A90D9" opacity="0.6"/>
+  <text x="120" y="135" text-anchor="middle" font-size="13" font-weight="bold" fill="#2C5F8A">乘用车感知范围</text>
+  <text x="85" y="165" text-anchor="middle" font-size="11" fill="#4A90D9">密集区</text>
+  
+  <!-- Car braking zone -->
+  <rect x="50" y="70" width="56" height="30" rx="4" fill="#7ED321" opacity="0.5"/>
+  <text x="78" y="90" text-anchor="middle" font-size="11" fill="#4A7A1A">刹车(40m)</text>
+  
+  <!-- Truck sensing zone -->
+  <rect x="50" y="210" width="520" height="40" rx="6" fill="#D0021B" opacity="0.15"/>
+  <rect x="50" y="210" width="280" height="40" rx="6" fill="#D0021B" opacity="0.4"/>
+  <text x="310" y="235" text-anchor="middle" font-size="13" font-weight="bold" fill="#8B0000">重卡感知需求范围 (400m+)</text>
+  
+  <!-- Truck braking zone -->
+  <rect x="50" y="170" width="210" height="30" rx="4" fill="#F5A623" opacity="0.6"/>
+  <text x="155" y="190" text-anchor="middle" font-size="11" fill="#8B5E00">刹车距离(200m)</text>
+  
+  <!-- Cliff line at 150m -->
+  <line x1="260" y1="80" x2="260" y2="280" stroke="#FF0000" stroke-width="2.5" stroke-dasharray="8,4"/>
+  <text x="260" y="70" text-anchor="middle" font-size="14" font-weight="bold" fill="#FF0000">150m 断崖</text>
+  <text x="260" y="295" text-anchor="middle" font-size="12" fill="#FF0000">模型在此处失效</text>
+  
+  <!-- Arrow showing perception gap -->
+  <path d="M 190 130 L 250 130" stroke="#FF6600" stroke-width="2" marker-end="url(#arrow)"/>
+  <text x="220" y="125" text-anchor="middle" font-size="10" fill="#FF6600">gap</text>
+  
+  <!-- Legend -->
+  <rect x="50" y="360" width="12" height="12" fill="#4A90D9" opacity="0.6"/>
+  <text x="68" y="371" font-size="11" fill="#666">乘用车感知</text>
+  <rect x="200" y="360" width="12" height="12" fill="#D0021B" opacity="0.4"/>
+  <text x="218" y="371" font-size="11" fill="#666">重卡感知</text>
+  <rect x="350" y="360" width="12" height="12" fill="#7ED321" opacity="0.5"/>
+  <text x="368" y="371" font-size="11" fill="#666">制动区</text>
+  <line x1="500" y1="366" x2="520" y2="366" stroke="#FF0000" stroke-width="2" stroke-dasharray="8,4"/>
+  <text x="528" y="371" font-size="11" fill="#666">感知断崖</text>
+</svg>
