@@ -1,0 +1,69 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 480" font-family="'Noto Sans SC','Segoe UI',Arial,sans-serif">
+  <defs>
+    <marker id="arrow" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+      <path d="M0,0 L8,3 L0,6 Z" fill="#7f8c8d"/>
+    </marker>
+    <linearGradient id="goodGrad" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#27ae60"/>
+      <stop offset="100%" stop-color="#2ecc71"/>
+    </linearGradient>
+    <linearGradient id="badGrad" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#e74c3c"/>
+      <stop offset="100%" stop-color="#ec7063"/>
+    </linearGradient>
+  </defs>
+
+  <rect x="0" y="0" width="800" height="480" fill="#fafafa" rx="8"/>
+
+  <text x="400" y="30" text-anchor="middle" font-size="18" font-weight="bold" fill="#333">Cycle Energy：自监督重建误差信号</text>
+
+  <!-- Left: Good trajectory -->
+  <rect x="30" y="55" width="355" height="195" rx="8" fill="#eafaf1" stroke="#27ae60" stroke-width="1.5"/>
+  <text x="207" y="80" text-anchor="middle" font-size="14" font-weight="bold" fill="#1e8449">✅ 合理轨迹 → 低 Cycle Energy</text>
+
+  <rect x="50" y="95" width="315" height="28" rx="4" fill="#fff" stroke="#27ae60" stroke-width="1"/>
+  <text x="207" y="114" text-anchor="middle" font-size="11" fill="#333">场景：空旷道路直行，前方无障碍物</text>
+  <rect x="50" y="130" width="315" height="28" rx="4" fill="#fff" stroke="#27ae60" stroke-width="1"/>
+  <text x="207" y="149" text-anchor="middle" font-size="11" fill="#333">轨迹：直行保持车道，匀速 8 m/s</text>
+
+  <rect x="50" y="170" width="315" height="60" rx="4" fill="#d5f5e3" stroke="#27ae60" stroke-width="1" stroke-dasharray="4,2"/>
+  <text x="207" y="190" text-anchor="middle" font-size="11" fill="#1e8449">Cycle Energy 计算:</text>
+  <text x="207" y="208" text-anchor="middle" font-size="10" fill="#555">场景隐空间包含"前方道路畅通"信息</text>
+  <text x="207" y="222" text-anchor="middle" font-size="10" fill="#555">解码器准确预测后半段轨迹 → MSE ≈ 0.0001</text>
+
+  <!-- Right: Bad trajectory -->
+  <rect x="415" y="55" width="355" height="195" rx="8" fill="#fdedec" stroke="#e74c3c" stroke-width="1.5"/>
+  <text x="592" y="80" text-anchor="middle" font-size="14" font-weight="bold" fill="#c0392b">❌ 不合理轨迹 → 高 Cycle Energy</text>
+
+  <rect x="435" y="95" width="315" height="28" rx="4" fill="#fff" stroke="#e74c3c" stroke-width="1"/>
+  <text x="592" y="114" text-anchor="middle" font-size="11" fill="#333">场景：前方有施工路栏，车道线消失</text>
+  <rect x="435" y="130" width="315" height="28" rx="4" fill="#fff" stroke="#e74c3c" stroke-width="1"/>
+  <text x="592" y="149" text-anchor="middle" font-size="11" fill="#333">轨迹：直行撞向路栏，不减速</text>
+
+  <rect x="435" y="170" width="315" height="60" rx="4" fill="#f5b7b1" fill-opacity="0.3" stroke="#e74c3c" stroke-width="1" stroke-dasharray="4,2"/>
+  <text x="592" y="190" text-anchor="middle" font-size="11" fill="#c0392b">Cycle Energy 计算:</text>
+  <text x="592" y="208" text-anchor="middle" font-size="10" fill="#555">场景隐空间包含"路栏阻挡"信息</text>
+  <text x="592" y="222" text-anchor="middle" font-size="10" fill="#555">解码器无法找到支持直行的未来 → MSE ≈ 0.05</text>
+
+  <!-- Arrow between -->
+  <path d="M385,150 L415,150" stroke="#7f8c8d" stroke-width="1.5" marker-end="url(#arrow)" fill="none"/>
+
+  <!-- Bottom: Key insight -->
+  <rect x="30" y="270" width="740" height="100" rx="8" fill="#f8f9fa" stroke="#7f8c8d" stroke-width="1"/>
+
+  <text x="400" y="295" text-anchor="middle" font-size="14" font-weight="bold" fill="#333">JEPA 核心直觉：能量基础模型</text>
+
+  <rect x="50" y="308" width="340" height="45" rx="4" fill="#eafaf1" stroke="#27ae60" stroke-width="1"/>
+  <text x="220" y="326" text-anchor="middle" font-size="11" fill="#1e8449">低能量 = 轨迹与场景一致</text>
+  <text x="220" y="342" text-anchor="middle" font-size="10" fill="#555">场景包含支持轨迹的信息 → 重建准确</text>
+
+  <rect x="410" y="308" width="340" height="45" rx="4" fill="#fdedec" stroke="#e74c3c" stroke-width="1"/>
+  <text x="580" y="326" text-anchor="middle" font-size="11" fill="#c0392b">高能量 = 轨迹与场景不符</text>
+  <text x="580" y="342" text-anchor="middle" font-size="10" fill="#555">场景缺乏支持轨迹的信息 → 重建失败</text>
+
+  <!-- Calculation detail -->
+  <rect x="30" y="385" width="740" height="80" rx="8" fill="#f0f0f5" stroke="#8e44ad" stroke-width="1"/>
+  <text x="400" y="408" text-anchor="middle" font-size="12" font-weight="bold" fill="#6c3483">计算流程</text>
+  <text x="400" y="428" text-anchor="middle" font-size="11" fill="#555">轨迹前缀 → action_lat [96] → CrossAttn(world_tokens) → attended [96]</text>
+  <text x="400" y="448" text-anchor="middle" font-size="11" fill="#555">concat[action_lat, attended, traj_lat] → MLP → pred_suffix → MSE = Cycle Energy</text>
+</svg>

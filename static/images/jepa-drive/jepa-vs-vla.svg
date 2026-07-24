@@ -1,0 +1,83 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 520" font-family="'Noto Sans SC','Segoe UI',Arial,sans-serif">
+  <defs>
+    <marker id="arrowRight" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+      <path d="M0,0 L8,3 L0,6 Z" fill="#666"/>
+    </marker>
+    <linearGradient id="vlaGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#e8f4f8"/>
+      <stop offset="100%" stop-color="#d0e8f0"/>
+    </linearGradient>
+    <linearGradient id="jepaGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#f0e6ff"/>
+      <stop offset="100%" stop-color="#e0d0f0"/>
+    </linearGradient>
+  </defs>
+
+  <rect x="0" y="0" width="900" height="520" fill="#fafafa" rx="8"/>
+
+  <!-- Title -->
+  <text x="450" y="32" text-anchor="middle" font-size="18" font-weight="bold" fill="#333">VLA vs JEPA：两种驾驶决策哲学</text>
+
+  <!-- VLA Side -->
+  <rect x="30" y="50" width="405" height="450" fill="url(#vlaGrad)" rx="8" stroke="#4a90d9" stroke-width="1.5"/>
+  <text x="232" y="78" text-anchor="middle" font-size="16" font-weight="bold" fill="#2a6da8">VLA 范式 — 模仿学习</text>
+
+  <!-- VLA flow -->
+  <rect x="80" y="100" width="300" height="50" rx="6" fill="#fff" stroke="#4a90d9" stroke-width="1.2"/>
+  <text x="230" y="130" text-anchor="middle" font-size="13" fill="#333">传感器输入（图像 + 语言指令）</text>
+
+  <line x1="230" y1="150" x2="230" y2="175" stroke="#4a90d9" stroke-width="1.5" marker-end="url(#arrowRight)"/>
+
+  <rect x="80" y="178" width="300" height="50" rx="6" fill="#fff" stroke="#4a90d9" stroke-width="1.2"/>
+  <text x="230" y="202" text-anchor="middle" font-size="13" fill="#333">VLM Backbone（像素/文本特征）</text>
+  <text x="230" y="218" text-anchor="middle" font-size="11" fill="#888">CLIP 编码 → LLM 解码</text>
+
+  <line x1="230" y1="228" x2="230" y2="253" stroke="#4a90d9" stroke-width="1.5" marker-end="url(#arrowRight)"/>
+
+  <rect x="80" y="256" width="300" height="50" rx="6" fill="#fff" stroke="#4a90d9" stroke-width="1.2"/>
+  <text x="230" y="280" text-anchor="middle" font-size="13" fill="#333">单次 Forward 生成轨迹</text>
+  <text x="230" y="296" text-anchor="middle" font-size="11" fill="#888">P(T | O) — 条件概率映射</text>
+
+  <line x1="230" y1="306" x2="230" y2="331" stroke="#4a90d9" stroke-width="1.5" marker-end="url(#arrowRight)"/>
+
+  <rect x="80" y="334" width="300" height="36" rx="6" fill="#e74c3c" fill-opacity="0.1" stroke="#e74c3c" stroke-width="1"/>
+  <text x="230" y="355" text-anchor="middle" font-size="12" fill="#c0392b">⚠️ 分布外场景易翻车</text>
+
+  <rect x="80" y="380" width="300" height="36" rx="6" fill="#e74c3c" fill-opacity="0.1" stroke="#e74c3c" stroke-width="1"/>
+  <text x="230" y="401" text-anchor="middle" font-size="12" fill="#c0392b">⚠️ 黑盒决策，不可解释</text>
+
+  <rect x="80" y="426" width="300" height="36" rx="6" fill="#e74c3c" fill-opacity="0.1" stroke="#e74c3c" stroke-width="1"/>
+  <text x="230" y="447" text-anchor="middle" font-size="12" fill="#c0392b">⚠️ 需要海量标注数据</text>
+
+  <!-- JEPA Side -->
+  <rect x="465" y="50" width="405" height="450" fill="url(#jepaGrad)" rx="8" stroke="#8e44ad" stroke-width="1.5"/>
+  <text x="667" y="78" text-anchor="middle" font-size="16" font-weight="bold" fill="#6c3483">JEPA-DRIVE — 世界模型 + 推演</text>
+
+  <rect x="515" y="100" width="300" height="50" rx="6" fill="#fff" stroke="#8e44ad" stroke-width="1.2"/>
+  <text x="665" y="124" text-anchor="middle" font-size="13" fill="#333">场景特征（物体/车道/地图/导航/速度）</text>
+  <text x="665" y="140" text-anchor="middle" font-size="11" fill="#888">结构化向量编码，无需像素</text>
+
+  <line x1="665" y1="150" x2="665" y2="175" stroke="#8e44ad" stroke-width="1.5" marker-end="url(#arrowRight)"/>
+
+  <rect x="515" y="178" width="300" height="50" rx="6" fill="#fff" stroke="#8e44ad" stroke-width="1.2"/>
+  <text x="665" y="202" text-anchor="middle" font-size="13" fill="#333">World Encoder → 隐空间表征</text>
+  <text x="665" y="218" text-anchor="middle" font-size="11" fill="#888">65 tokens × 96 维结构化隐空间</text>
+
+  <line x1="665" y1="228" x2="665" y2="253" stroke="#8e44ad" stroke-width="1.5" marker-end="url(#arrowRight)"/>
+
+  <rect x="515" y="256" width="300" height="50" rx="6" fill="#fff" stroke="#8e44ad" stroke-width="1.2"/>
+  <text x="665" y="280" text-anchor="middle" font-size="13" fill="#333">Vocabulary → 65,536 种候选生成</text>
+  <text x="665" y="296" text-anchor="middle" font-size="11" fill="#888">512 路径 × 128 速度组合</text>
+
+  <line x1="665" y1="306" x2="665" y2="331" stroke="#8e44ad" stroke-width="1.5" marker-end="url(#arrowRight)"/>
+
+  <rect x="515" y="334" width="300" height="50" rx="6" fill="#fff" stroke="#8e44ad" stroke-width="1.2"/>
+  <text x="665" y="358" text-anchor="middle" font-size="13" fill="#333">Cycle Energy + FineScorer → 选最优</text>
+  <text x="665" y="374" text-anchor="middle" font-size="11" fill="#888">P(O | T) — 轨迹与场景一致性评分</text>
+
+  <rect x="515" y="400" width="300" height="36" rx="6" fill="#27ae60" fill-opacity="0.1" stroke="#27ae60" stroke-width="1"/>
+  <text x="665" y="421" text-anchor="middle" font-size="12" fill="#1e8449">✅ 推演式推理，天然处理 OOD</text>
+
+  <rect x="515" y="444" width="300" height="36" rx="6" fill="#27ae60" fill-opacity="0.1" stroke="#27ae60" stroke-width="1"/>
+  <text x="665" y="465" text-anchor="middle" font-size="12" fill="#1e8449">✅ 可解释：重建误差可视化</text>
+</svg>
