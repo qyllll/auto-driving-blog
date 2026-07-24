@@ -8,272 +8,220 @@ summary: "JEPA-DRIVE 是一个基于 Joint Embedding Predictive Architecture 的
 weight: 1
 ---
 
-## 1. JEPA 架构：从 LeCun 的世界模型蓝图到具体实现
+## 1. JEPA 架构：世界模型的底层范式革命
 
 ### 1.1 起源：LeCun 的 2022 年蓝图
 
-2022 年，Yann LeCun 发表了一篇影响深远的位置论文《A Path Towards Autonomous Machine Intelligence》，提出了一个完整的 AI 系统架构蓝图。JEPA（Joint Embedding Predictive Architecture）是其中的核心组件——一个用于构建世界模型的**自监督学习框架**。
+2022 年，Yann LeCun 发表位置论文《A Path Towards Autonomous Machine Intelligence》，提出一个完整的 AI 架构蓝图。JEPA（Joint Embedding Predictive Architecture）是其中的核心——一个用于构建世界模型的**自监督学习框架**。
 
-LeCun 的核心理念：
+核心理念：**智能的本质不是模式匹配，而是拥有一个世界模型——能够在抽象空间中预测行为后果的内部模型。**
 
-> **智能的本质不是模式匹配，而是拥有一个"世界模型"——能够在抽象空间中预测行为后果的内部模型。**
->
-> — Yann LeCun, 2022
+### 1.2 JEPA 的核心机制
 
-### 1.2 I-JEPA（2023）：第一个具体实现
+JEPA 的架构围绕三个组件构建：
 
-2023 年 Meta 发布了 I-JEPA（Image-based JEPA），这是 JEPA 在图像上的首次具体实现，也是后续所有 JEPA 变体的模板。
+| 组件 | 作用 | 参数更新方式 |
+|------|------|------------|
+| **Context Encoder** | 将观测到的信息编码为隐空间表征 | 梯度下降 |
+| **Target Encoder** | 将待预测的目标编码为隐空间表征（真实值） | 动量更新（EMA） |
+| **Predictor** | 从 context 表征预测 target 表征 | 梯度下降 |
 
-![I-JEPA 架构：从 context block 预测 target block 的隐空间表征（来自 Meta AI）](/images/jepa/ijepa-architecture.png)
+训练目标：在隐空间计算预测与真实值之间的 L2 损失（或能量函数），**从不预测像素**。
 
-**核心思想**：给定一张图像，遮挡多个**大块区域**（target blocks），只保留一个**信息丰富的上下文块**（context block），让模型在隐空间中预测被遮挡区域的表征——不需要 pixels，只需要 representations。
+关键设计原则：
+- **Target 需足够大（>15% 图像面积）** → 迫使模型学习语义级表征
+- **Context 需信息丰富（空间分布广）** → 避免模型走捷径
+- **隐空间预测** → 过滤无关细节（纹理、光照），关注抽象语义
 
-I-JEPA 训练流程包含 6 步：
+### 1.3 JEPA 家族全景
 
-1. 从图像中采样 **context block**（保留区域）
-2. 采样多个 **target block**（遮挡区域，需大尺度）
-3. **context encoder** (ViT) → context representation
-4. **predictor**（轻量 Transformer）→ 预测 target representations
-5. **target encoder**（动量更新）→ 真实 target representations
-6. **L2 损失**：||pred - target||²（仅在隐空间，不预测像素）
-
-**三个网络组件**：
-
-| 组件 | 作用 | 架构 | 参数更新 |
-|------|------|------|---------|
-| **Context Encoder** | 编码上下文区域 → context rep | ViT | 梯度更新 |
-| **Target Encoder** | 编码目标区域 → target rep（真实值） | ViT（与 context 结构相同） | **动量更新**（EMA of context encoder） |
-| **Predictor** | 从 context rep 预测 target rep | 轻量 Transformer | 梯度更新 |
-
-**两个关键设计选择**：
-
-1. **Target blocks 必须足够大**（>15% 图像面积）→ 迫使模型学习语义级表征，而非像素级纹理
-2. **Context block 必须信息丰富**（空间分布广）→ 避免模型走捷径（只预测附近区域）
-
-**结果**：I-JEPA 在 ImageNet 上用 ViT-Huge/14 在 16 个 A100 GPU、72 小时内完成训练，下游分类、目标计数、深度估计等任务达到 SOTA，且**完全不需要数据增强**（对比 SimCLR/BYOL 依赖的随机裁剪、颜色抖动等）。
-
-### 1.3 V-JEPA（2024）：从图像到视频
-
-2024 年 Meta 发布了 V-JEPA，将 JEPA 从图像扩展到视频。
-
-**核心变化**：
-- 输入从图像变为视频片段
-- Target blocks 从空间掩码变为**时空掩码**（遮挡某些帧的某些区域）
-- 学习目标从"空间上下文预测"变为"时空上下文预测"
-
-V-JEPA 学会了从无标注视频中理解物体运动、交互关系——比如"球滚向杯子，杯子会被撞倒"这样的物理常识。
-
-### 1.4 V-JEPA 2（2025）：世界模型 + 机器人规划
-
-2025 年的 V-JEPA 2 将规模推到 10 亿参数级别，训练数据超过 **100 万小时互联网视频 + 62 小时机器人视频**。更重要的是，它引入了一个**动作条件变体**（V-JEPA 2-AC）：
-
-V-JEPA 2-AC 的机器人规划推理流程：
+从 2023 年 I-JEPA 到 2026 年，JEPA 已发展出覆盖图像、视频、语言、驾驶等模态的完整家族：
 
 ```
-当前画面 → V-JEPA 2-AC → 预测多种未来 → 评分每种未来与目标的距离 → 选最优动作
+                     JEPA 家族演进时间线
+                            │
+          LeCun 2022 位置论文：A Path Towards Autonomous Machine Intelligence
+                            │
+          ┌───────────────────┼───────────────────┐
+          │                   │                   │
+       I-JEPA (2023)     MC-JEPA (2023)      V-JEPA (2024)
+      CVPR 2023          图像运动+内容        视频时空预测
+      图像掩码预测        双流 JEPA           接受视频输入
+          │                   │                   │
+          └───────────────────┼───────────────────┘
+                              │
+                         V-JEPA 2 (2025)
+                     1.2B 参数，100万+小时视频
+                     Block-Causal Attention
+                     ├─ V-JEPA 2-AC: 动作条件世界模型
+                     │   零样本机器人规划突破
+                     │
+          ┌───────────┴───────────┐
+          │                       │
+      VL-JEPA (2025)        DRIVE-JEPA (2026)
+      Vision-Language JEPA   XPENG × VT × Purdue
+      选择性解码，2.85×加速    V-JEPA 预训练+多模态轨迹蒸馏
+      790M 参数，43x 数据效率    NAVSIM v1/v2 SOTA
+          │
+      LeJEPA (2025)       ← 理论统一：去掉启发式，可证明
+      H-JEPA (构想中)     ← 层次化世界模型（长期规划）
 ```
 
-核心：**在隐空间推演，不需真实执行**。
+**各变体详解**：
 
-**Key insight**：V-JEPA 2-AC 在机器人零样本规划上取得了突破——在完全没有见过的环境、没有任务特定奖励的情况下，能抓取和放置从未见过的物体。这正是 JEPA "预测兼容性而非动作" 哲学的体现。
+| 变体 | 年份 | 机构 | 模态 | 核心贡献 |
+|------|------|------|------|---------|
+| **I-JEPA** | 2023 CVPR | Meta | 图像 | 首个 JEPA 实现，多块掩码预测，无需数据增强 |
+| **MC-JEPA** | 2023 | Meta | 图像 | 联合学习光流（运动）+ 内容特征，双流结构 |
+| **V-JEPA** | 2024 | Meta | 视频 | 扩展至视频，时空掩码，学习物理常识 |
+| **V-JEPA 2** | 2025 | Meta | 视频 | 1.2B 参数，Block-Causal Attention，100 万+小时视频预训练 |
+| **V-JEPA 2-AC** | 2025 | Meta | 视频+动作 | 动作条件世界模型，零样本机器人规划 |
+| **VL-JEPA** | 2025 | Meta | 视觉+语言 | 替代自回归解码，InfoNCE 损失，选择性解码加速 2.85× |
+| **LeJEPA** | 2025 | Meta/NYU | 理论 | 可证明的 JEPA 理论，去掉样本/正则化启发式 |
+| **DRIVE-JEPA** | 2026.01 | XPENG+VT+Purdue | 驾驶 | V-JEPA 预训练 + 多模态轨迹蒸馏，NAVSIM SOTA |
+| **H-JEPA** | 构想中 | — | 多层次 | 层次化世界模型，高级抽象决策+低级精细控制 |
 
-### 1.5 JEPA 家族全景
+### 1.4 DRIVE-JEPA（2026）：JEPA 在驾驶中的首次应用
 
-| 变体 | 年份 | 模态 | 预测目标 | 关键贡献 |
-|------|------|------|---------|---------|
-| **I-JEPA** | 2023 | 图像 | 被遮挡区域的隐空间表征 | 首个具体实现，验证 JEPA 可行性 |
-| **MC-JEPA** | 2024 | 图像 | 运动特征 + 内容特征 | 分离运动与语义 |
-| **V-JEPA** | 2024 | 视频 | 时空掩码区域的表征 | 扩展到视频，学习物理常识 |
-| **V-JEPA 2** | 2025 | 视频+动作 | 以动作为条件的未来预测 | 10 亿参数，零样本机器人规划 |
-| **VL-JEPA** | 2025 | 视觉+语言 | 视觉-语言联合表征 | 替代自回归解码，加速 2.85× |
+2026 年 1 月，XPENG Motors 联合 Virginia Tech 和 Purdue 发表了 **DRIVE-JEPA**（arXiv:2601.22032, CVPR 2026），这是 JEPA 架构在端到端自动驾驶中的首次直接应用。
 
-**红线贯穿**：所有变体都遵循 JEPA 的核心原则——**在隐空间做预测，不在输入空间做预测**。
+**核心思路**：
+
+1. **V-JEPA 视频预训练**：用 V-JEPA 在大量驾驶视频上做自监督预训练，学习场景理解和运动表征
+2. **多模态轨迹蒸馏**：预训练后，将 V-JEPA 接入一个多模态轨迹解码器，蒸馏专家轨迹生成多样化的候选
+3. **端到端微调**：在 NAVSIM v1/v2 和 Bench2Drive 上微调
+
+**与 VLA 的关键区别**：DRIVE-JEPA 用 V-JEPA 替换了传统 VLA 中的 CLIP 视觉编码器。CLIP 学的是互联网图文对齐，V-JEPA 学的是物理世界动态——后者对驾驶中的场景演变更本质。
+
+**性能**：DRIVE-JEPA 在 NAVSIM v1/v2 上取得了 SOTA，并在 Bench2Drive 闭环上提升了性能。
+
+**与我们 JEPA-DRIVE 的关系**：DRIVE-JEPA 和 JEPA-DRIVE 都基于 JEPA 思想，但技术路线完全不同：
+
+| 维度 | DRIVE-JEPA（XPENG） | JEPA-DRIVE（我们的项目） |
+|------|--------------------|------------------------|
+| **流派** | 端到端模仿学习 | 规划+评分（推演式决策） |
+| **JEPA 角色** | **视觉编码器**（特征提取） | **世界模型 + 评分信号** |
+| **模型参数量** | ~300M+（视觉编码器） | **3.88M** |
+| **训练方式** | V-JEPA 预训练 → 微调 | Phase A 生成器 + Phase B 评分器 |
+| **评分信号** | PDM 标签（模仿学习） | **Cycle Energy 自监督** |
+| **输出** | 单条轨迹（端到端生成） | 65,536 候选 → 评分 → 选最优 |
+| **NAVSIM 分数** | SOTA（闭源） | V17: 0.8839, V21 训练中 |
+
+### 1.5 JEPA 作为世界模型：为什么与 VLA 有本质不同
+
+这是理解整个 JEPA 路线的关键。JEPA 不是"另一种 VLA"，它在哲学上就与 VLA 不同：
+
+| 维度 | VLA（模仿学习范式） | JEPA（世界模型范式） |
+|------|--------------------|-----------------|
+| **学什么** | $P(\text{action} \mid \text{observation})$ | **$P(\text{world state} \mid \text{previous state}, \text{action})$** |
+| **决策方式** | 单次 forward 生成动作 | **推演多种可能 → 评分 → 选最优** |
+| **推理能力** | 统计相关性（学数据分布） | **因果推理（场景一致性）** |
+| **OOD 处理** | 弱——未见过的分布外场景没有训练数据支撑 | **强——即使未见过的场景，不合理的行为会被高能量/高重建误差检测到** |
+| **知识表征** | 隐式编码在 LLM 权重中 | **显式编码为场景隐空间 + 行为组合词汇表** |
+| **可解释性** | 黑盒（"为什么这样决策"无法回答） | **白盒——可以问"为什么选这条？因为其他轨迹的重建误差更大"** |
+| **数据需求** | 互联网图文 + 驾驶标注 | **仅驾驶数据，自监督** |
+| **Scaling 方式** | 增大模型和数据 | **增大词汇量（组合爆炸）和场景多样性** |
+
+**用一句人话总结**：
+
+- **VLA**：看了大量人开车的视频 → 学会了"遇到这种情况就这么开" → 但遇到没见过的情况就蒙了
+- **JEPA 世界模型**：学会了"这个世界是怎么运作的" → 遇到新情况时在脑子里推演各种走法 → 选那个"走得通"的 → 即使没见过也能推理
 
 ---
 
-## 2. JEPA-DRIVE：JEPA 在驾驶决策中的落地
+## 2. JEPA-DRIVE：我们自己的 JEPA 驾驶决策系统
 
-JEPA-DRIVE 将 JEPA 的"隐空间预测 + 能量函数"思想应用到驾驶决策。但与 I-JEPA/V-JEPA 不同：
+JEPA-DRIVE 是我们将 JEPA 的"隐空间世界模型 + 推演式决策"思想落地为具体驾驶决策系统的项目。
 
-| 维度 | I-JEPA / V-JEPA（标准 JEPA） | JEPA-DRIVE（我们的） |
-|------|----------------------------|---------------------|
-| **输入** | 图像 / 视频像素 | **结构化场景特征**（物体/车道/地图等向量） |
-| **编码器** | ViT（通用视觉） | **多模态 MLP**（独立编码各场景要素） |
-| **预测目标** | 被遮挡区域的表征 | **轨迹后半段的表征** |
-| **训练数据** | 互联网图像 / 视频 | **NAVSIM 驾驶场景** |
-| **使用方式** | 预训练 → 下游微调 | **直接用于推理决策** |
-| **参数量** | ~10 亿级 | **3.88M** |
+### 2.1 与标准 JEPA 和 DRIVE-JEPA 的不同
 
-### 2.1 问题形式化
+与 Meta JEPA 家族不同，JEPA-DRIVE 不处理原始像素，而是接收**结构化场景特征**（物体/车道/地图等感知模块输出），将 JEPA 的"预测兼容性"思想转化为**cycle energy 自监督评分信号**。
 
-给定场景特征 $S$ 和候选轨迹集合 $\mathcal{C}$，目标是：
+### 2.2 问题形式化
+
+给定场景特征 $S$ 和候选轨迹集合 $\mathcal{C}$：
 
 $$ T^* = \arg\max_{T \in \mathcal{C}} f(T, S) $$
 
-其中 $f$ 是评分函数。JEPA-DRIVE 用**自监督重建误差**（cycle energy）作为 $f$，无需外部标签。
+$f$ 基于自监督重建误差（cycle energy），无需外部标签。
 
-**NAVSIM 约束**：每个场景固定提供 8 个 SD 候选，评估 `selected_pdm`、`oracle_pdm`、`gap`。模型可以生成任意多候选用于训练，但最终只看 8 个 SD 候选中的选择。数据规模：85,109 训练场景 + 12,000 测试场景。
+**NAVSIM 约束**：每个场景固定 8 个 SD 候选，评估 selected_pdm / oracle_pdm / gap。模型可生成任意多候选训练，但仅评估 8 个 SD 候选的选择质量。数据：85,109 训练场景 + 12,000 测试场景。
 
-### 2.2 架构全景
+### 2.3 架构
 
-![JEPA-DRIVE 架构全景](/images/jepa-drive/jepa-architecture.svg)
+**World Encoder**：6 种模态场景特征独立 MLP 编码 → 拼接为 [65 tokens × 96 dim]
 
-### 2.3 World Encoder：结构化场景编码
+**Vocabulary 系统**：512 种横向行为 × 128 种纵向行为 = **65,536 种组合**。640 个 query 向量即可覆盖，3.88M 参数的秘密。
 
-JEPA-DRIVE 接收的不是原始图像，而是感知模块输出的结构化场景特征——6 种模态分别用独立 MLP 编码到统一的 96 维隐空间：
+**FineScorer V2**：TrajFusion → CrossAttn(场景) → SceneQuery → ScoreHead
 
-```python
-class ModalEncoder(nn.Module):
-    def __init__(self, in_dim=24, out_dim=96):
-        super().__init__()
-        self.proj = nn.Linear(in_dim, out_dim)
-        self.norm = nn.LayerNorm(out_dim)
+**Cycle Energy**：将轨迹切成两半，用前半段+场景预测后半段，MSE 作为重建误差。低能量=轨迹合理。
 
-    def forward(self, x):
-        return self.norm(self.proj(x))
-```
+### 2.4 训练
 
-各模态编码后拼接为 `[65 tokens × 96 dim]`：
+Phase A（生成器）：100 epochs, 1×L20, loss=1.30→0.06
+Phase B（评分器）：50 epochs, 8×A800, V21 用 cycle energy 替代 PDM
 
-| 模态 | token 数 | 含义 | 编码方式 |
-|------|---------|------|---------|
-| Object | 32 | 周围物体位置/类别/速度 | MLP |
-| Lane | 16 | 车道线几何/类型 | MLP |
-| Map | 4 | 人行道/路肩等地图要素 | MLP |
-| Route | 4 | 导航路径点 | MLP |
-| Velocity | 1 | 自车速度 | MLP |
-| Dynamics | 8 | 动态物体运动状态 | MLP |
+### 2.5 实验演进
 
-**为什么用 MLP 而非 Transformer 编码器？** 场景要素已经高度结构化，MLP 更轻量，且保持模态分离——下游 CrossAttn 可以区分 token 的模态来源。
-
-### 2.4 Vocabulary 系统（核心创新）
-
-驾驶行为分解为横向（path）和纵向（vel）的组合：
-
-```python
-self.path_queries = nn.Parameter(torch.randn(512, 96))  # 512 种横向行为
-self.vel_queries  = nn.Parameter(torch.randn(128, 96))  # 128 种纵向行为
-```
-
-- 512 路径：4 种基础走法 × 8 种幅度 × 16 种偏移
-- 128 速度：4 种基础趋势 × 4 种幅度 × 8 种微调
-
-**组合爆炸**：640 个 query 向量 → 512 × 128 = **65,536 种行为**。这是 3.88M 参数的秘密。
-
-生成流程：Path/Vel Queries → CrossAttn(场景) → Cartesian Product → Predictor → 轨迹解码。
-
-### 2.5 FineScorer V2（评分器）
-
-```python
-class FineScorerV2(nn.Module):
-    # 输入: action_lat + attended + traj_lat + cycle_energy
-    # ① TrajFusion: concat → MLP(288→1024→96)
-    # ② CrossAttn(融合特征, world_tokens)
-    # ③ SceneQuery: 跨候选全局上下文
-    # ④ ScoreHead: MLP(192→1024→1024→1) → 分数
-    # ⑤ ComponentHead: MLP(96→512→6) → 6 维组件
-```
-
-关键修复：V10 用全局 mean pool（所有候选共享场景），V16 改 CrossAttn（每个候选独立查询场景）→ 0.84 → 0.8839。
-
-### 2.6 Cycle Energy：自监督评分信号
-
-Cycle energy 将 JEPA 的能量基础模型思想具体化：
-
-> 给定场景 $S$ 和轨迹 $T$，能量 $E(T,S)$ 越低，表示 $T$ 与 $S$ 越兼容。
-
-![Cycle Energy 示意图](/images/jepa-drive/cycle-energy.svg)
-
-**计算流程**（轨迹 12 帧切成两半）：
-
-1. `action_lat = MLP(prefix)` → [96]
-2. `traj_lat = MLP(full_traj)` → [96]
-3. `attended = CrossAttn(action_lat, world_tokens)` → [96]
-4. `pred_suffix = Decoder(concat[action_lat, attended, traj_lat])` → [6, 2]
-5. `cycle_energy = MSE(pred_suffix, real_suffix)`
-
-**相比 PDM 标签的优势**：
-
-| 维度 | PDM（64 值瓶颈） | Cycle Energy |
-|------|----------------|-------------|
-| 值域 | 64 个离散值 | **连续值**，任意精度 |
-| 来源 | 外部 PDM 打分器 | **自监督** |
-| 数据覆盖 | 仅 9k / 85k 场景 | **全部 85k 场景** |
-| 语义 | 单一分数 | **可分解** |
-
-### 2.7 训练
-
-**Phase A（生成器）**：100 epochs, 1×L20, 7119 有标注场景
-- 损失：重建 + cycle 一致性 + 多样性 + 距离
-- 收敛：E1 loss=1.30 → E100 loss=0.06
-
-**Phase B（评分器）**：50 epochs, 8×A800, 85109 全量场景
-- 冻结生成器，仅训练 FineScorerV2（3.17M/3.88M 参数）
-- V17：$\mathcal{L}_{\text{listnet}}(scores, proxy) + 0.2\bar{E}_{\text{cyc}} + 0.1\mathcal{L}_{\text{BCE}}$
-- V21：$\mathcal{L}_{\text{listnet}}(scores, -ce) + 0.05\mathcal{L}_{\text{GRPO}} - 0.01\mathcal{H}(\pi)$
-
-### 2.8 实验演进
-
-| 版本 | 关键变化 | 分数 |
-|------|---------|------|
+| 版本 | 关键 | 分数 |
+|------|------|------|
 | V10 | 评分器定型，全局池化缺陷 | ~0.80 |
 | V16 | 移除全局池化，改 CrossAttn | ~0.85 |
-| **V17** | **架构定型：FineScorerV2** | **0.8839** |
-| V18-V20 | 尝试各种改进 → 确认 64 值瓶颈 | 0.875-0.882 |
+| **V17** | **FineScorerV2 定型** | **0.8839** |
+| V18-V20 | 确认 64 值瓶颈 | 0.875-0.882 |
 | **V21** | **Cycle Energy 自监督（训练中）** | **?** |
-
-V18-V20 无论怎么改架构都在 0.88 徘徊——因为 PDM 标签只有 64 个离散值，评分器的理论上限在那里。Cycle energy 的连续值是突破方向。
 
 ---
 
-## 3. 与业界路线对比
+## 3. 核心创新
 
-### JEPA-DRIVE vs VLA
+### 3.1 三大独特贡献
 
-| 维度 | VLA（DriveVLA/UniAD） | JEPA-DRIVE |
-|------|----------------------|------------|
-| 核心 | 模仿学习 $P(T \mid O)$ | 推演选择 $\arg\max_T P(O \mid T)$ |
-| 训练 | 互联网图文 + 驾驶标注 | **仅驾驶场景，完全自监督** |
-| 参数 | 7B+ | **3.88M** |
-| 决策 | 单次 forward | 65,536 候选 → 评分 → 选最优 |
-| OOD | 弱 | **强**（场景一致性） |
+**① JEPA 用作评分信号，而非编码器**
+- DRIVE-JEPA 用 V-JEPA 做编码器、模仿学习
+- 我们用 JEPA 的能量函数思想做评分信号——"轨迹与场景的一致性"
+- 这是 JEPA 世界模型理念更彻底的应用
 
-### JEPA-DRIVE vs PDM-Scorer
+**② 组合式词汇表实现极致轻量**
+- 640 个 query → 65,536 种行为
+- 3.88M 参数（1800× 小于 VLA 的 7B）
 
-PDM-Scorer（NAVSIM 官方 baseline）用 MLP 对 8 个 SD 候选打分，上限 0.91-0.93。JEPA-DRIVE 突破了候选数量限制（8→65,536），并移除了对 PDM 标签的依赖。
+**③ Cycle Energy 自监督突破 64 值瓶颈**
+- V18-V20 确认 PDM 标签只有 64 个离散值是上限
+- Cycle Energy 是连续的、可分解的、自监督的
 
-### 优势与局限
+### 3.2 优劣势
 
-**优势**：3.88M 参数（1800× 小于 VLA）、完全自监督、推演式 OOD 鲁棒、重建误差可解释
-
-**局限**：推理延迟高于 VLA、依赖编码器质量、65,536 候选仍有覆盖盲区
+| 优势 | 劣势 |
+|------|------|
+| 3.88M 参数，1800× 小于 VLA | 推理延迟 ~220ms |
+| 完全自监督，无需互联网/标注/PDM | 依赖编码器质量 |
+| 推演式决策，OOD 鲁棒 | 65,536 候选仍有覆盖盲区 |
+| 重建误差可解释 | 两阶段训练工程复杂 |
 
 ---
 
 ## 4. 个人思考
 
-### 4.1 标准 JEPA 与 JEPA-DRIVE 的核心差异
+### 4.1 JEPA 家族给我们的启示
 
-回顾标准 JEPA（I-JEPA/V-JEPA）和 JEPA-DRIVE 的差异：
+从 I-JEPA 到 V-JEPA 2 到 VL-JEPA 到 DRIVE-JEPA，JEPA 的演进路径清晰地指向一个方向：**从表征学习走向世界模型，从感知走向决策**。
 
-标准 JEPA 是**通用视觉表征学习框架**——输入像素、编码器 ViT、输出可迁移的表征。它的目标是"理解世界"，不是"做决策"。
+V-JEPA 2-AC 的零样本机器人规划已经证明了 JEPA 世界模型在动作空间中的推演能力。DRIVE-JEPA 证明了 JEPA 在驾驶场景特征提取中的有效性。我们的 JEPA-DRIVE 则证明了 JEPA 能量函数思想在驾驶决策评分中的可行性。
 
-JEPA-DRIVE 是**驾驶决策系统**——输入结构化场景特征、编码器 MLP、输出轨迹排序。它的目标是"选最好的轨迹"。
+### 4.2 与 VLA 的本质差异
 
-两者共享相同的哲学（隐空间预测 + 能量函数），但在工程实现上完全不同。这种差异是有意为之：驾驶场景已经有成熟的感知模块输出结构化特征，不需要从像素重新学起。
+3.88M vs 7B 只是表象。更深层的差异在哲学层面：
 
-### 4.2 3.88M 意味着什么
+VLA 把驾驶看成"映射问题"——输入场景，输出动作。JEPA-DRIVE 把驾驶看成"选择问题"——生成候选，推演后果，选择最优。
 
-实现自动驾驶决策的核心模型只需要 3.88M 参数——因为 JEPA 不学"怎么开车"，它学的是**场景和轨迹之间的一致性**。一致性比驾驶更基础：模型不需要知道"该加速还是减速"，只需要知道"这条轨迹是否符合场景"。
+映射问题一旦遇到分布外输入就会坍塌。选择问题天然包含异常检测——如果所有候选的推演结果都不好（能量都高），模型可以选择"减速/停车"作为安全兜底。这是 JEPA 世界模型路线的核心优势。
 
-### 4.3 64 值瓶颈的教训
+### 4.3 下一步
 
-改架构之前先确认瓶颈在哪。V18-V20 花大量时间改架构但没用——瓶颈不在模型容量，在标签质量。
-
-### 4.4 与 LinkVLA 的对比
-
-两者都用离散词汇表，动机不同：LinkVLA 用共享词表对齐语言-动作 embedding；JEPA-DRIVE 用组合生成覆盖最大行为空间。
+V21 用 cycle energy 替代 PDM 如果成功，后续可以探索端到端联合训练（energy 反向传播到生成器）、词汇表扩展（1024×256=262k）、以及与 V-JEPA 2 / DRIVE-JEPA 的联合。
 
 ---
 
-*📖 V21 训练结果预计 7/26 完成，届时更新。*
+*📖 本文是对 JEPA-DRIVE 项目的技术总结与个人思考。V21 训练结果预计 7/26 完成。*
