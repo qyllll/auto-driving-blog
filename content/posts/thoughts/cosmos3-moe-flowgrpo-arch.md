@@ -2,6 +2,7 @@
 title: "Cosmos-3 + MoE + Flow-GRPO 架构概览"
 date: 2026-07-23
 draft: false
+categories: ["个人思考"]
 summary: "本文提出一种将 Cosmos-3 双塔 MoT、DeepSeek-style Sparse MoE、Flow Matching 与 Flow-GRPO 结合的架构设计方案，系统描述各模块的角色、接口与训练推理流程。"
 tags: ["架构", "Cosmos-3", "Sparse MoE", "Flow-GRPO", "VLA"]
 math: true
