@@ -49,35 +49,17 @@ I-JEPA 的训练流程：
 
 从 2023 年 I-JEPA 到 2026 年，JEPA 已发展出覆盖图像、视频、语言、驾驶等模态的完整家族：
 
-```
-                     JEPA 家族演进时间线
-                            │
-          LeCun 2022 位置论文：A Path Towards Autonomous Machine Intelligence
-                            │
-          ┌───────────────────┬───────────────────┐
-          │                   │                   │
-       I-JEPA (2023)     MC-JEPA (2023)      V-JEPA (2024)
-      CVPR 2023          图像运动+内容        视频时空预测
-      图像掩码预测        双流 JEPA           视频输入
-          │                   │                   │
-          └───────────────────┼───────────────────┘
-                              │
-                         V-JEPA 2 (2025)
-                     1.2B 参数，100万+小时视频
-                     Block-Causal Attention
-                     ├─ V-JEPA 2-AC: 动作条件世界模型
-                     │   零样本机器人规划突破
-                     │
-          ┌───────────┴───────────┐
-          │                       │
-      VL-JEPA (2025)        DRIVE-JEPA (2026)
-      Vision-Language JEPA   XPENG × VT × Purdue
-      选择性解码 2.85×加速     V-JEPA预训练+轨迹蒸馏
-      790M参数 43×数据效率     NAVSIM v1/v2 SOTA
-          │
-      LeJEPA (2025)       ← 理论统一：可证明的自监督
-      H-JEPA (构想中)     ← 层次化世界模型
-```
+JEPA 家族演进时间线：
+
+- **2022** — LeCun 位置论文提出 JEPA 概念
+- **2023** — **I-JEPA**（图像掩码预测，CVPR 2023） + **MC-JEPA**（图像运动+内容）
+- **2024** — **V-JEPA**（视频时空预测，Meta）
+- **2025** — **V-JEPA 2**（1.2B 参数，Block-Causal Attention，100万+小时视频）
+  - **V-JEPA 2-AC**（动作条件世界模型，零样本机器人规划）
+  - **VL-JEPA**（Vision-Language JEPA，选择性解码 2.85×加速）
+  - **LeJEPA**（可证明的自监督理论框架）
+- **2026** — **DRIVE-JEPA**（XPENG × VT × Purdue，V-JEPA 预训练+轨迹蒸馏，NAVSIM SOTA）
+- **构想中** — **H-JEPA**（层次化世界模型，高层次抽象决策+低层次精细控制）
 
 **各变体详解**：
 
@@ -392,11 +374,42 @@ V18-V20 花了大量时间改架构但没用——因为瓶颈不在模型容量
 
 两者都用离散词汇表，动机不同：LinkVLA 用共享词表对齐语言-动作 embedding；JEPA-DRIVE 用组合生成覆盖最大行为空间。两者都验证了**离散化是 VLA 系统的重要设计维度**。
 
-### 3.5 下一步方向
+### 3.5 与 SparseDrive V2 的巧合与差异
+
+2026 年 3 月 31 日，清华和地平线联合发布 **SparseDrive V2**（arxiv: 2603.29163），与我们的 JEPA-DRIVE 几乎同时（V21 实验是 7/24 开始的）。两者的核心思路惊人地相似：
+
+**共同范式：规划 = 生成候选 + 评分选优**
+- SparseDrive V2 = **轨迹词汇表 × 两阶段评分器**
+- JEPA-DRIVE = **路径×速度词汇表 × Cycle Energy 评分器**
+
+**关键对照：**
+
+| 维度 | SparseDrive V2 | JEPA-DRIVE (V17) |
+|------|---------------|-------------------|
+| **词汇表大小** | 路径 512 × 速度 512 = **262,144** | 路径 256 × 速度 256 = **65,536** |
+| **评分机制** | 两阶段 coarse-to-fine scorer（显式） | Cycle Energy（隐式自监督） |
+| **场景编码** | Transformer decoder（依赖检测） | LSTM 编码器（结构化特征） |
+| **视觉主干** | ResNet-34 | 无（复用 METR 的视觉信息） |
+| **推理延迟** | 未见实验 | ~220ms |
+| **NAVSIM PDMS** | 92.0 | 88.39 |
+| **NAVSIM EPDMS** | 90.1 | 未测试 |
+| **Bench2Drive DS** | 89.15 | 未测试 |
+| **训练方式** | 端到端（检测+规划联合） | 两阶段（生成器+评分器分离） |
+
+SparseDrive V2 用多帧注意力（Multi-Frame Attention）聚合时序信息，生成初始检测和轨迹候选，再用 coarse scorer 筛选 top-K，最后 fine scorer 精细评分。JEPA-DRIVE 用离散组合生成候选，用 cycle energy（重建误差的隐式正则化）自动评估可行性。
+
+**核心差异点：**
+1. **评分信号来源**：SparseDrive V2 的评分器是**显式训练**的（从 NAVSIM 监督）；JEPA-DRIVE 的 cycle energy 是**自监督**的（不依赖任何标注或 PDM）
+2. **词汇表组合方式**：SparseDrive V2 的路径/速度词汇表是分开学到的；JEPA-DRIVE 的路径/速度是因子化乘积
+3. **检测 vs 直接规划**：SparseDrive V2 仍然依赖显式检测输出；JEPA-DRIVE 完全跳过检测（结构化特征直接输入）
+
+SparseDrive V2 的结果验证了 **Scoring 范式是目前端到端驾驶的最优路线**——这与 JEPA-DRIVE 的核心理念完全一致。差距主要在工程细节（词汇表大小、端到端训练、视觉特征质量），而非方法论层面。
+
+### 3.6 下一步方向
 
 如果 V21 验证了 cycle energy 能打破 64 值瓶颈：
-1. **端到端联合训练**：cycle energy 反向传播到生成器
-2. **词汇表扩展**：1024×256 = 262k 候选
+1. **词汇表扩展**：1024×256 = 262k 候选（追上 SparseDrive V2 规模）
+2. **端到端联合训练**：cycle energy 反向传播到生成器
 3. **联合 V-JEPA 2**：用 V-JEPA 2 做视觉编码器替换结构化特征输入
 4. **多步 cycle energy**：不只是预测后 6 帧，而是多步 rollout
 
