@@ -1,0 +1,152 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 900" font-family="system-ui, -apple-system, 'Noto Sans SC', sans-serif">
+  <defs>
+    <linearGradient id="g-cam" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#6366f1"/><stop offset="100%" stop-color="#8b5cf6"/></linearGradient>
+    <linearGradient id="g-vlm" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#10b981"/><stop offset="100%" stop-color="#059669"/></linearGradient>
+    <linearGradient id="g-per" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#f59e0b"/><stop offset="100%" stop-color="#d97706"/></linearGradient>
+    <linearGradient id="g-act" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#ef4444"/><stop offset="100%" stop-color="#dc2626"/></linearGradient>
+    <linearGradient id="g-fuse" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#3b82f6"/><stop offset="100%" stop-color="#2563eb"/></linearGradient>
+    <filter id="shadow"><feDropShadow dx="0" dy="2" stdDeviation="3" flood-opacity="0.15"/></filter>
+    <marker id="arrow" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10" fill="#94a3b8"/></marker>
+  </defs>
+
+  <rect width="1200" height="900" fill="#f8fafc" rx="8"/>
+  <text x="600" y="35" text-anchor="middle" font-size="20" font-weight="bold" fill="#1e293b">VLA 模型内部结构：VLM + 感知 + 动作头，谁也替代不了谁</text>
+  <line x1="60" y1="48" x2="1140" y2="48" stroke="#e2e8f0" stroke-width="1"/>
+
+  <!-- ===== Column 1: 你以为的 VLA ===== -->
+  <rect x="40" y="65" width="350" height="34" rx="6" fill="url(#g-act)"/>
+  <text x="215" y="88" text-anchor="middle" font-size="13" font-weight="bold" fill="white">你以为的 VLA</text>
+
+  <rect x="40" y="108" width="350" height="50" rx="6" fill="white" stroke="#ef4444" stroke-width="1" filter="url(#shadow)"/>
+  <text x="215" y="128" text-anchor="middle" font-size="11" font-weight="bold" fill="#991b1b">摄像头原始图像</text>
+  <text x="215" y="146" text-anchor="middle" font-size="9" fill="#64748b">6 张 1280x720 RGB 图像</text>
+
+  <path d="M215,158 L215,170" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <rect x="40" y="172" width="350" height="70" rx="6" fill="white" stroke="#10b981" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="215" y="192" text-anchor="middle" font-size="11" font-weight="bold" fill="#047857">VLM 视觉编码器（如 SigLIP/Qwen3-VL ViT）</text>
+  <text x="50" y="212" font-size="9" fill="#475569">输出：图像 patch 特征序列 (N_token × d)，纯 2D 语义，无 3D 几何</text>
+  <text x="50" y="230" font-size="8" fill="#94a3b8">丢失的信息：深度、尺度、3D 位置、遮挡关系、速度</text>
+
+  <path d="M215,242 L215,254" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <rect x="40" y="256" width="350" height="50" rx="6" fill="white" stroke="#10b981" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="215" y="276" text-anchor="middle" font-size="11" font-weight="bold" fill="#047857">LLM 推理（Qwen3-VL 等）</text>
+  <text x="50" y="296" font-size="9" fill="#475569">输出：文本 token / 推理链 / 特征</text>
+
+  <path d="M215,306 L215,318" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <rect x="40" y="320" width="350" height="50" rx="6" fill="white" stroke="#6366f1" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="215" y="340" text-anchor="middle" font-size="11" font-weight="bold" fill="#4338ca">动作头（Action Head）</text>
+  <text x="50" y="360" font-size="9" fill="#475569">输出：轨迹 / 控制信号 / 动作 token</text>
+
+  <text x="215" y="400" text-anchor="middle" font-size="10" fill="#dc2626" font-weight="bold">问题：纯 2D 图像 → 3D 驾驶决策</text>
+  <text x="215" y="418" text-anchor="middle" font-size="9" fill="#64748b">中间缺少精确的 3D 几何理解，"端到端"变成了"盲猜"</text>
+
+  <!-- ===== Column 2: 实际的 VLA ===== -->
+  <rect x="425" y="65" width="350" height="34" rx="6" fill="url(#g-fuse)"/>
+  <text x="600" y="88" text-anchor="middle" font-size="13" font-weight="bold" fill="white">实际的 VLA（带感知输入）</text>
+
+  <rect x="425" y="108" width="350" height="50" rx="6" fill="white" stroke="#3b82f6" stroke-width="1" filter="url(#shadow)"/>
+  <text x="600" y="128" text-anchor="middle" font-size="11" font-weight="bold" fill="#1d4ed8">摄像头 + LiDAR + Radar 原始数据</text>
+  <text x="435" y="146" font-size="9" fill="#64748b">多模态传感器输入</text>
+
+  <path d="M600,158 L600,170" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- 分支：感知路径 -->
+  <rect x="425" y="172" width="160" height="80" rx="6" fill="white" stroke="#f59e0b" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="505" y="192" text-anchor="middle" font-size="10" font-weight="bold" fill="#92400e">传统感知模块</text>
+  <text x="435" y="210" font-size="8" fill="#475569">3D 检测 → BEV → 占用</text>
+  <text x="435" y="226" font-size="8" fill="#475569">输出：精确 3D 度量</text>
+  <text x="435" y="242" font-size="8" fill="#475569">(位置/速度/尺寸/朝向)</text>
+
+  <rect x="605" y="172" width="170" height="80" rx="6" fill="white" stroke="#10b981" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="690" y="192" text-anchor="middle" font-size="10" font-weight="bold" fill="#047857">VLM 视觉编码器</text>
+  <text x="615" y="210" font-size="8" fill="#475569">ViT 提取 2D 语义特征</text>
+  <text x="615" y="226" font-size="8" fill="#475569">输出：语义 token</text>
+  <text x="615" y="242" font-size="8" fill="#475569">(类别/属性/场景理解)</text>
+
+  <path d="M505,252 L505,266" stroke="#94a3b8" stroke-width="1" marker-end="url(#arrow)"/>
+  <path d="M690,252 L690,266" stroke="#94a3b8" stroke-width="1" marker-end="url(#arrow)"/>
+
+  <!-- 融合 -->
+  <rect x="425" y="268" width="350" height="50" rx="6" fill="white" stroke="#3b82f6" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="600" y="288" text-anchor="middle" font-size="11" font-weight="bold" fill="#1d4ed8">特征融合层（感知+语义）</text>
+  <text x="435" y="308" font-size="9" fill="#475569">感知提供精确几何 + VLM 提供语义理解，互补输入到 LLM</text>
+
+  <path d="M600,318 L600,330" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <rect x="425" y="332" width="350" height="50" rx="6" fill="white" stroke="#10b981" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="600" y="352" text-anchor="middle" font-size="11" font-weight="bold" fill="#047857">LLM 推理（带 3D 感知上下文）</text>
+  <text x="435" y="370" font-size="9" fill="#475569">"前面 10.5 米有车，速度 5m/s，打了右转灯，可能要变道"</text>
+
+  <path d="M600,382 L600,394" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <rect x="425" y="396" width="350" height="50" rx="6" fill="white" stroke="#6366f1" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="600" y="416" text-anchor="middle" font-size="11" font-weight="bold" fill="#4338ca">动作头（Action Head）</text>
+  <text x="435" y="434" font-size="9" fill="#475569">输出：带碰撞检测的 3D 轨迹，基于精确度量做安全验证</text>
+
+  <text x="600" y="470" text-anchor="middle" font-size="10" fill="#047857" font-weight="bold">优势：几何精确 + 语义丰富 = 可靠驾驶决策</text>
+
+  <!-- ===== Column 3: 关键对比 ===== -->
+  <rect x="810" y="65" width="350" height="34" rx="6" fill="url(#g-cam)"/>
+  <text x="985" y="88" text-anchor="middle" font-size="13" font-weight="bold" fill="white">VLM 视觉编码器 vs 感知模块</text>
+
+  <rect x="810" y="112" width="350" height="130" rx="6" fill="white" stroke="#6366f1" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="985" y="132" text-anchor="middle" font-size="12" font-weight="bold" fill="#4338ca">VLM 视觉编码器（如 Qwen3-VL ViT）</text>
+  <path d="M830,140 L1140,140" stroke="#e0e7ff" stroke-width="0.5"/>
+  <text x="820" y="158" font-size="9" fill="#475569">• 输入：2D 图像（RGB，无深度通道）</text>
+  <text x="820" y="176" font-size="9" fill="#475569">• 输出：2D patch 特征序列</text>
+  <text x="820" y="194" font-size="9" fill="#475569">• 理解的是"语义"：这是一辆车，红色，在路上</text>
+  <text x="820" y="212" font-size="9" fill="#475569">• 不理解"度量"：这辆车离我 10.53 米，以 5m/s 移动</text>
+  <text x="820" y="230" font-size="9" fill="#475569">• 原因：ViT 在 2D 图像上预训练，没有 3D 几何监督</text>
+
+  <rect x="810" y="255" width="350" height="130" rx="6" fill="white" stroke="#f59e0b" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="985" y="275" text-anchor="middle" font-size="12" font-weight="bold" fill="#92400e">传统感知模块</text>
+  <path d="M830,283 L1140,283" stroke="#fde68a" stroke-width="0.5"/>
+  <text x="820" y="301" font-size="9" fill="#475569">• 输入：多相机 / LiDAR / Radar 融合</text>
+  <text x="820" y="319" font-size="9" fill="#475569">• 输出：结构化 3D 度量向量</text>
+  <text x="820" y="337" font-size="9" fill="#475569">• 理解的是"度量"：x=10.53m, y=2.17m, v=5.0m/s</text>
+  <text x="820" y="355" font-size="9" fill="#475569">• 不理解"语义"：这辆车要变道吗？司机状态怎样？</text>
+  <text x="820" y="373" font-size="9" fill="#475569">• 原因：训练时用 3D 标注（LiDAR/box），专门学几何</text>
+
+  <!-- 结论 -->
+  <rect x="40" y="490" width="1120" height="130" rx="8" fill="#1e293b" filter="url(#shadow)"/>
+  <text x="600" y="518" text-anchor="middle" font-size="14" font-weight="bold" fill="#e2e8f0">结论：两者互补，缺一不可</text>
+  <text x="60" y="546" font-size="11" fill="#94a3b8">• VLM 能回答"那是什么、它在干嘛、场景怎么样"——语义理解</text>
+  <text x="60" y="568" font-size="11" fill="#94a3b8">• 感知能回答"它在哪、多远、多快、朝哪"——度量几何</text>
+  <text x="60" y="590" font-size="11" fill="#94a3b8">• 驾驶规划需要两者：感知提供精确位置算碰撞，VLM 理解意图做预判</text>
+  <text x="60" y="612" font-size="11" fill="#94a3b8">• SparseOccVLA / DriveVLM-Dual / KnowVal 都在做同一件事：感知 + VLM 融合</text>
+
+  <!-- 论文卡片 -->
+  <rect x="40" y="640" width="1120" height="34" rx="5" fill="url(#g-fuse)"/>
+  <text x="600" y="663" text-anchor="middle" font-size="12" font-weight="bold" fill="white">2025-2026 代表性 VLA 论文的感知输入方式</text>
+
+  <rect x="50" y="684" width="260" height="90" rx="6" fill="white" stroke="#3b82f6" stroke-width="1" filter="url(#shadow)"/>
+  <text x="180" y="704" text-anchor="middle" font-size="10" font-weight="bold" fill="#1d4ed8">DriveVLM (2024)</text>
+  <text x="60" y="722" font-size="8" fill="#475569">VLM  + 规划 head</text>
+  <text x="60" y="738" font-size="8" fill="#475569">感知输入：BEV 特征 token</text>
+  <text x="60" y="754" font-size="8" fill="#475569">策略：VLM 做推理，感知提供位置</text>
+  <text x="60" y="768" font-size="7" fill="#94a3b8">双系统：System-1 感知+规划</text>
+
+  <rect x="325" y="684" width="260" height="90" rx="6" fill="white" stroke="#3b82f6" stroke-width="1" filter="url(#shadow)"/>
+  <text x="455" y="704" text-anchor="middle" font-size="10" font-weight="bold" fill="#1d4ed8">SparseOccVLA (2026)</text>
+  <text x="335" y="722" font-size="8" fill="#475569">VLA + 占用网络融合</text>
+  <text x="335" y="738" font-size="8" fill="#475569">感知输入：3D 占用特征</text>
+  <text x="335" y="754" font-size="8" fill="#475569">策略：稀疏 query 统一感知和推理</text>
+  <text x="335" y="768" font-size="7" fill="#94a3b8">CVPR 2026, 4D 场景理解</text>
+
+  <rect x="600" y="684" width="260" height="90" rx="6" fill="white" stroke="#3b82f6" stroke-width="1" filter="url(#shadow)"/>
+  <text x="730" y="704" text-anchor="middle" font-size="10" font-weight="bold" fill="#1d4ed8">KnowVal (CVPR 2026)</text>
+  <text x="610" y="722" font-size="8" fill="#475569">VLM + 知识图谱 + 价值模型</text>
+  <text x="610" y="738" font-size="8" fill="#475569">感知输入：知识增强驾驶图谱</text>
+  <text x="610" y="754" font-size="8" fill="#475569">策略：外部知识库补足 VLM 短板</text>
+  <text x="610" y="768" font-size="7" fill="#94a3b8">nuScenes 最低碰撞率</text>
+
+  <rect x="875" y="684" width="275" height="90" rx="6" fill="white" stroke="#3b82f6" stroke-width="1" filter="url(#shadow)"/>
+  <text x="1012" y="704" text-anchor="middle" font-size="10" font-weight="bold" fill="#1d4ed8">VLA-World (CVPR 2026)</text>
+  <text x="885" y="722" font-size="8" fill="#475569">VLA + 世界模型统一框架</text>
+  <text x="885" y="738" font-size="8" fill="#475569">感知输入：共享隐空间表征</text>
+  <text x="885" y="754" font-size="8" fill="#475569">策略：VLA 做推理+世界模型做想象</text>
+  <text x="885" y="768" font-size="7" fill="#94a3b8">预测想象 + 反思推理</text>
+</svg>
