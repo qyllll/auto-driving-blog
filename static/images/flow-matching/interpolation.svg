@@ -14,7 +14,7 @@
   <rect width="800" height="360" fill="#f8fafc" rx="12"/>
 
   <text x="400" y="28" text-anchor="middle" font-size="17" font-weight="bold" fill="#1e293b">Flow Matching 线性插值路径</text>
-  <text x="400" y="46" text-anchor="middle" font-size="12" fill="#64748b">x_t = (1-t)·x₀ + t·x₁ &nbsp;&nbsp;→&nbsp;&nbsp; u_t = x₁ - x₀（恒定速度）</text>
+  <text x="400" y="46" text-anchor="middle" font-size="12" fill="#64748b">x_t = (1-t)x&#8320; + tx&#8321;  &#160;&#160;&#8594;&#160;&#160;  u_t = x&#8321; - x&#8320;（恒定速度）</text>
 
   <!-- Main diagram area -->
   <rect x="30" y="65" width="740" height="260" fill="white" stroke="#e2e8f0" stroke-width="1.5" rx="10"/>
@@ -71,5 +71,5 @@
   <rect x="30" y="280" width="220" height="30" fill="#eff6ff" stroke="#bfdbfe" rx="6"/>
   <text x="140" y="300" text-anchor="middle" font-size="11" fill="#2563eb">训练：让 v_θ 逼近 u_t</text>
 
-  <text x="400" y="345" text-anchor="middle" font-size="11" fill="#64748b">推理：x₁ = x₀ + ∫₀¹ v_θ(x_t,t) dt &nbsp;&nbsp;（从噪声沿直线积分到数据）</text>
+  <text x="400" y="345" text-anchor="middle" font-size="11" fill="#64748b">推理：x&#8321; = x&#8320; + &#8747;&#8320;&#185; v_&#952;(x_t,t) dt  &#160;&#160;（从噪声沿直线积分到数据）</text>
 </svg>

@@ -94,5 +94,5 @@
   <text x="685" y="325" text-anchor="middle" font-size="11" fill="#64748b">x₁ ~ pdata(x)</text>
 
   <!-- Bottom note -->
-  <text x="400" y="370" text-anchor="middle" font-size="12" fill="#64748b" font-style="italic">训练：MSE(v_θ(x_t,t), x₁ - x₀) &nbsp;&nbsp;|&nbsp;&nbsp; 推理：x_0 + ∫ v_θ(x_t,t) dt</text>
+  <text x="400" y="370" text-anchor="middle" font-size="12" fill="#64748b" font-style="italic">训练：MSE(v_θ(x_t,t), x₁ - x₀) &#160;&#160;|&#160;&#160; 推理：x_0 + ∫ v_θ(x_t,t) dt</text>
 </svg>
