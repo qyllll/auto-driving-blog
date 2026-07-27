@@ -1,0 +1,77 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 420" font-family="system-ui, -apple-system, sans-serif">
+  <defs>
+    <linearGradient id="g-input" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#f0f9ff"/><stop offset="100%" stop-color="#e0f2fe"/></linearGradient>
+    <linearGradient id="g-text" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#fef3c7"/><stop offset="100%" stop-color="#fde68a"/></linearGradient>
+    <linearGradient id="g-latent" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#dbeafe"/><stop offset="100%" stop-color="#bfdbfe"/></linearGradient>
+    <linearGradient id="g-llm" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#ede9fe"/><stop offset="100%" stop-color="#ddd6fe"/></linearGradient>
+    <linearGradient id="g-out" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#d1fae5"/><stop offset="100%" stop-color="#a7f3d0"/></linearGradient>
+    <linearGradient id="g-label" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#f1f5f9"/><stop offset="100%" stop-color="#e2e8f0"/></linearGradient>
+    <marker id="arrow" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="8" markerHeight="8" orient="auto">
+      <path d="M0,0 L10,5 L0,10" fill="#94a3b8"/>
+    </marker>
+    <filter id="shadow"><feDropShadow dx="1" dy="2" stdDeviation="3" flood-opacity="0.1"/></filter>
+  </defs>
+
+  <rect width="760" height="420" fill="#f8fafc" rx="12"/>
+
+  <!-- Title -->
+  <text x="380" y="28" text-anchor="middle" font-size="16" font-weight="bold" fill="#1e293b">Bagel 模型架构：Flow Matching 生成流程</text>
+  <text x="380" y="46" text-anchor="middle" font-size="11" fill="#64748b">视觉生成分支的完整前向链路（训练阶段）</text>
+
+  <!-- ========== Row 1: Input ========== -->
+  <rect x="280" y="60" width="200" height="40" rx="8" fill="url(#g-input)" stroke="#7dd3fc" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="380" y="85" text-anchor="middle" font-size="13" font-weight="bold" fill="#0369a1">输入</text>
+  <text x="380" y="112" text-anchor="middle" font-size="10" fill="#64748b">tokenized text + latent patches（来自 VAE）</text>
+
+  <!-- Arrow: Input → split -->
+  <line x1="380" y1="100" x2="380" y2="130" stroke="#94a3b8" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- ========== Row 2: Two branches ========== -->
+  <!-- Text branch -->
+  <rect x="60" y="140" width="260" height="50" rx="8" fill="url(#text)" stroke="#fcd34d" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="190" y="160" text-anchor="middle" font-size="12" font-weight="bold" fill="#92400e">文本分支</text>
+  <text x="190" y="178" text-anchor="middle" font-size="10" fill="#92400e">Qwen2 embed_tokens → embedding</text>
+
+  <!-- Latent branch -->
+  <rect x="440" y="140" width="260" height="50" rx="8" fill="url(#latent)" stroke="#93c5fd" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="570" y="160" text-anchor="middle" font-size="12" font-weight="bold" fill="#1e40af">Latent 分支</text>
+  <text x="570" y="178" text-anchor="middle" font-size="10" fill="#1e40af">vae2llm Linear + timestep_embed + pos_embed</text>
+
+  <!-- Labels on arrows -->
+  <text x="380" y="155" text-anchor="middle" font-size="9" fill="#94a3b8">├ 并</text>
+  <line x1="320" y1="127" x2="190" y2="140" stroke="#94a3b8" stroke-width="1.5"/>
+  <line x1="440" y1="127" x2="570" y2="140" stroke="#94a3b8" stroke-width="1.5"/>
+
+  <!-- Arrows: branches → merge -->
+  <line x1="190" y1="190" x2="190" y2="230" stroke="#94a3b8" stroke-width="1.5"/>
+  <line x1="570" y1="190" x2="570" y2="230" stroke="#94a3b8" stroke-width="1.5"/>
+  <line x1="190" y1="230" x2="380" y2="230" stroke="#94a3b8" stroke-width="1.5"/>
+  <line x1="570" y1="230" x2="380" y2="230" stroke="#94a3b8" stroke-width="1.5"/>
+  <line x1="380" y1="230" x2="380" y2="245" stroke="#94a3b8" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <text x="380" y="225" text-anchor="middle" font-size="9" fill="#94a3b8">└ 合并</text>
+
+  <!-- ========== Row 3: Concatenation ========== -->
+  <rect x="100" y="250" width="560" height="30" rx="6" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1" stroke-dasharray="4,3"/>
+  <text x="380" y="269" text-anchor="middle" font-size="11" font-weight="bold" fill="#475569">packed_sequence（文本 token + latent token 拼接）</text>
+
+  <!-- Arrow: concat → LLM -->
+  <line x1="380" y1="280" x2="380" y2="295" stroke="#94a3b8" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- ========== Row 4: Qwen2 LLM ========== -->
+  <rect x="140" y="300" width="480" height="50" rx="10" fill="url(#llm)" stroke="#a78bfa" stroke-width="2" filter="url(#shadow)"/>
+  <text x="380" y="320" text-anchor="middle" font-size="14" font-weight="bold" fill="#5b21b6">Qwen2 LLM（骨干网络）</text>
+  <text x="380" y="338" text-anchor="middle" font-size="10" fill="#5b21b6">融合理解与生成的 token 序列，输出隐状态</text>
+
+  <!-- Arrow: LLM → output -->
+  <line x1="380" y1="350" x2="380" y2="365" stroke="#94a3b8" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- ========== Row 5: Output ========== -->
+  <rect x="190" y="370" width="380" height="40" rx="8" fill="url(#out)" stroke="#6ee7b7" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="380" y="390" text-anchor="middle" font-size="12" font-weight="bold" fill="#047857">llm2vae Linear → 预测速度场 v_θ(x_t, t)</text>
+
+  <!-- Loss indicator -->
+  <rect x="420" y="395" width="140" height="20" rx="4" fill="#fef2f2" stroke="#fecaca" stroke-width="1"/>
+  <text x="490" y="409" text-anchor="middle" font-size="9" fill="#dc2626">MSE(v_θ, x₁ - x₀) 训练损失</text>
+
+</svg>
