@@ -1,0 +1,142 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 900" font-family="system-ui, -apple-system, sans-serif">
+  <defs>
+    <linearGradient id="g1" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#6366f1"/><stop offset="100%" stop-color="#8b5cf6"/></linearGradient>
+    <linearGradient id="g2" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#10b981"/><stop offset="100%" stop-color="#059669"/></linearGradient>
+    <linearGradient id="g3" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#f59e0b"/><stop offset="100%" stop-color="#d97706"/></linearGradient>
+    <linearGradient id="g4" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#ef4444"/><stop offset="100%" stop-color="#dc2626"/></linearGradient>
+    <linearGradient id="g5" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#3b82f6"/><stop offset="100%" stop-color="#2563eb"/></linearGradient>
+    <linearGradient id="g6" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="#1e293b"/><stop offset="100%" stop-color="#334155"/></linearGradient>
+    <filter id="shadow"><feDropShadow dx="0" dy="2" stdDeviation="3" flood-opacity="0.15"/></filter>
+  </defs>
+  <rect width="1200" height="900" fill="#f8fafc" rx="8"/>
+  <text x="600" y="38" text-anchor="middle" font-size="22" font-weight="bold" fill="#1e293b">自动驾驶技术全景：六大范式与联系</text>
+  <line x1="80" y1="52" x2="1120" y2="52" stroke="#e2e8f0" stroke-width="1"/>
+
+  <!-- Box 1: End-to-End -->
+  <rect x="40" y="70" width="360" height="195" rx="8" fill="white" stroke="#6366f1" stroke-width="1.5" filter="url(#shadow)"/>
+  <rect x="40" y="70" width="360" height="32" rx="8" fill="url(#g1)"/>
+  <rect x="40" y="86" width="360" height="16" fill="url(#g1)"/>
+  <text x="220" y="91" text-anchor="middle" font-size="14" font-weight="bold" fill="white">🔗 端到端自动驾驶 E2E</text>
+  <text x="56" y="118" font-size="11" fill="#475569">核心理念：传感器 → 一个网络 → 控制，消除模块间信息损失</text>
+  <text x="56" y="138" font-size="11" font-weight="bold" fill="#6366f1">三代架构演进：</text>
+  <text x="60" y="156" font-size="10" fill="#475569">🥚 隐式 E2E（NVIDIA PilotNet, LBC）— 黑盒直接回归</text>
+  <text x="60" y="174" font-size="10" fill="#475569">🏗️ 显式 E2E（UniAD, VAD, SparseDrive）— 任务级联合优化</text>
+  <text x="60" y="192" font-size="10" fill="#475569">🚀 生成式 E2E（DiffusionDrive, GenAD）— 多模态轨迹生成</text>
+  <text x="56" y="214" font-size="10" fill="#64748b">代表：UniAD(CVPR Best Paper), VAD, SparseDrive, DiffusionDrive</text>
+  <text x="56" y="232" font-size="10" fill="#64748b">评测：开环(NAVSIM PDMS) + 闭环(CARLA Bench2Drive)</text>
+  <text x="56" y="250" font-size="10" fill="#64748b">挑战：可解释性、数据需求、安全验证、训练稳定性</text>
+
+  <!-- Box 2: VLA -->
+  <rect x="420" y="70" width="360" height="195" rx="8" fill="white" stroke="#10b981" stroke-width="1.5" filter="url(#shadow)"/>
+  <rect x="420" y="70" width="360" height="32" rx="8" fill="url(#g2)"/>
+  <rect x="420" y="86" width="360" height="16" fill="url(#g2)"/>
+  <text x="600" y="91" text-anchor="middle" font-size="14" font-weight="bold" fill="white">🧠 VLA 视觉-语言-动作模型</text>
+  <text x="436" y="118" font-size="11" fill="#475569">核心理念：视觉编码器 + LLM 推理 + 动作头，让系统"看懂+想明白"</text>
+  <text x="436" y="138" font-size="11" font-weight="bold" fill="#10b981">三代动作头演进：</text>
+  <text x="440" y="156" font-size="10" fill="#475569">G1 离散 Token（RT-2, OpenVLA）— 动作当文字生成，精度受限</text>
+  <text x="440" y="174" font-size="10" fill="#475569">G2 扩散/Flow Matching（π0, Octo）— 多模态动作分布建模</text>
+  <text x="440" y="192" font-size="10" fill="#475569">G3 CoT 推理（GR-3, EPM, BridgeVLA）— 思考再行动</text>
+  <text x="436" y="214" font-size="10" fill="#64748b">代表：RT-2, π0, GR-3, DriveVLM, EMMA, Orion, OpenDriveVLA</text>
+  <text x="436" y="232" font-size="10" fill="#64748b">训练：VLM预训练 → SFT(图+指令+动作) → RLHF/GRPO 偏好对齐</text>
+  <text x="436" y="250" font-size="10" fill="#64748b">挑战：实时性(&lt;100ms)、安全验证、CoT幻觉、车端算力</text>
+
+  <!-- Box 3: World Model -->
+  <rect x="800" y="70" width="360" height="195" rx="8" fill="white" stroke="#f59e0b" stroke-width="1.5" filter="url(#shadow)"/>
+  <rect x="800" y="70" width="360" height="32" rx="8" fill="url(#g3)"/>
+  <rect x="800" y="86" width="360" height="16" fill="url(#g3)"/>
+  <text x="980" y="91" text-anchor="middle" font-size="14" font-weight="bold" fill="white">🔮 世界模型 World Model</text>
+  <text x="816" y="118" font-size="11" fill="#475569">核心理念：学习环境动力学 $s_{t+1}=f(s_t,a_t)$，在脑子里预演未来</text>
+  <text x="816" y="138" font-size="11" font-weight="bold" fill="#d97706">三大预测空间：</text>
+  <text x="820" y="156" font-size="10" fill="#475569">🎨 像素空间：GAIA-1, DriveDreamer, Cosmos — 生成视频帧</text>
+  <text x="820" y="174" font-size="10" fill="#475569">🧠 潜在空间：World4Drive, LAW, ReWorld — 压缩空间预测</text>
+  <text x="820" y="192" font-size="10" fill="#475569">🏗️ 占用空间：OccWorld, NIFF — 预测未来 3D 体素</text>
+  <text x="816" y="214" font-size="10" fill="#64748b">三大应用：数据增强、闭环仿真、Model-based Planning</text>
+  <text x="816" y="232" font-size="10" fill="#64748b">流派争议：生成式(像素) vs 表征式(潜在/JEPA)</text>
+  <text x="816" y="250" font-size="10" fill="#64748b">挑战：长程一致性、物理准确性、可控性、计算效率</text>
+
+  <!-- Box 4: Scoring -->
+  <rect x="40" y="290" width="360" height="175" rx="8" fill="white" stroke="#ef4444" stroke-width="1.5" filter="url(#shadow)"/>
+  <rect x="40" y="290" width="360" height="32" rx="8" fill="url(#g4)"/>
+  <rect x="40" y="306" width="360" height="16" fill="url(#g4)"/>
+  <text x="220" y="311" text-anchor="middle" font-size="14" font-weight="bold" fill="white">⚡ Scoring-based 规划</text>
+  <text x="56" y="338" font-size="11" fill="#475569">核心理念：生成候选 + 评分选优，判别比生成更可靠</text>
+  <text x="56" y="358" font-size="11" font-weight="bold" fill="#dc2626">三大范式：</text>
+  <text x="60" y="376" font-size="10" fill="#475569">📚 Vocabulary-based（VADv2, Hydra-MDP）— 固定模式库</text>
+  <text x="60" y="394" font-size="10" fill="#475569">🔄 Dynamic Gen（TOAD, DrivoR）— CEM自适应采样+评分</text>
+  <text x="60" y="412" font-size="10" fill="#475569">🌊 Diffusion-based — 扩散生成多样性候选再评分</text>
+  <text x="56" y="434" font-size="10" fill="#64748b">ScoreNet 设计：MLP轻量版 vs CrossAttn性能版 vs Pairwise排序版</text>
+  <text x="56" y="452" font-size="10" fill="#64748b">SparseDriveV2: 因子化词汇表(1024路径×256速度=262k) → 粗筛→精评</text>
+
+  <!-- Box 5: JEPA -->
+  <rect x="420" y="290" width="360" height="175" rx="8" fill="white" stroke="#3b82f6" stroke-width="1.5" filter="url(#shadow)"/>
+  <rect x="420" y="290" width="360" height="32" rx="8" fill="url(#g5)"/>
+  <rect x="420" y="306" width="360" height="16" fill="url(#g5)"/>
+  <text x="600" y="311" text-anchor="middle" font-size="14" font-weight="bold" fill="white">🧩 JEPA 联合嵌入预测架构</text>
+  <text x="436" y="338" font-size="11" fill="#475569">核心理念：在隐空间预测，不重建像素，丢弃决策无关细节</text>
+  <text x="436" y="358" font-size="11" font-weight="bold" fill="#2563eb">三件套架构：</text>
+  <text x="440" y="376" font-size="10" fill="#475569">Context Encoder(编码已知) → Predictor(预测未知) → Target Encoder(EMA)</text>
+  <text x="440" y="394" font-size="10" fill="#475569">损失只在隐空间算：$\|\text{pred} - \text{sg}(\text{target})\|^2$</text>
+  <text x="440" y="412" font-size="10" fill="#475569">演进：I-JEPA(图像) → V-JEPA(视频) → V-JEPA 2(世界模型)</text>
+  <text x="436" y="434" font-size="10" fill="#64748b">驾驶应用：DRIVE-JEPA(特征提取器)、JEPA-DRIVE(自监督评分信号)</text>
+  <text x="436" y="452" font-size="10" fill="#64748b">优势：省算力、语义表征、无数据增强；挑战：表征坍缩、长程预测</text>
+
+  <!-- Box 6: RL + Generation -->
+  <rect x="800" y="290" width="360" height="175" rx="8" fill="white" stroke="#1e293b" stroke-width="1.5" filter="url(#shadow)"/>
+  <rect x="800" y="290" width="360" height="32" rx="8" fill="url(#g6)"/>
+  <rect x="800" y="306" width="360" height="16" fill="url(#g6)"/>
+  <text x="980" y="311" text-anchor="middle" font-size="14" font-weight="bold" fill="white">🎮 RL + 生成式规划</text>
+  <text x="816" y="338" font-size="11" fill="#475569">核心理念：用RL优化生成式策略，超越模仿学习上限</text>
+  <text x="816" y="358" font-size="11" font-weight="bold" fill="#cbd5e1">四大范式：</text>
+  <text x="820" y="376" font-size="10" fill="#475569">1️⃣ Reward Guidance — 推理时用奖励梯度引导采样方向</text>
+  <text x="820" y="394" font-size="10" fill="#475569">2️⃣ Rejection Sampling — 生成N条候选，挑奖励最高的训练</text>
+  <text x="820" y="412" font-size="10" fill="#475569">3️⃣ Policy Gradient — 通过log-prob把奖励反馈到生成网络</text>
+  <text x="820" y="430" font-size="10" fill="#475569">4️⃣ World Model RL — 在世界模型的"想象"中训练策略</text>
+  <text x="816" y="452" font-size="10" fill="#64748b">代表：Flow-GRPO(流匹配+GRPO)、DiffGRPO、Dreamer V3</text>
+
+  <!-- Cross connections -->
+  <line x1="220" y1="265" x2="220" y2="290" stroke="#6366f1" stroke-width="2" stroke-dasharray="4" opacity="0.5"/>
+  <line x1="600" y1="265" x2="600" y2="290" stroke="#10b981" stroke-width="2" stroke-dasharray="4" opacity="0.5"/>
+  <line x1="980" y1="265" x2="980" y2="290" stroke="#f59e0b" stroke-width="2" stroke-dasharray="4" opacity="0.5"/>
+
+  <!-- Connection labels -->
+  <text x="600" y="510" text-anchor="middle" font-size="13" font-weight="bold" fill="#1e293b">范式之间的核心关系</text>
+
+  <!-- Relationship arrows -->
+  <defs><marker id="arrow" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10" fill="#94a3b8"/></marker></defs>
+
+  <!-- E2E - VLA -->
+  <path d="M220,270 L600,270" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arrow)" fill="none"/>
+  <rect x="360" y="260" width="80" height="20" rx="4" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="0.5"/>
+  <text x="400" y="274" text-anchor="middle" font-size="9" fill="#64748b">进化为</text>
+
+  <!-- VLA - World Model -->
+  <path d="M600,270 L980,270" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arrow)" fill="none"/>
+  <rect x="730" y="260" width="120" height="20" rx="4" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="0.5"/>
+  <text x="790" y="274" text-anchor="middle" font-size="9" fill="#64748b">预测能力 + 想象力</text>
+
+  <!-- Scoring - JEPA -->
+  <path d="M220,470 L600,470" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arrow)" fill="none"/>
+  <rect x="350" y="460" width="120" height="20" rx="4" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="0.5"/>
+  <text x="410" y="474" text-anchor="middle" font-size="9" fill="#64748b">评分信号可自监督化</text>
+
+  <!-- JEPA - RL -->
+  <path d="M600,470 L980,470" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arrow)" fill="none"/>
+  <rect x="730" y="460" width="120" height="20" rx="4" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="0.5"/>
+  <text x="790" y="474" text-anchor="middle" font-size="9" fill="#64748b">RL优化生成策略</text>
+
+  <!-- Bottom section: Integrated -->
+  <rect x="40" y="510" width="1120" height="120" rx="8" fill="#1e293b" filter="url(#shadow)"/>
+  <text x="600" y="536" text-anchor="middle" font-size="15" font-weight="bold" fill="#e2e8f0">2026 年融合趋势：从"独立范式"走向"统一系统"</text>
+  <text x="60" y="562" font-size="11" fill="#94a3b8">• VLA + 世界模型 = 让 VLA 拥有"想象力"（VLA-World, CVPR 2026: 统一预测想象与反思推理）</text>
+  <text x="60" y="582" font-size="11" fill="#94a3b8">• Scoring + JEPA = 用 JEPA 能量函数做自监督评分，不需要 PDM 标签（JEPA-DRIVE 路线）</text>
+  <text x="60" y="602" font-size="11" fill="#94a3b8">• E2E + RL = 用 GRPO 优化端到端策略，超越模仿学习上限（Flow-GRPO → DiffGRPO → 驾驶应用）</text>
+  <text x="60" y="622" font-size="11" fill="#94a3b8">• 终极愿景：VLM 负责理解 + 世界模型负责推演 + Scoring 负责选优 + RL 负责持续进化</text>
+
+  <!-- Bottom-right legend -->
+  <rect x="840" y="650" width="320" height="100" rx="6" fill="#f8fafc" stroke="#e2e8f0" stroke-width="1"/>
+  <text x="860" y="672" font-size="10" font-weight="bold" fill="#1e293b">🏷️ 图例：</text>
+  <rect x="860" y="680" width="45" height="14" rx="3" fill="url(#g1)"/><text x="912" y="692" font-size="9" fill="#475569">端到端（紫色）</text>
+  <rect x="860" y="700" width="45" height="14" rx="3" fill="url(#g2)"/><text x="912" y="712" font-size="9" fill="#475569">VLA（绿色）</text>
+  <rect x="1040" y="680" width="45" height="14" rx="3" fill="url(#g3)"/><text x="1092" y="692" font-size="9" fill="#475569">世界模型（橙色）</text>
+  <rect x="1040" y="700" width="45" height="14" rx="3" fill="url(#g4)"/><text x="1092" y="712" font-size="9" fill="#475569">Scoring（红色）</text>
+</svg>
