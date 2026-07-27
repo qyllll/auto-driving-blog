@@ -1,0 +1,120 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 750" font-family="system-ui, -apple-system, 'Noto Sans SC', sans-serif">
+  <defs>
+    <linearGradient id="g-flow" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#6366f1"/><stop offset="100%" stop-color="#818cf8"/></linearGradient>
+    <linearGradient id="g-diff" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#f59e0b"/><stop offset="100%" stop-color="#fbbf24"/></linearGradient>
+    <linearGradient id="g-rl" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#ef4444"/><stop offset="100%" stop-color="#f87171"/></linearGradient>
+    <filter id="shadow"><feDropShadow dx="1" dy="2" stdDeviation="3" flood-opacity="0.12"/></filter>
+    <marker id="arrow" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10" fill="#94a3b8"/></marker>
+  </defs>
+
+  <rect width="1000" height="750" fill="#f8fafc" rx="8"/>
+  <text x="500" y="30" text-anchor="middle" font-size="15" font-weight="bold" fill="#1e293b">Flow-GRPO：Flow Matching + GRPO 训练循环完整拆解</text>
+
+  <!-- Phase 1: ODE → SDE -->
+  <rect x="40" y="50" width="920" height="34" rx="5" fill="url(#g-flow)"/>
+  <text x="500" y="73" text-anchor="middle" font-size="12" font-weight="bold" fill="white">1. ODE → SDE 转换：让确定性生成过程变得可导</text>
+
+  <rect x="50" y="92" width="440" height="60" rx="5" fill="white" stroke="#6366f1" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="270" y="112" text-anchor="middle" font-size="10" font-weight="bold" fill="#4338ca">标准 Flow Matching (ODE)</text>
+  <text x="60" y="132" font-size="9" fill="#475569">dx = v_θ(x, t) dt</text>
+  <text x="60" y="146" font-size="8" fill="#94a3b8">确定性 → 一条路径 → log-prob 不可算</text>
+
+  <!-- arrow -->
+  <path d="M490,122 L510,122" stroke="#94a3b8" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <rect x="520" y="92" width="440" height="60" rx="5" fill="white" stroke="#6366f1" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="740" y="112" text-anchor="middle" font-size="10" font-weight="bold" fill="#4338ca">Flow-GRPO 转换后 (SDE)</text>
+  <text x="530" y="132" font-size="9" fill="#475569">dx = v_θ(x, t) dt + σ(t) dw</text>
+  <text x="530" y="146" font-size="8" fill="#94a3b8">随机过程 → 多条路径 → Girsanov 定理算 log-prob</text>
+
+  <path d="M500,152 L500,170" stroke="#94a3b8" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- Phase 2: Sample Group -->
+  <rect x="40" y="175" width="920" height="34" rx="5" fill="url(#g-rl)"/>
+  <text x="500" y="198" text-anchor="middle" font-size="12" font-weight="bold" fill="white">2. 组内采样：同一个场景生成 G 条轨迹</text>
+
+  <rect x="50" y="218" width="130" height="100" rx="5" fill="#fef2f2" stroke="#ef4444" stroke-width="1"/>
+  <text x="115" y="238" text-anchor="middle" font-size="10" font-weight="bold" fill="#991b1b">条件 c</text>
+  <text x="60" y="258" font-size="8" fill="#475569">场景图像</text>
+  <text x="60" y="274" font-size="8" fill="#475569">自车状态</text>
+  <text x="60" y="290" font-size="8" fill="#475569">导航指令</text>
+
+  <!-- branching arrows -->
+  <path d="M180,268 L210,230" stroke="#94a3b8" stroke-width="1" marker-end="url(#arrow)"/>
+  <path d="M180,268 L210,268" stroke="#94a3b8" stroke-width="1" marker-end="url(#arrow)"/>
+  <path d="M180,268 L210,306" stroke="#94a3b8" stroke-width="1" marker-end="url(#arrow)"/>
+
+  <!-- G trajectories -->
+  <rect x="215" y="210" width="160" height="50" rx="5" fill="white" stroke="#6366f1" stroke-width="1"/>
+  <text x="295" y="230" text-anchor="middle" font-size="9" font-weight="bold" fill="#4338ca">轨迹 1 (τ₁)</text>
+  <text x="225" y="248" font-size="8" fill="#475569">SDE 采样得到</text>
+
+  <rect x="215" y="270" width="160" height="50" rx="5" fill="white" stroke="#6366f1" stroke-width="1"/>
+  <text x="295" y="290" text-anchor="middle" font-size="9" font-weight="bold" fill="#4338ca">轨迹 2 (τ₂)</text>
+  <text x="225" y="308" font-size="8" fill="#475569">SDE 采样得到</text>
+
+  <rect x="215" y="335" width="160" height="50" rx="5" fill="white" stroke="#6366f1" stroke-width="1"/>
+  <text x="295" y="355" text-anchor="middle" font-size="9" fill="#4338ca">... 轨迹 G (τ_G)</text>
+  <text x="225" y="373" font-size="8" fill="#475569">SDE 采样得到</text>
+
+  <!-- dots -->
+  <line x1="275" y1="320" x2="315" y2="335" stroke="#94a3b8" stroke-width="1"/>
+
+  <!-- Reward scoring -->
+  <path d="M375,235 L410,235" stroke="#94a3b8" stroke-width="1" marker-end="url(#arrow)"/>
+  <path d="M375,295 L410,295" stroke="#94a3b8" stroke-width="1" marker-end="url(#arrow)"/>
+  <path d="M375,360 L410,360" stroke="#94a3b8" stroke-width="1" marker-end="url(#arrow)"/>
+
+  <rect x="415" y="218" width="190" height="120" rx="5" fill="#fff7ed" stroke="#f59e0b" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="510" y="238" text-anchor="middle" font-size="10" font-weight="bold" fill="#92400e">奖励函数 R(τ)</text>
+  <text x="425" y="258" font-size="8" fill="#475569">R₁ = R(τ₁) = 碰撞检测 + 舒适度 + ...</text>
+  <text x="425" y="276" font-size="8" fill="#475569">R₂ = R(τ₂)</text>
+  <text x="425" y="294" font-size="8" fill="#475569">...</text>
+  <text x="425" y="312" font-size="8" fill="#475569">R_G = R(τ_G)</text>
+  <text x="425" y="330" font-size="7" fill="#94a3b8">每组 G=4~8 条轨迹</text>
+
+  <path d="M510,338 L510,360" stroke="#94a3b8" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- Phase 3: Group Advantage -->
+  <rect x="40" y="400" width="920" height="34" rx="5" fill="url(#g-rl)"/>
+  <text x="500" y="423" text-anchor="middle" font-size="12" font-weight="bold" fill="white">3. GRPO 组内优势计算：相对奖励，不需要 Critic 网络</text>
+
+  <rect x="50" y="443" width="430" height="90" rx="5" fill="white" stroke="#ef4444" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="265" y="463" text-anchor="middle" font-size="10" font-weight="bold" fill="#991b1b">组内统计</text>
+  <text x="60" y="483" font-size="9" fill="#475569">μ_R = mean(R₁, R₂, ..., R_G)   ← 组内奖励均值</text>
+  <text x="60" y="503" font-size="9" fill="#475569">σ_R = std(R₁, R₂, ..., R_G)     ← 组内奖励标准差</text>
+  <text x="60" y="523" font-size="8" fill="#94a3b8">不需要 Critic 网络估值 → 省 40-50% 显存</text>
+
+  <path d="M480,488 L510,488" stroke="#94a3b8" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <rect x="515" y="443" width="430" height="90" rx="5" fill="white" stroke="#ef4444" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="730" y="463" text-anchor="middle" font-size="10" font-weight="bold" fill="#991b1b">优势计算 (Advantage)</text>
+  <text x="525" y="483" font-size="9" fill="#475569">A_i = (R_i - μ_R) / σ_R</text>
+  <text x="525" y="503" font-size="9" fill="#475569">A_i > 0 → 这条比组内平均好 → 提高概率</text>
+  <text x="525" y="523" font-size="9" fill="#475569">A_i < 0 → 这条比组内平均差 → 降低概率</text>
+
+  <path d="M500,533 L500,555" stroke="#94a3b8" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- Phase 4: Denoising Reduction -->
+  <rect x="40" y="560" width="920" height="34" rx="5" fill="url(#g-flow)"/>
+  <text x="500" y="583" text-anchor="middle" font-size="12" font-weight="bold" fill="white">4. Denoising Reduction (DR)：把 T 步 log-prob 压缩成 1~4 步</text>
+
+  <rect x="50" y="602" width="430" height="60" rx="5" fill="white" stroke="#6366f1" stroke-width="1"/>
+  <text x="265" y="622" text-anchor="middle" font-size="10" font-weight="bold" fill="#4338ca">完整 log-prob</text>
+  <text x="60" y="642" font-size="9" fill="#475569">log p_θ(τ) = Σ_{t=1}^{T} log p_θ(v_t | v_{t-1})</text>
+  <text x="60" y="656" font-size="8" fill="#94a3b8">T=50~100 步 → 计算图巨大 → 内存爆炸</text>
+
+  <path d="M480,632 L510,632" stroke="#94a3b8" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <rect x="515" y="602" width="430" height="60" rx="5" fill="white" stroke="#6366f1" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="730" y="622" text-anchor="middle" font-size="10" font-weight="bold" fill="#4338ca">DR 近似</text>
+  <text x="525" y="642" font-size="9" fill="#475569">log p_θ(τ) ≈ (T/K) · Σ_{k=1}^{K} log p_θ(v_{t_k} | v_{t_{k-1}})</text>
+  <text x="525" y="656" font-size="8" fill="#94a3b8">K=1~4 步 → 训练速度 10-20 倍提升</text>
+
+  <path d="M500,662 L500,680" stroke="#94a3b8" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- Phase 5: GRPO Update -->
+  <rect x="40" y="685" width="920" height="50" rx="5" fill="url(#g-rl)"/>
+  <text x="500" y="705" text-anchor="middle" font-size="12" font-weight="bold" fill="white">5. GRPO 策略更新：用优势加权更新模型参数</text>
+  <text x="500" y="725" text-anchor="middle" font-size="9" fill="#fecaca">θ ← θ + α · E[ A_i · ∇_θ log p_θ(τ_i) - β · KL(π_θ || π_ref) ]  其中 β=KL 惩罚系数</text>
+</svg>

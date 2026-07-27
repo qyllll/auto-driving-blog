@@ -545,9 +545,493 @@ DriveVLA-W0 的 NavSim 榜单结果证明了这套方案的有效性：在 close
 
 ---
 
-## 4. 详细对比
+---
 
-### 4.1 四维对比
+## 4. Flow Matching + Diffusion + RL：范式三深度拆解（重点）
+
+> **本章是为我们后续用 Flow-GRPO / DiffGRPO 范式做轨迹生成和轨迹优化的核心参考。** 前面第 3 章提到了范式三的基本概念，但不够深入。这里把 Flow Matching、扩散模型、GRPO 三者的结合方式彻底讲清楚，并对比 Flow-GRPO 和 DiffGRPO 两条技术路线的差异。
+
+---
+
+### 4.1 从两个问题出发
+
+在深入之前，先想清楚两个核心问题：
+
+**问题 1：为什么需要 Flow 或 Diffusion？**
+
+轨迹规划的输出是**连续的高维向量**（一系列 waypoint，每维是坐标/速度/朝向）。我们想要的是一个**概率分布** p_θ(轨迹 | 场景)，而不是确定性函数。Flow 和 Diffusion 天然是分布生成器。
+
+**问题 2：为什么需要 GRPO？**
+
+SFT 只能"模仿专家"，不能"超越专家"。GRPO 让模型在"自己生成的轨迹"上通过奖励信号自我改进。而且 GRPO 不需要 Critic 网络，省了 40-50% 的显存——这对大模型训练至关重要。
+
+**Flow/Diffusion 负责"表示分布"，GRPO 负责"优化分布"。** 两者结合，形成完整的"生成→评估→改进"闭环。
+
+---
+
+### 4.2 基础回顾：Flow Matching vs Diffusion
+
+虽然它们同属于"生成式模型"家族，但 Flow Matching 和扩散模型在数学框架上有本质差异，这些差异直接影响了后续 RL 集成的难度和方式。
+
+#### 扩散模型（DDPM）
+
+扩散模型的核心思想是**离散时间马尔可夫链**：
+
+**前向过程**（加噪）：
+```
+x₀ → x₁ → x₂ → ... → x_T
+q(x_t | x_{t-1}) = N(√(1-β_t) x_{t-1}, β_t I)
+```
+从干净轨迹 x₀ 逐步加噪，T 步后变成纯噪声。
+
+**反向过程**（去噪）：
+```
+x_T → x_{T-1} → ... → x₀
+p_θ(x_{t-1} | x_t) = N(μ_θ(x_t, t), σ_t² I)
+```
+从噪声开始，每步预测噪声 ε_θ，逐步还原出轨迹。
+
+**关键特性**：
+- 离散时间步（T=50-1000 步）
+- 每步是高斯条件分布
+- log-prob 通过 ELBO 下界近似
+- 训练损失 = E[ ||ε - ε_θ(x_t, t)||² ]
+
+#### Flow Matching
+
+Flow Matching 的核心思想是**连续时间归一化流**：
+
+**概率路径**：
+```
+x_t = (1-t) x₀ + t x₁, t ∈ [0,1]
+```
+从数据分布 x₀（t=0）到标准噪声 x₁（t=1）的线性插值路径。
+
+**速度场（Vector Field）**：
+```
+dx/dt = v_θ(x_t, t)
+```
+模型 v_θ 学习预测"在位置 x_t、时间 t"时的速度方向。
+
+**关键特性**：
+- 连续时间（t ∈ [0,1]）
+- 确定性 ODE 路径（可逆）
+- log-prob 通过 Neural ODE / Girsanov 定理计算
+- 训练损失 = E[ ||v - v_θ(x_t, t)||² ]
+
+#### 核心差异汇总
+
+| 维度 | 扩散模型 (DDPM) | Flow Matching |
+|------|:--------------:|:-------------:|
+| 时间 | 离散 (T=50-1000) | 连续 (t∈[0,1]) |
+| 路径 | 随机扩散链 | 确定性 ODE |
+| 可逆性 | 不可逆（有随机噪声） | 可逆（ODE 可反向积分） |
+| log-prob 精度 | ELBO 近似 | Girsanov 定理（更精确） |
+| 采样速度 | 慢（步数多） | 快（可大步积分） |
+| 实现复杂度 | 低 | 中 |
+| 轨迹规划适配 | 自然（离散时序对齐） | 自然（连续路径） |
+
+**在轨迹规划中的直观理解**：
+
+扩散模型就像"一步一说"地擦除噪声：先看清大概方向，再逐渐聚焦到精确轨迹。每一步都在小幅修正。
+
+Flow Matching 就像"顺着水流走"：从噪声出发，沿着速度场指引的方向匀速前进，时间从 0 到 1 正好生成完整轨迹。
+
+两者在纯生成任务上效果相近，但在 RL 集成上有显著差异——因为 log-prob 的"可计算性"和"精度"直接影响策略梯度的质量。
+
+---
+
+### 4.3 Flow-GRPO：Flow Matching + GRPO 的完整方案
+
+Flow-GRPO（字节跳动，NeurIPS 2025）是目前最完整的"Flow Matching + GRPO"方案。它的设计解决了三个核心问题：
+
+**问题 1：确定性 ODE 没有 log-prob → 怎么算策略梯度？**
+
+**解法：ODE → SDE 转换**
+
+标准 Flow 的生成过程是确定性 ODE：
+```
+dx = v_θ(x, t) dt
+```
+这种确定性路径**没有概率解释**，无法计算 log p_θ(τ)。
+
+Flow-GRPO 在 ODE 中加入微小噪声，将其转换为 SDE：
+```
+dx = v_θ(x, t) dt + σ(t) dw
+```
+其中 σ(t) 是一个很小的噪声幅度（通常 σ=0.01），w 是维纳过程。
+
+转换后，生成路径从"一条确定性路径"变成"一束随机路径"。这束路径的概率测度通过 **Girsanov 定理** 可以精确计算：
+```
+log p_θ(τ) = ∫₀¹ ||v_θ(x_t, t)||² dt / σ²(t) + boundary terms
+```
+
+这个公式就是 Flow-GRPO 计算 log-prob 的基础。
+
+**关键权衡**：σ(t) 越大 → log-prob 越精确 → 但生成质量下降越多。实践中 σ(t) 通常设得很小（0.01-0.05），保证生成质量几乎不变的同时让 log-prob 可算。
+
+**问题 2：T 步去噪的计算图太大 → GPU 内存不够？**
+
+**解法：Denoising Reduction (DR)**
+
+完整去噪链有 T=50-100 步，每一步都需要存储中间变量用于反向传播。T 步的计算图在 GPU 上根本放不下。
+
+Flow-GRPO 的 DR 技巧：
+- 不从完整的去噪链算 log-prob
+- 而是**随机采样 K 个时间步**（K=1~4）
+- 只在这 K 步上计算条件 log-prob
+
+近似公式：
+```
+log p_θ(τ) ≈ (T/K) · Σ_{k=1}^{K} log p_θ(v_{t_k} | v_{t_{k-1}})
+```
+这个近似在 K≥1 时已经非常准确。K=1 时（只采样一步）都能收敛，K=4 时几乎和完整计算无异。
+
+DR 的效果：训练速度提升 10-20 倍，GPU 内存降低 5-10 倍。
+
+**问题 3：GRPO 不依赖 Critic，但如何在扩散/Flow 上应用？**
+
+**解法：组内采样 + 相对优势**
+
+GRPO 的核心是"组内相对奖励"：
+1. 对同一个场景/条件 c，从 SDE 采样 G 条轨迹（G=4~8）
+2. 用奖励函数 R 对每条轨迹打分
+3. 组内优势：A_i = (R_i - mean(R_group)) / std(R_group)
+4. 优势为正 → 提高该轨迹的生成概率
+5. 优势为负 → 降低该轨迹的生成概率
+
+**为什么 GRPO 比 PPO 更适合 Flow/Diffusion？**
+
+| 维度 | PPO | GRPO |
+|------|:---:|:----:|
+| 需要 Critic 网络 | 是（和 Actor 一样大） | 否 |
+| 显存占用 | Actor + Critic + Reward = 3 个模型 | Actor + Reward = 2 个模型 |
+| 价值估计 | Critic 学出来的（可能不准） | 组内统计量（无偏） |
+| 实现复杂度 | 高（需要 GAE、优势裁剪等） | 低（几行代码） |
+| 训练稳定性 | 好（有 Critic 做 baseline） | 好（组内归一化天然稳定） |
+
+对于 Flow/Diffusion 这类大模型（几百 M 到几 B 参数），省掉一个同样规模的 Critic 意味着训练成本直接减半。这也是 Flow-GRPO、DiffGRPO 全部选择 GRPO 的根本原因。
+
+---
+
+### 4.4 Flow-GRPO 训练循环完整拆解
+
+![Flow-GRPO 训练循环完整拆解](/images/rl_diffusion/flow_grpo_architecture.svg)
+
+**Step 1：ODE → SDE 转换**
+- 标准 Flow 是确定性 ODE：dx = v_θ(x, t) dt
+- 加入少量噪声变成 SDE：dx = v_θ(x, t) dt + σ(t) dw
+- σ(t) 通常设为 0.01-0.05，保证生成质量几乎不变
+- SDE 的随机性让 log-prob 变得可通过 Girsanov 定理计算
+
+**Step 2：组内采样（G=4~8 条轨迹）**
+- 对同一个场景条件 c，从 SDE 采样 G 条轨迹
+- 每条轨迹通过奖励函数 R 打分
+- 组内奖励的差异反映了模型在当前策略下的行为多样性
+
+**Step 3：GRPO 组内优势计算**
+- 计算组内均值 μ_R 和标准差 σ_R
+- 优势 A_i = (R_i - μ_R) / σ_R
+- 不需要 Critic 网络做价值估计——省 40-50% 显存
+- 优势是相对的：好轨迹被鼓励，差轨迹被抑制
+
+**Step 4：Denoising Reduction**
+- 完整去噪链有 T=50-100 步
+- DR 技巧：随机采样 K=1~4 个时间步
+- 只在这几步上计算条件 log-prob
+- 训练速度提升 10-20 倍，内存降低 5-10 倍
+
+**Step 5：GRPO 策略更新**
+- 用优势 A_i 加权更新去噪网络参数
+- A_i > 0 → 提高该轨迹的生成概率
+- A_i < 0 → 降低该轨迹的生成概率
+- 用 KL 散度惩罚防止模型偏离预训练分布太远
+
+---
+
+### 4.5 DiffGRPO：扩散模型 + GRPO 的简化方案
+
+DiffGRPO 是 2026 年出现的另一种方案。和 Flow-GRPO 的核心区别在于：**它不对生成过程做 SDE 转换，而是直接用扩散模型的训练损失来近似策略梯度**。
+
+#### DiffGRPO 的简化逻辑
+
+Flow-GRPO 需要做 ODE→SDE 转换，因为 Flow 的确定性路径没有概率解释。但扩散模型的反向过程**天生就是随机的**——每一步去噪 p_θ(x_{t-1} | x_t) = N(μ_θ, σ²I) 本身就是高斯分布。
+
+这意味着扩散模型的 log-prob 可以直接写出来：
+```
+log p_θ(x_{t-1} | x_t) = -½ ||x_{t-1} - μ_θ(x_t, t)||² / σ_t² + const
+```
+
+DiffGRPO 的核心观察：**扩散模型的训练损失 L_simple = E[||ε - ε_θ||²] 和 log-prob 在数学上是等价的**（只差一个常数因子）。
+
+所以 DiffGRPO 的策略梯度可以直接写为：
+```
+∇_θ J(θ) = E[ R(τ) · ∇_θ L_simple(θ, τ) ]
+```
+
+不需要 SDE 转换，不需要 Girsanov 定理，不需要额外噪声。几行代码就能实现。
+
+#### 实现差异对比
+
+![Flow-GRPO vs DiffGRPO 全面对比](/images/rl_diffusion/diffgrpo_vs_flowgrpo.svg)
+
+#### 实践中的选择建议
+
+**选 Flow-GRPO 的场景：**
+- 你希望**理论更完备**（log-prob 更精确）
+- 你已经有了 Flow Matching 的代码基础设施
+- 你愿意接受 SDE 转换的复杂度
+- 你的轨迹需要连续时间建模（如非等间距 waypoint）
+
+**选 DiffGRPO 的场景：**
+- 你希望**快速验证效果**（实现成本低）
+- 你已经有现成的扩散轨迹模型
+- 你的资源有限，不想做复杂的 SDE 调试
+- 你的轨迹是等间距 waypoint（扩散模型的离散时间步和轨迹的离散 waypoint 天然对齐）
+
+**我的建议**：如果你是从零开始搭建，优先尝试 **DiffGRPO**——它更简单、更稳定、更容易出结果。如果 DiffGRPO 已经达到了性能瓶颈，再升级到 Flow-GRPO 追求更高的上限。
+
+---
+
+### 4.6 具体实现：Flow-GRPO 训练的核心代码逻辑
+
+下面给出一个简化但完整的 PyTorch 伪代码，展示 Flow-GRPO 训练循环的核心逻辑。
+
+```python
+def flow_grpo_train_step(model, scenes, reward_fn, group_size=8, K=2):
+    """
+    Flow-GRPO 单步训练
+    - model: Flow Matching 模型 v_θ
+    - scenes: 一批场景条件 (多视图图像 + 自车状态)
+    - reward_fn: 奖励函数 R(τ)
+    - group_size: GRPO 组大小 G
+    - K: Denoising Reduction 采样步数
+    """
+    total_loss = 0
+    
+    for scene in scenes:
+        # === Step 1: 组内采样 G 条轨迹 ===
+        trajectories = []
+        rewards = []
+        
+        for _ in range(group_size):
+            # SDE 采样：dx = v_θ(x,t)dt + σ(t)dw
+            traj = sde_sample(model, scene, noise_scale=0.01)
+            traj = traj.detach()  # 停止梯度，只算奖励
+            trajectories.append(traj)
+            
+            # 计算奖励
+            r = reward_fn(traj, scene)
+            rewards.append(r)
+        
+        # === Step 2: GRPO 组内优势 ===
+        rewards_tensor = torch.tensor(rewards)
+        mu_r = rewards_tensor.mean()
+        sigma_r = rewards_tensor.std() + 1e-8
+        advantages = (rewards_tensor - mu_r) / sigma_r
+        
+        # === Step 3: Denoising Reduction 计算 log-prob ===
+        for i, traj in enumerate(trajectories):
+            # 随机采样 K 个时间步
+            t_samples = random.sample(range(T), K)
+            
+            log_prob = 0
+            for t in t_samples:
+                # 在 SDE 路径上取点 x_t
+                x_t = get_sde_path_point(traj, t)
+                
+                # 模型预测速度
+                v_pred = model(x_t, t, scene)
+                
+                # Girsanov log-prob 近似
+                log_prob_t = -0.5 * ||v_pred||² / sigma² * dt
+                log_prob += log_prob_t
+            
+            # DR 缩放
+            log_prob = log_prob * (T / K)
+            
+            # === Step 4: GRPO 策略更新 ===
+            policy_loss = -advantages[i] * log_prob
+            
+            # KL 散度惩罚（防止偏离初始化太远）
+            with torch.no_grad():
+                ref_log_prob = reference_model(x_t, t, scene)
+            kl_loss = (log_prob - ref_log_prob).mean()
+            
+            loss = policy_loss + beta * kl_loss
+            total_loss += loss
+    
+    # 反向传播更新模型
+    total_loss.backward()
+    optimizer.step()
+    return total_loss.item()
+```
+
+**关键实现细节：**
+
+1. **`sde_sample`**：在 Flow ODE 求解器每一步加入 N(0, σ²dt) 的噪声
+2. **`sigma` 的取值**：σ=0.01 是常用起点，太小则 log-prob 计算不稳定，太大则生成质量下降
+3. **`reward_fn` 的设计**：推荐 2-3 个核心指标（碰撞、效率、舒适度），不要超过 5 个
+4. **`beta`（KL 惩罚系数）**：控制模型更新幅度，常用范围 0.01-0.1
+
+---
+
+### 4.7 轨迹生成与优化的具体流程
+
+结合我们实际要做的轨迹生成和优化任务，我把 Flow-GRPO / DiffGRPO 的完整工作流程梳理如下：
+
+#### 阶段 1：SFT 预训练（初始化）
+
+```
+数据：nuScenes / NAVSIM 专家轨迹
+目标：训练 Flow/Diffusion 模型学会"合理轨迹长什么样"
+损失：L = E[ ||v - v_θ(x_t, t)||² ]  (Flow)
+      或 L = E[ ||ε - ε_θ(x_t, t)||² ] (Diffusion)
+结果：模型可以生成多样化的合理轨迹
+```
+
+这个阶段不涉及任何 RL。目标是让模型有一个好的初始化——在"合理的轨迹空间"内采样。
+
+#### 阶段 2：奖励函数设计
+
+奖励函数是 RL 成功的关键。对于轨迹规划，我建议的奖励函数结构：
+
+```
+R(τ) = w_safe · R_safe + w_eff · R_eff + w_comfort · R_comfort + w_rule · R_rule
+
+R_safe   = -碰撞惩罚（碰撞=0, 否则=1）
+R_eff    = 前进距离 / 目标距离（鼓励到达）
+R_comfort = -jerk² 累积（平滑性惩罚）
+R_rule   = 交通规则遵守（红灯停、车道保持等）
+```
+
+**权重建议**：
+- w_safe = 10.0（安全是最底线，必须拉满）
+- w_eff = 1.0（效率是目标）
+- w_comfort = 0.5（舒适是加分项）
+- w_rule = 2.0（规则遵守重要但优先级低于安全）
+
+**核心原则**：把安全作为硬性约束（碰撞直接判负），而不是加权项。这样模型不会在安全上做权衡。
+
+#### 阶段 3：GRPO 强化学习
+
+```
+每轮迭代：
+  1. 从当前模型采样 G 条轨迹（SDE 或扩散采样）
+  2. 每条轨迹用 R(τ) 打分
+  3. 组内优势计算（相对奖励）
+  4. 用优势加权更新模型参数
+  5. KL 惩罚防止训飞
+
+重复 N 轮，直到奖励收敛或达到预期效果
+```
+
+**收敛判断**：
+- 奖励均值不再增长（或增长小于 1%）
+- 组内奖励方差缩小（所有采样的轨迹都是好轨迹）
+- 人工检查生成的轨迹：变好了还是变奇怪了？
+
+#### 阶段 4：评测与部署
+
+```
+闭环评测（如 NAVSIM）：
+  - 碰撞率 ↓（核心指标）
+  - 驾驶得分 ↑
+  - 舒适性指标（jerk、加速度变化）
+
+开环评测（如 nuScenes）：
+  - L2 位移误差
+  - 碰撞率
+
+部署前的安全检查：
+  - 模型是否学会了 reward hacking？
+  - 极端场景（cut-in、行人突现）表现如何？
+  - 和规则安全层的冲突情况？
+```
+
+---
+
+### 4.8 常见陷阱与实战经验
+
+#### 陷阱 1：策略梯度 + 扩散训练 = 梯度消失
+
+扩散模型的训练损失 L_simple = E[||ε - ε_θ||²] 在数值上很小（通常 0.01-0.1 量级），但策略梯度的幅度可能更小。两者叠加后，策略梯度的信号容易被噪声淹没。
+
+**解法**：
+- 对策略梯度做梯度裁剪（gradient clipping, max_norm=1.0）
+- 策略梯度的学习率设为 SFT 阶段的 1/10 到 1/100
+- 使用 AdamW 优化器（不是 Adam）
+
+#### 陷阱 2：奖励函数设计不当 → reward hacking
+
+这是 RL 中最常见的问题。一个真实的例子：
+
+> 奖励函数：R = 前进距离 - 碰撞惩罚 × 10
+>
+> 模型学到：以 60km/h 的速度直行，即使前方 20 米有静止车辆也不减速——因为"减速会减少前进距离"，而"碰撞还没发生（在 3 秒后的未来），不扣分"。
+
+**解法**：
+- 加入碰撞提前预警：如果与前方障碍物的 TTC（碰撞时间）< 3s，就扣分
+- 把终点到达作为硬约束（没到达=直接判负）
+- 使用模仿学习奖励（生成的轨迹和专家轨迹的相似度）作为辅助信号
+
+#### 陷阱 3：GRPO 组大小的选择
+
+G（组大小）是 GRPO 中最重要的超参数：
+
+| G 值 | 优势 | 劣势 |
+|:---:|:----:|:----:|
+| G=2 | 显存最低 | 优势估计噪声大 |
+| G=4 | 常用，性价比高 | 偶尔不稳定 |
+| G=8 | 优势估计最稳 | 显存翻倍 |
+| G=16 | 理论最优 | 显存需求高 |
+
+我推荐 G=4 起步。如果训练不稳定，增大到 G=8。一般来说，G=4 已经足够给出稳定的优势估计。
+
+#### 陷阱 4：预训练模型被"训飞"
+
+SFT 预训练的 Flow/Diffusion 模型有一个良好的初始分布。GRPO 更新后，模型可能逐渐偏离这个分布，生成"奖励高分但不合理"的轨迹。
+
+**解法**：
+- KL 惩罚项（Flow-GRPO 标准做法）：L = L_policy + β · KL(π_θ || π_ref)
+- β 通常取 0.01-0.1
+- 如果 KL 散度持续增大 > 10，说明模型偏离太远了，需要减小学习率或增大 β
+- 定期测试模型在原始 SFT 数据上的 loss——如果 loss 显著增大，说明模型在"遗忘"基础能力
+
+---
+
+### 4.9 Flow-GRPO vs DiffGRPO 的选择决策树
+
+```
+开始
+  ↓
+你是否有现成的扩散轨迹模型代码？
+  ├── 是 → 优先选 DiffGRPO（几行代码改动即可实现）
+  └── 否 → 继续
+              ↓
+你是否需要精确的 log-prob？
+  ├── 是 → Flow-GRPO（Girsanov 定理更精确）
+  └── 否 → 继续
+              ↓
+你的轨迹是否等间距 waypoint？
+  ├── 是 → 两者都可。推荐 DiffGRPO（实现更简单）
+  └── 否 → Flow-GRPO（连续时间建模更自然）
+              ↓
+你的计算资源：
+  ├── 有限（8 卡以内）→ DiffGRPO（不需要 SDE 调参）
+  └── 充裕（32 卡以上）→ Flow-GRPO（理论上限更高）
+```
+
+**我的最终建议**：
+
+1. **第一步**：用 DiffGRPO 快速验证"RL 是否对轨迹生成有效"
+2. **第二步**：效果确认后切换到 Flow-GRPO，追求更好的性能
+3. **长期**：两条路线都保持关注。DiffGRPO 的方向是"更稳定的近似"，Flow-GRPO 的方向是"更精确的理论"，两者都在快速演进中。
+
+对于我们的项目：我建议 **从 DiffGRPO 开始**，原因是：
+- 代码改动量最小，可以快速验证 RL pipeline
+- 扩散模型在轨迹生成上的表现已经过充分验证（Diffusion Planner、DiffusionDrive 等）
+- 等 DiffGRPO 效果确认后，再决定是否需要升级到 Flow-GRPO 追求上限
 
 | 维度 | 范式一：奖励引导 | 范式二：拒绝采样 | 范式三：策略梯度 | 范式四：世界模型 |
 |------|:----------:|:----------:|:----------:|:----------:|
