@@ -91,7 +91,7 @@
   <text x="730" y="463" text-anchor="middle" font-size="10" font-weight="bold" fill="#991b1b">优势计算 (Advantage)</text>
   <text x="525" y="483" font-size="9" fill="#475569">A_i = (R_i - μ_R) / σ_R</text>
   <text x="525" y="503" font-size="9" fill="#475569">A_i > 0 → 这条比组内平均好 → 提高概率</text>
-  <text x="525" y="523" font-size="9" fill="#475569">A_i < 0 → 这条比组内平均差 → 降低概率</text>
+  <text x="525" y="523" font-size="9" fill="#475569">A_i &lt; 0 → 这条比组内平均差 → 降低概率</text>
 
   <path d="M500,533 L500,555" stroke="#94a3b8" stroke-width="2" marker-end="url(#arrow)"/>
 

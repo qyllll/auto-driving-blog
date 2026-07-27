@@ -893,14 +893,12 @@ def flow_grpo_train_step(model, scenes, reward_fn, group_size=8, K=2):
 
 奖励函数是 RL 成功的关键。对于轨迹规划，我建议的奖励函数结构：
 
-```
-R(τ) = w_safe · R_safe + w_eff · R_eff + w_comfort · R_comfort + w_rule · R_rule
+**公式**：R(τ) = w_safe · R_safe + w_eff · R_eff + w_comfort · R_comfort + w_rule · R_rule
 
-R_safe   = -碰撞惩罚（碰撞=0, 否则=1）
-R_eff    = 前进距离 / 目标距离（鼓励到达）
-R_comfort = -jerk² 累积（平滑性惩罚）
-R_rule   = 交通规则遵守（红灯停、车道保持等）
-```
+- R_safe = -碰撞惩罚（碰撞=0, 否则=1）
+- R_eff = 前进距离 / 目标距离（鼓励到达）
+- R_comfort = -jerk² 累积（平滑性惩罚）
+- R_rule = 交通规则遵守（红灯停、车道保持等）
 
 **权重建议**：
 - w_safe = 10.0（安全是最底线，必须拉满）
