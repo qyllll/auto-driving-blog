@@ -1,0 +1,211 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 2000" font-family="system-ui, -apple-system, 'Noto Sans SC', sans-serif">
+  <defs>
+    <linearGradient id="g-sensor" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="#6366f1"/><stop offset="100%" stop-color="#818cf8"/></linearGradient>
+    <linearGradient id="g-percep" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="#f59e0b"/><stop offset="100%" stop-color="#fbbf24"/></linearGradient>
+    <linearGradient id="g-encode" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="#10b981"/><stop offset="100%" stop-color="#34d399"/></linearGradient>
+    <linearGradient id="g-fuse" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="#3b82f6"/><stop offset="100%" stop-color="#60a5fa"/></linearGradient>
+    <linearGradient id="g-llm" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="#8b5cf6"/><stop offset="100%" stop-color="#a78bfa"/></linearGradient>
+    <linearGradient id="g-act" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="#ef4444"/><stop offset="100%" stop-color="#f87171"/></linearGradient>
+    <linearGradient id="g-out" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="#1e293b"/><stop offset="100%" stop-color="#475569"/></linearGradient>
+    <filter id="shadow"><feDropShadow dx="1" dy="2" stdDeviation="3" flood-opacity="0.12"/></filter>
+    <marker id="arrow" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10" fill="#94a3b8"/></marker>
+  </defs>
+
+  <rect width="1100" height="2000" fill="#f8fafc" rx="8"/>
+  <text x="550" y="35" text-anchor="middle" font-size="16" font-weight="bold" fill="#1e293b">从传感器到规划轨迹：VLA 系统完整数据流</text>
+
+  <!-- ===== Layer 1: Sensors ===== -->
+  <rect x="50" y="55" width="1000" height="30" rx="5" fill="url(#g-sensor)"/>
+  <text x="550" y="76" text-anchor="middle" font-size="12" font-weight="bold" fill="white">传感器层 Sensor Layer</text>
+
+  <rect x="60" y="92" width="235" height="70" rx="5" fill="white" stroke="#6366f1" stroke-width="1" filter="url(#shadow)"/>
+  <text x="177" y="112" text-anchor="middle" font-size="11" font-weight="bold" fill="#4338ca">Camera</text>
+  <text x="70" y="130" font-size="9" fill="#475569">6-12 个环视部署</text>
+  <text x="70" y="148" font-size="9" fill="#475569">分辨率 8MP, RGB 图像</text>
+
+  <rect x="310" y="92" width="235" height="70" rx="5" fill="white" stroke="#6366f1" stroke-width="1" filter="url(#shadow)"/>
+  <text x="427" y="112" text-anchor="middle" font-size="11" font-weight="bold" fill="#4338ca">LiDAR</text>
+  <text x="320" y="130" font-size="9" fill="#475569">1-3 个, 机械式/固态</text>
+  <text x="320" y="148" font-size="9" fill="#475569">128-1440 线, 精确深度</text>
+
+  <rect x="560" y="92" width="235" height="70" rx="5" fill="white" stroke="#6366f1" stroke-width="1" filter="url(#shadow)"/>
+  <text x="677" y="112" text-anchor="middle" font-size="11" font-weight="bold" fill="#4338ca">4D Imaging Radar</text>
+  <text x="570" y="130" font-size="9" fill="#475569">2-6 个, MIMO 阵列</text>
+  <text x="570" y="148" font-size="9" fill="#475569">0.1° 角分辨率, 速度</text>
+
+  <rect x="810" y="92" width="230" height="70" rx="5" fill="white" stroke="#6366f1" stroke-width="1" filter="url(#shadow)"/>
+  <text x="925" y="112" text-anchor="middle" font-size="11" font-weight="bold" fill="#4338ca">GPS / IMU</text>
+  <text x="820" y="130" font-size="9" fill="#475569">定位 (厘米级 RTK)</text>
+  <text x="820" y="148" font-size="9" fill="#475569">姿态估计 100Hz</text>
+
+  <path d="M550,162 L550,175" stroke="#94a3b8" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- ===== Layer 2: Perception ===== -->
+  <rect x="50" y="180" width="1000" height="30" rx="5" fill="url(#g-percep)"/>
+  <text x="550" y="201" text-anchor="middle" font-size="12" font-weight="bold" fill="white">感知模块 Perception Module</text>
+
+  <!-- Perception sub-modules -->
+  <rect x="60" y="218" width="310" height="90" rx="5" fill="white" stroke="#f59e0b" stroke-width="1" filter="url(#shadow)"/>
+  <text x="215" y="238" text-anchor="middle" font-size="10" font-weight="bold" fill="#92400e">1. 深度估计 + 3D-2D 投影</text>
+  <text x="70" y="256" font-size="9" fill="#475569">多视图几何 / LiDAR 点云投影</text>
+  <text x="70" y="274" font-size="9" fill="#475569">深度补全 → 稠密深度图</text>
+  <text x="70" y="292" font-size="9" fill="#475569">为后续模块提供像素级深度线索</text>
+
+  <rect x="390" y="218" width="310" height="90" rx="5" fill="white" stroke="#f59e0b" stroke-width="1" filter="url(#shadow)"/>
+  <text x="545" y="238" text-anchor="middle" font-size="10" font-weight="bold" fill="#92400e">2. 3D 目标检测</text>
+  <text x="400" y="256" font-size="9" fill="#475569">DETR / SparseConv 检测头</text>
+  <text x="400" y="274" font-size="9" fill="#475569">输出: N 个 3D 框</text>
+  <text x="400" y="292" font-size="9" fill="#475569">每框含 (x,y,z,w,l,h,yaw,vx,vy,cls)</text>
+
+  <rect x="720" y="218" width="320" height="90" rx="5" fill="white" stroke="#f59e0b" stroke-width="1" filter="url(#shadow)"/>
+  <text x="880" y="238" text-anchor="middle" font-size="10" font-weight="bold" fill="#92400e">3. 在线地图构建</text>
+  <text x="730" y="256" font-size="9" fill="#475569">车道线 / 路沿 / 停止线</text>
+  <text x="730" y="274" font-size="9" fill="#475569">矢量地图元素 (polyline)</text>
+  <text x="730" y="292" font-size="9" fill="#475569">语义+几何属性 (虚/实线等)</text>
+
+  <rect x="60" y="318" width="310" height="90" rx="5" fill="white" stroke="#f59e0b" stroke-width="1" filter="url(#shadow)"/>
+  <text x="215" y="338" text-anchor="middle" font-size="10" font-weight="bold" fill="#92400e">4. 占用网络 Occupancy</text>
+  <text x="70" y="356" font-size="9" fill="#475569">体素化场景表示</text>
+  <text x="70" y="374" font-size="9" fill="#475569">每个体素: 占用/空闲/未知</text>
+  <text x="70" y="392" font-size="9" fill="#475569">可通行性地图 (驾驶关键)</text>
+
+  <rect x="390" y="318" width="310" height="90" rx="5" fill="white" stroke="#f59e0b" stroke-width="1" filter="url(#shadow)"/>
+  <text x="545" y="338" text-anchor="middle" font-size="10" font-weight="bold" fill="#92400e">5. 运动预测</text>
+  <text x="400" y="356" font-size="9" fill="#475569">轨迹预测 (多模态)</text>
+  <text x="400" y="374" font-size="9" fill="#475569">意图估计 (左转/直行/靠边)</text>
+  <text x="400" y="392" font-size="9" fill="#475569">时序关联 (track_id 维持)</text>
+
+  <rect x="720" y="318" width="320" height="90" rx="5" fill="white" stroke="#f59e0b" stroke-width="1" filter="url(#shadow)"/>
+  <text x="880" y="338" text-anchor="middle" font-size="10" font-weight="bold" fill="#92400e">→ BEV 特征融合</text>
+  <text x="730" y="358" font-size="9" fill="#475569">多传感器特征投影到鸟瞰空间</text>
+  <text x="730" y="376" font-size="9" fill="#475569">时序融合 (历史帧对齐)</text>
+  <text x="730" y="394" font-size="9" fill="#475569">输出: BEV feature map (H×W×C)</text>
+
+  <path d="M550,420 L550,448" stroke="#94a3b8" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- === Perception Output Detail === -->
+  <rect x="150" y="430" width="800" height="48" rx="5" fill="#fff7ed" stroke="#f59e0b" stroke-width="1" stroke-dasharray="4,2"/>
+  <text x="550" y="450" text-anchor="middle" font-size="10" font-weight="bold" fill="#92400e">感知输出 (Perception Output) 每个障碍物:</text>
+  <text x="160" y="468" font-size="8" fill="#92400e">{id, x, y, z, w, l, h, yaw, vx, vy, category, confidence, track_id, occluded}</text>
+
+  <path d="M550,478 L550,495" stroke="#94a3b8" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- ===== Layer 3: Encoding ===== -->
+  <rect x="50" y="500" width="1000" height="30" rx="5" fill="url(#g-encode)"/>
+  <text x="550" y="521" text-anchor="middle" font-size="12" font-weight="bold" fill="white">编码层 Encoding Layer</text>
+
+  <!-- Path A: ViT -->
+  <rect x="60" y="538" width="480" height="95" rx="5" fill="white" stroke="#10b981" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="300" y="558" text-anchor="middle" font-size="11" font-weight="bold" fill="#047857">路径 A: ViT 编码 (2D 语义)</text>
+  <text x="70" y="578" font-size="9" fill="#475569">6 张图像 → 每张切 14x14 patch → ~1300 token/张</text>
+  <text x="70" y="598" font-size="9" fill="#475569">共 ~7800 个语义 token</text>
+  <text x="70" y="618" font-size="8" fill="#94a3b8">携带信息: 颜色、纹理、类别、场景语义（不可度量）</text>
+
+  <!-- Path B: Perception -->
+  <rect x="560" y="538" width="480" height="95" rx="5" fill="white" stroke="#10b981" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="800" y="558" text-anchor="middle" font-size="11" font-weight="bold" fill="#047857">路径 B: 感知编码 (3D 度量)</text>
+  <text x="570" y="578" font-size="9" fill="#475569">BEV feature → 降维 tokenize → 64~256 个感知 token</text>
+  <text x="570" y="598" font-size="9" fill="#475569">每个 token 携带局部 3D 上下文</text>
+  <text x="570" y="618" font-size="8" fill="#94a3b8">携带信息: 精确位置、速度、朝向、尺寸（可度量）</text>
+
+  <path d="M550,633 L550,650" stroke="#94a3b8" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- ===== Layer 4: Fusion ===== -->
+  <rect x="50" y="655" width="1000" height="30" rx="5" fill="url(#g-fuse)"/>
+  <text x="550" y="676" text-anchor="middle" font-size="12" font-weight="bold" fill="white">融合层 Fusion Layer</text>
+
+  <rect x="60" y="693" width="310" height="85" rx="5" fill="white" stroke="#3b82f6" stroke-width="1" filter="url(#shadow)"/>
+  <text x="215" y="713" text-anchor="middle" font-size="10" font-weight="bold" fill="#1d4ed8">方案 1: 序列拼接</text>
+  <text x="70" y="733" font-size="8" fill="#475569">[ViT_tokens] + [感知_tokens] + [text]</text>
+  <text x="70" y="751" font-size="8" fill="#475569">位置编码区分 token 来源</text>
+  <text x="70" y="769" font-size="8" fill="#475569">最简单直接, 但序列长度较大</text>
+
+  <rect x="390" y="693" width="310" height="85" rx="5" fill="white" stroke="#3b82f6" stroke-width="1" filter="url(#shadow)"/>
+  <text x="545" y="713" text-anchor="middle" font-size="10" font-weight="bold" fill="#1d4ed8">方案 2: 交叉注意力</text>
+  <text x="400" y="733" font-size="8" fill="#475569">LLM query → cross-attend</text>
+  <text x="400" y="751" font-size="8" fill="#475569">到 ViT 和感知 tokens</text>
+  <text x="400" y="769" font-size="8" fill="#475569">感知 tokens 稀疏, 计算量更低</text>
+
+  <rect x="720" y="693" width="320" height="85" rx="5" fill="white" stroke="#3b82f6" stroke-width="1" filter="url(#shadow)"/>
+  <text x="880" y="713" text-anchor="middle" font-size="10" font-weight="bold" fill="#1d4ed8">方案 3: 统一稀疏 query</text>
+  <text x="730" y="733" font-size="8" fill="#475569">感知 query + 推理 query</text>
+  <text x="730" y="751" font-size="8" fill="#475569">每层 self-attend 充分交互</text>
+  <text x="730" y="769" font-size="8" fill="#475569">SparseOccVLA 式双向信息流</text>
+
+  <path d="M550,778 L550,795" stroke="#94a3b8" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- ===== Layer 5: LLM Reasoning ===== -->
+  <rect x="50" y="800" width="1000" height="30" rx="5" fill="url(#g-llm)"/>
+  <text x="550" y="821" text-anchor="middle" font-size="12" font-weight="bold" fill="white">LLM 推理 Reasoning</text>
+
+  <rect x="60" y="838" width="980" height="112" rx="5" fill="white" stroke="#8b5cf6" stroke-width="1" filter="url(#shadow)"/>
+  <text x="550" y="858" text-anchor="middle" font-size="10" font-weight="bold" fill="#6d28d9">输入: 融合的语义 + 度量上下文</text>
+
+  <rect x="80" y="868" width="460" height="70" rx="4" fill="#f5f3ff" stroke="#ddd6fe" stroke-width="0.5"/>
+  <text x="310" y="888" text-anchor="middle" font-size="9" font-weight="bold" fill="#6d28d9">语义上下文 (来自 ViT)</text>
+  <text x="90" y="906" font-size="8" fill="#475569">"前方是一辆白色SUV, 打了右转灯"</text>
+  <text x="90" y="924" font-size="8" fill="#475569">"右侧有自行车道, 可能有非机动车"</text>
+  <text x="90" y="938" font-size="8" fill="#475569">"天气晴朗, 路面干燥"</text>
+
+  <rect x="560" y="868" width="460" height="70" rx="4" fill="#f5f3ff" stroke="#ddd6fe" stroke-width="0.5"/>
+  <text x="790" y="888" text-anchor="middle" font-size="9" font-weight="bold" fill="#6d28d9">度量上下文 (来自感知)</text>
+  <text x="570" y="906" font-size="8" fill="#475569">"前车在 (10.53, 2.17), 速度 5.2m/s"</text>
+  <text x="570" y="924" font-size="8" fill="#475569">"右侧车道 3 秒后有车到达"</text>
+  <text x="570" y="938" font-size="8" fill="#475569">"自车当前速度 8.3m/s, 航向 0.2 rad"</text>
+
+  <rect x="80" y="946" width="940" height="24" rx="4" fill="#ede9fe"/>
+  <text x="550" y="964" text-anchor="middle" font-size="9" fill="#6d28d9">推理输出: "保持当前速度, 注意右侧非机动车汇入, 建议预留 1.5m 安全距离"</text>
+
+  <path d="M550,960 L550,980" stroke="#94a3b8" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- ===== Layer 6: Action Head ===== -->
+  <rect x="50" y="985" width="1000" height="30" rx="5" fill="url(#g-act)"/>
+  <text x="550" y="1006" text-anchor="middle" font-size="12" font-weight="bold" fill="white">动作头 Action Head</text>
+
+  <rect x="60" y="1023" width="480" height="100" rx="5" fill="white" stroke="#ef4444" stroke-width="1" filter="url(#shadow)"/>
+  <text x="300" y="1043" text-anchor="middle" font-size="10" font-weight="bold" fill="#991b1b">轨迹输出 (Waypoints)</text>
+  <text x="70" y="1063" font-size="9" fill="#475569">未来 8 秒, 20 个稀疏 waypoints</text>
+  <text x="70" y="1081" font-size="9" fill="#475569">每个: (x, y, θ, v)</text>
+  <text x="70" y="1099" font-size="8" fill="#94a3b8">用于下游 MPC / 运动控制</text>
+
+  <rect x="560" y="1023" width="480" height="100" rx="5" fill="white" stroke="#ef4444" stroke-width="1" filter="url(#shadow)"/>
+  <text x="800" y="1043" text-anchor="middle" font-size="10" font-weight="bold" fill="#991b1b">控制信号 (Direct Control)</text>
+  <text x="570" y="1063" font-size="9" fill="#475569">方向盘转角 (deg)</text>
+  <text x="570" y="1081" font-size="9" fill="#475569">油门 / 刹车 (0-1)</text>
+  <text x="570" y="1099" font-size="8" fill="#94a3b8">联合安全验证层: 碰撞检查</text>
+
+  <path d="M550,1130 L550,1148" stroke="#94a3b8" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- ===== Layer 7: Final Trajectory ===== -->
+  <rect x="50" y="1153" width="1000" height="30" rx="5" fill="url(#g-out)"/>
+  <text x="550" y="1174" text-anchor="middle" font-size="12" font-weight="bold" fill="white">规划轨迹 Final Trajectory</text>
+
+  <rect x="60" y="1191" width="980" height="110" rx="5" fill="white" stroke="#1e293b" stroke-width="1" filter="url(#shadow)"/>
+  <text x="550" y="1211" text-anchor="middle" font-size="10" font-weight="bold" fill="#1e293b">带多层约束的平滑轨迹</text>
+
+  <rect x="80" y="1220" width="225" height="65" rx="4" fill="#fef2f2" stroke="#fecaca" stroke-width="0.5"/>
+  <text x="192" y="1238" text-anchor="middle" font-size="9" font-weight="bold" fill="#991b1b">安全约束</text>
+  <text x="90" y="1256" font-size="8" fill="#475569">不碰撞 (碰撞距离 > 阈值)</text>
+  <text x="90" y="1272" font-size="8" fill="#475569">不压线, 在道路边界内</text>
+
+  <rect x="320" y="1220" width="225" height="65" rx="4" fill="#f0fdf4" stroke="#bbf7d0" stroke-width="0.5"/>
+  <text x="432" y="1238" text-anchor="middle" font-size="9" font-weight="bold" fill="#166534">运动约束</text>
+  <text x="330" y="1256" font-size="8" fill="#475569">最大加加速度限制</text>
+  <text x="330" y="1272" font-size="8" fill="#475569">曲率限制 (方向盘转角限)</text>
+
+  <rect x="560" y="1220" width="225" height="65" rx="4" fill="#fefce8" stroke="#fde68a" stroke-width="0.5"/>
+  <text x="672" y="1238" text-anchor="middle" font-size="9" font-weight="bold" fill="#854d0e">语义约束</text>
+  <text x="570" y="1256" font-size="8" fill="#475569">遵守交通规则 (红灯停)</text>
+  <text x="570" y="1272" font-size="8" fill="#475569">礼让行人, 保持车距</text>
+
+  <rect x="800" y="1220" width="220" height="65" rx="4" fill="#fdf4ff" stroke="#e9d5ff" stroke-width="0.5"/>
+  <text x="910" y="1238" text-anchor="middle" font-size="9" font-weight="bold" fill="#6b21a8">舒适性约束</text>
+  <text x="810" y="1256" font-size="8" fill="#475569">平滑加速度变化</text>
+  <text x="810" y="1272" font-size="8" fill="#475569">避免急刹/急转弯</text>
+
+  <!-- Bottom summary -->
+  <rect x="100" y="1320" width="900" height="55" rx="8" fill="#1e293b"/>
+  <text x="550" y="1340" text-anchor="middle" font-size="10" font-weight="bold" fill="#e2e8f0">核心要点</text>
+  <text x="120" y="1360" font-size="9" fill="#94a3b8">感知模块 → 3D 度量 + 碰撞检测 → 解决"安全"问题 (底线)</text>
+  <text x="120" y="1375" font-size="9" fill="#94a3b8">VLM ViT → 语义理解 + 场景推理 → 解决"智能"问题 (上限)</text>
+</svg>

@@ -1,0 +1,120 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 400" font-family="system-ui, -apple-system, 'Noto Sans SC', sans-serif">
+  <defs>
+    <linearGradient id="g-bg1" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#fef2f2"/><stop offset="100%" stop-color="#fff7ed"/></linearGradient>
+    <linearGradient id="g-bg2" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#fff7ed"/><stop offset="100%" stop-color="#f0fdf4"/></linearGradient>
+    <linearGradient id="g-bg3" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#f0fdf4"/><stop offset="100%" stop-color="#eff6ff"/></linearGradient>
+    <linearGradient id="g-bg4" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#eff6ff"/><stop offset="100%" stop-color="#faf5ff"/></linearGradient>
+    <filter id="shadow"><feDropShadow dx="1" dy="2" stdDeviation="2" flood-opacity="0.1"/></filter>
+  </defs>
+
+  <rect width="1100" height="400" fill="#f8fafc" rx="8"/>
+  <text x="550" y="30" text-anchor="middle" font-size="16" font-weight="bold" fill="#1e293b">VLA 与感知融合架构的演进趋势 (2024 — 2026+)</text>
+
+  <!-- Stage 1: 2024 -->
+  <rect x="30" y="50" width="245" height="330" rx="8" fill="url(#g-bg1)" stroke="#fca5a5" stroke-width="1" filter="url(#shadow)"/>
+  <rect x="30" y="50" width="245" height="30" rx="8" fill="#ef4444"/>
+  <rect x="30" y="66" width="245" height="14" fill="#ef4444"/>
+  <text x="152" y="71" text-anchor="middle" font-size="12" font-weight="bold" fill="white">2024: 独立双系统</text>
+
+  <rect x="45" y="95" width="215" height="55" rx="5" fill="white" stroke="#f59e0b" stroke-width="1"/>
+  <text x="152" y="113" text-anchor="middle" font-size="9" font-weight="bold" fill="#92400e">感知模块 (System-1)</text>
+  <text x="52" y="131" font-size="7" fill="#475569">3D检测 + BEV + 轨迹规划</text>
+  <text x="52" y="145" font-size="7" fill="#475569">输出: 精确轨迹 (实时)</text>
+
+  <path d="M152,150 L152,162" stroke="#94a3b8" stroke-width="1" marker-end="url(#arrow)"/>
+
+  <rect x="45" y="165" width="215" height="55" rx="5" fill="white" stroke="#10b981" stroke-width="1"/>
+  <text x="152" y="183" text-anchor="middle" font-size="9" font-weight="bold" fill="#047857">VLM 推理 (System-2)</text>
+  <text x="52" y="201" font-size="7" fill="#475569">ViT 提取 2D 语义特征</text>
+  <text x="52" y="215" font-size="7" fill="#475569">输出: 文本推理链 (非实时)</text>
+
+  <path d="M152,220 L152,232" stroke="#94a3b8" stroke-width="1" marker-end="url(#arrow)"/>
+
+  <rect x="60" y="235" width="185" height="40" rx="4" fill="#fef2f2" stroke="#fca5a5" stroke-width="0.5"/>
+  <text x="152" y="252" text-anchor="middle" font-size="8" font-weight="bold" fill="#991b1b">文本约束修正规划</text>
+  <text x="68" y="268" font-size="7" fill="#64748b">弱融合: VLM 不参与度量</text>
+
+  <rect x="45" y="290" width="215" height="35" rx="5" fill="#fef2f2" stroke="#fca5a5" stroke-width="0.5"/>
+  <text x="152" y="306" text-anchor="middle" font-size="8" fill="#991b1b">代表: DriveVLM</text>
+  <text x="52" y="320" font-size="7" fill="#64748b">VLM 只在语义层面监督</text>
+
+  <!-- Stage 2: 2025 -->
+  <rect x="295" y="50" width="245" height="330" rx="8" fill="url(#g-bg2)" stroke="#fcd34d" stroke-width="1" filter="url(#shadow)"/>
+  <rect x="295" y="50" width="245" height="30" rx="8" fill="#f59e0b"/>
+  <rect x="295" y="66" width="245" height="14" fill="#f59e0b"/>
+  <text x="417" y="71" text-anchor="middle" font-size="12" font-weight="bold" fill="white">2025: 特征拼接融合</text>
+
+  <rect x="310" y="95" width="215" height="55" rx="5" fill="white" stroke="#f59e0b" stroke-width="1"/>
+  <text x="417" y="113" text-anchor="middle" font-size="9" font-weight="bold" fill="#92400e">感知模块</text>
+  <text x="317" y="131" font-size="7" fill="#475569">BEV 特征提取</text>
+  <text x="317" y="145" font-size="7" fill="#475569">输出: BEV feature token</text>
+
+  <rect x="310" y="160" width="215" height="55" rx="5" fill="white" stroke="#10b981" stroke-width="1"/>
+  <text x="417" y="178" text-anchor="middle" font-size="9" font-weight="bold" fill="#047857">VLM 视觉编码器</text>
+  <text x="317" y="196" font-size="7" fill="#475569">ViT 提取 2D patch token</text>
+
+  <path d="M360,150 L360,160" stroke="#94a3b8" stroke-width="0.8"/>
+  <path d="M475,150 L475,160" stroke="#94a3b8" stroke-width="0.8"/>
+  <path d="M417,215 L417,227" stroke="#94a3b8" stroke-width="1" marker-end="url(#arrow)"/>
+
+  <rect x="310" y="230" width="215" height="40" rx="4" fill="#fefce8" stroke="#fde68a" stroke-width="0.5"/>
+  <text x="417" y="248" text-anchor="middle" font-size="8" font-weight="bold" fill="#854d0e">序列拼接后喂入 LLM</text>
+  <text x="317" y="264" font-size="7" fill="#64748b">[ViT] + [感知] + [文本]</text>
+
+  <rect x="310" y="290" width="215" height="35" rx="5" fill="#fefce8" stroke="#fde68a" stroke-width="0.5"/>
+  <text x="417" y="306" text-anchor="middle" font-size="8" fill="#854d0e">代表: DriveVLA-W0</text>
+  <text x="317" y="320" font-size="7" fill="#64748b">消融: 去掉感知→碰撞翻倍</text>
+
+  <!-- Stage 3: 2026 -->
+  <rect x="560" y="50" width="245" height="330" rx="8" fill="url(#g-bg3)" stroke="#86efac" stroke-width="1" filter="url(#shadow)"/>
+  <rect x="560" y="50" width="245" height="30" rx="8" fill="#10b981"/>
+  <rect x="560" y="66" width="245" height="14" fill="#10b981"/>
+  <text x="682" y="71" text-anchor="middle" font-size="12" font-weight="bold" fill="white">2026: 统一稀疏 Query</text>
+
+  <rect x="575" y="95" width="215" height="80" rx="5" fill="white" stroke="#3b82f6" stroke-width="1"/>
+  <text x="682" y="113" text-anchor="middle" font-size="9" font-weight="bold" fill="#1d4ed8">统一 Query 空间</text>
+  <text x="582" y="133" font-size="7" fill="#475569">感知 query (300个) ←→ 推理 query (64个)</text>
+  <text x="582" y="151" font-size="7" fill="#475569">在每层 Transformer 中</text>
+  <text x="582" y="167" font-size="7" fill="#475569">self-attend 充分交互</text>
+
+  <path d="M682,175 L682,187" stroke="#94a3b8" stroke-width="1" marker-end="url(#arrow)"/>
+
+  <rect x="590" y="190" width="185" height="40" rx="4" fill="#f0fdf4" stroke="#bbf7d0" stroke-width="0.5"/>
+  <text x="682" y="208" text-anchor="middle" font-size="8" font-weight="bold" fill="#166534">双向信息流</text>
+  <text x="598" y="224" font-size="7" fill="#64748b">感知←语义 双向增强</text>
+
+  <rect x="575" y="250" width="215" height="35" rx="5" fill="#f0fdf4" stroke="#bbf7d0" stroke-width="0.5"/>
+  <text x="682" y="266" text-anchor="middle" font-size="8" fill="#166534">代表: SparseOccVLA</text>
+  <text x="582" y="280" font-size="7" fill="#64748b">CVPR 2026, 最深层次融合</text>
+
+  <!-- Stage 4: 2026+ -->
+  <rect x="825" y="50" width="245" height="330" rx="8" fill="url(#g-bg4)" stroke="#c4b5fd" stroke-width="1" filter="url(#shadow)"/>
+  <rect x="825" y="50" width="245" height="30" rx="8" fill="#8b5cf6"/>
+  <rect x="825" y="66" width="245" height="14" fill="#8b5cf6"/>
+  <text x="947" y="71" text-anchor="middle" font-size="12" font-weight="bold" fill="white">2026+: 三位一体融合</text>
+
+  <rect x="840" y="95" width="215" height="55" rx="5" fill="white" stroke="#8b5cf6" stroke-width="1"/>
+  <text x="947" y="113" text-anchor="middle" font-size="9" font-weight="bold" fill="#6d28d9">感知 + VLA + 世界模型</text>
+  <text x="847" y="133" font-size="7" fill="#475569">共享隐空间表征</text>
+  <text x="847" y="147" font-size="7" fill="#475569">预测想象 + 反思推理</text>
+
+  <path d="M947,150 L947,162" stroke="#94a3b8" stroke-width="1" marker-end="url(#arrow)"/>
+
+  <rect x="840" y="165" width="215" height="55" rx="5" fill="white" stroke="#8b5cf6" stroke-width="1"/>
+  <text x="947" y="183" text-anchor="middle" font-size="9" font-weight="bold" fill="#6d28d9">世界模型做"想象"</text>
+  <text x="847" y="201" font-size="7" fill="#475569">预测"如果加速会怎样"</text>
+  <text x="847" y="215" font-size="7" fill="#475569">反思"刚才的决策对吗"</text>
+
+  <rect x="840" y="240" width="215" height="35" rx="5" fill="#faf5ff" stroke="#e9d5ff" stroke-width="0.5"/>
+  <text x="947" y="256" text-anchor="middle" font-size="8" fill="#6d21a8">代表: VLA-World</text>
+  <text x="847" y="270" font-size="7" fill="#64748b">CVPR 2026, 最前沿趋势</text>
+
+  <!-- Arrow between stages -->
+  <path d="M275,215 L290,215" stroke="#94a3b8" stroke-width="1" marker-end="url(#arrow)"/>
+  <path d="M540,215 L555,215" stroke="#94a3b8" stroke-width="1" marker-end="url(#arrow)"/>
+  <path d="M805,215 L820,215" stroke="#94a3b8" stroke-width="1" marker-end="url(#arrow)"/>
+
+  <!-- Bottom trend line -->
+  <rect x="30" y="390" width="1040" height="1" fill="#e2e8f0"/>
+  <text x="550" y="398" text-anchor="middle" font-size="9" fill="#64748b">趋势: 弱融合 → 中融合 → 强融合 → 三位一体 (感知从不消失, 只越融越深)</text>
+</svg>
