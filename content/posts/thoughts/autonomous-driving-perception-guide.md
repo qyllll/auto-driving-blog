@@ -93,12 +93,16 @@ LiDAR 点云的处理方法经历了三代演进：
 ### 检测输出
 
 每个被检测到的目标输出一个结构化向量：
-```
-{ID, 类别(car/pedestrian/cyclist/…), 
- x, y, z(中心位置), w, l, h(尺寸), 
- yaw(朝向角), vx, vy(速度),
- confidence(置信度)}
-```
+
+| 字段 | 含义 | 示例 |
+|------|------|------|
+| ID | 目标唯一编号 | 0, 1, 2, ... |
+| 类别 | 语义分类 | car, pedestrian, cyclist |
+| x, y, z | 3D 中心位置（米） | 10.5, 2.3, 0.0 |
+| w, l, h | 3D 尺寸（米） | 1.8, 4.5, 1.5 |
+| yaw | 朝向角（弧度） | 0.52 |
+| vx, vy | 速度（m/s） | 5.0, 0.0 |
+| confidence | 置信度 | 0.95 |
 
 常用数据集和指标：KITTI（mAP）、nuScenes（NDS）、Waymo Open Dataset（mAP/mAPH）。
 
@@ -215,15 +219,13 @@ InfoFusion 2025 年综述指出："3D 占用感知正在成为自动驾驶感知
 
 经过以上六层处理后，感知模块的输出可以概括为：
 
-```
-感知输出 = {
-  3D 目标列表: [{ID, class, x,y,z,w,l,h,yaw,vx,vy,conf}] × N,
-  可行驶区域: BEV grid {free/occupied} × H×W,
-  车道线结构: [{line_type, curve_params}] × M,
-  3D 占用: occupancy_grid × X×Y×Z,
-  跟踪轨迹: [{ID, history_positions, estimated_velocity, intent}] × N
-}
-```
+| 输出项 | 格式 | 说明 |
+|--------|------|------|
+| 3D 目标列表 | `[{ID, class, x, y, z, w, l, h, yaw, vx, vy, conf}]` x N 个目标 | 每个交通参与者的完整状态 |
+| 可行驶区域 | BEV grid `{free, occupied}` x H x W | 告诉规划器哪里能走 |
+| 车道线结构 | `[{line_type, curve_params}]` x M 条车道 | 车道拓扑和线型 |
+| 3D 占用 | `occupancy_grid` x X x Y x Z | 体素级占用和语义 |
+| 跟踪轨迹 | `[{ID, history, velocity, intent}]` x N | 带 ID 的稳定轨迹 |
 
 这些结构化的数据传给**预测模块**做交互推理，再传给**规划模块**做轨迹生成。
 
@@ -267,16 +269,12 @@ InfoFusion 2025 年综述指出："3D 占用感知正在成为自动驾驶感知
 
 ## 感知技术的演进脉络
 
-```
-2017-2019            2020-2022             2023-2024              2025-2026
-2D检测+后处理         BEV感知兴起           占用网络崛起            感知统一化
-│                    │                     │                      │
-├─ VoxelNet(2018)    ├─ LSS(2020)          ├─ OccNet(2023)        ├─ SparseOccVLA
-├─ PointPillars(2019) ├─ BEVFormer(2022)    ├─ PanoOcc(2024)       ├─ OccVLA
-├─ SECOND(2018)      ├─ BEVFusion(2022)     ├─ Cam4DOcc(2024)      ├─ HENet++
-│                    ├─ DETR3D(2021)        ├─ OccWorld(2024)      └─ UniSparseBEV
-└─ Frustum PointNet   └─ PETR(2022)         └─ UnO(2024)
-```
+| 时期 | 主流范式 | 代表工作 |
+|------|---------|---------|
+| 2017-2019 | 2D检测+后处理 | VoxelNet, PointPillars, SECOND, Frustum PointNet |
+| 2020-2022 | BEV感知兴起 | LSS, BEVFormer, BEVFusion, DETR3D, PETR |
+| 2023-2024 | 占用网络崛起 | OccNet, PanoOcc, Cam4DOcc, OccWorld, UnO |
+| 2025-2026 | 感知统一化 | SparseOccVLA, OccVLA, HENet++, UniSparseBEV |
 
 每条技术路线不是替代关系，而是适用于不同的工业化阶段和成本约束。PointPillars 到今天仍然是最好的工程选择之一，BEV 是 2022-2025 的主流，占用是 2024 开始兴起的新范式。
 
