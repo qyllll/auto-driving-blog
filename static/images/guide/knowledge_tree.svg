@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 800" font-family="system-ui, -apple-system, sans-serif">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 800" font-family="system-ui, -apple-system, 'Noto Sans SC', sans-serif">
   <defs>
     <linearGradient id="g1" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#6366f1"/><stop offset="100%" stop-color="#8b5cf6"/></linearGradient>
     <linearGradient id="g2" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#10b981"/><stop offset="100%" stop-color="#059669"/></linearGradient>
@@ -12,9 +12,9 @@
   <text x="550" y="35" text-anchor="middle" font-size="20" font-weight="bold" fill="#1e293b">自动驾驶知识体系：依赖图谱与自测路径</text>
   <line x1="60" y1="48" x2="1040" y2="48" stroke="#e2e8f0" stroke-width="1"/>
 
-  <!-- Layer 1: Foundation -->
+  <!-- Layer 1 -->
   <rect x="40" y="60" width="1020" height="28" rx="5" fill="#1e293b"/>
-  <text x="550" y="79" text-anchor="middle" font-size="12" font-weight="bold" fill="#e2e8f0">第一层：基础基石（必须掌握）</text>
+  <text x="550" y="79" text-anchor="middle" font-size="12" font-weight="bold" fill="#e2e8f0">[第一层] 基础基石（必须掌握）</text>
 
   <rect x="50" y="96" width="150" height="40" rx="6" fill="white" stroke="#475569" stroke-width="1" filter="url(#shadow)"/>
   <text x="125" y="111" text-anchor="middle" font-size="10" font-weight="bold" fill="#1e293b">Transformer</text>
@@ -40,15 +40,14 @@
   <text x="975" y="111" text-anchor="middle" font-size="10" font-weight="bold" fill="#1e293b">评测体系</text>
   <text x="975" y="126" text-anchor="middle" font-size="8" fill="#64748b">开环/闭环/NAVSIM</text>
 
-  <!-- Layer 2: Core -->
+  <!-- Layer 2 -->
   <rect x="40" y="155" width="1020" height="28" rx="5" fill="url(#g1)"/>
-  <text x="550" y="174" text-anchor="middle" font-size="12" font-weight="bold" fill="white">第二层：核心范式（深入理解至少 2 个）</text>
+  <text x="550" y="174" text-anchor="middle" font-size="12" font-weight="bold" fill="white">[第二层] 核心范式（深入理解至少 2 个）</text>
 
-  <!-- Column 1: E2E -->
+  <!-- E2E -->
   <rect x="50" y="192" width="220" height="130" rx="6" fill="white" stroke="#6366f1" stroke-width="1.5" filter="url(#shadow)"/>
-  <rect x="50" y="192" width="220" height="24" rx="6" fill="url(#g1)"/>
-  <rect x="50" y="206" width="220" height="10" fill="url(#g1)"/>
-  <text x="160" y="209" text-anchor="middle" font-size="11" font-weight="bold" fill="white">🔗 端到端 E2E</text>
+  <rect x="50" y="192" width="220" height="24" rx="6" fill="url(#g1)"/><rect x="50" y="206" width="220" height="10" fill="url(#g1)"/>
+  <text x="160" y="209" text-anchor="middle" font-size="11" font-weight="bold" fill="white">[E2E] 端到端</text>
   <text x="60" y="230" font-size="9" fill="#475569">三代架构演进路径</text>
   <text x="60" y="246" font-size="9" fill="#475569">UniAD / VAD 精读</text>
   <text x="60" y="262" font-size="9" fill="#475569">SparseDrive 稀疏化设计</text>
@@ -56,23 +55,21 @@
   <text x="60" y="294" font-size="9" fill="#475569">Loss设计/评测体系</text>
   <text x="60" y="310" font-size="8" fill="#94a3b8">推荐：E2E 演进 + VAD 精读</text>
 
-  <!-- Column 2: VLA -->
+  <!-- VLA -->
   <rect x="290" y="192" width="220" height="130" rx="6" fill="white" stroke="#10b981" stroke-width="1.5" filter="url(#shadow)"/>
-  <rect x="290" y="192" width="220" height="24" rx="6" fill="url(#g2)"/>
-  <rect x="290" y="206" width="220" height="10" fill="url(#g2)"/>
-  <text x="400" y="209" text-anchor="middle" font-size="11" font-weight="bold" fill="white">🧠 VLA 模型</text>
+  <rect x="290" y="192" width="220" height="24" rx="6" fill="url(#g2)"/><rect x="290" y="206" width="220" height="10" fill="url(#g2)"/>
+  <text x="400" y="209" text-anchor="middle" font-size="11" font-weight="bold" fill="white">[VLA] 视觉-语言-动作</text>
   <text x="300" y="230" font-size="9" fill="#475569">三组件架构（视觉+LLM+动作头）</text>
-  <text x="300" y="246" font-size="9" fill="#475569">三代动作头演进（离散→扩散→CoT）</text>
-  <text x="300" y="262" font-size="9" fill="#475569">三阶段训练（预训练→SFT→RLHF）</text>
-  <text x="300" y="278" font-size="9" fill="#475569">π0 / GR-3 / DriveVLM 对比</text>
+  <text x="300" y="246" font-size="9" fill="#475569">三代动作头（离散-扩散-CoT）</text>
+  <text x="300" y="262" font-size="9" fill="#475569">三阶段训练（预训练-SFT-RLHF）</text>
+  <text x="300" y="278" font-size="9" fill="#475569">pi0 / GR-3 / DriveVLM 对比</text>
   <text x="300" y="294" font-size="9" fill="#475569">实时性/安全性/车端部署</text>
   <text x="300" y="310" font-size="8" fill="#94a3b8">推荐：VLA 详解 + 前沿VLA速览</text>
 
-  <!-- Column 3: World Model -->
+  <!-- World Model -->
   <rect x="530" y="192" width="220" height="130" rx="6" fill="white" stroke="#f59e0b" stroke-width="1.5" filter="url(#shadow)"/>
-  <rect x="530" y="192" width="220" height="24" rx="6" fill="url(#g3)"/>
-  <rect x="530" y="206" width="220" height="10" fill="url(#g3)"/>
-  <text x="640" y="209" text-anchor="middle" font-size="11" font-weight="bold" fill="white">🔮 世界模型</text>
+  <rect x="530" y="192" width="220" height="24" rx="6" fill="url(#g3)"/><rect x="530" y="206" width="220" height="10" fill="url(#g3)"/>
+  <text x="640" y="209" text-anchor="middle" font-size="11" font-weight="bold" fill="white">[World Model] 世界模型</text>
   <text x="540" y="230" font-size="9" fill="#475569">三大预测空间（像素/潜在/占用）</text>
   <text x="540" y="246" font-size="9" fill="#475569">GAIA-1 / DriveDreamer / Cosmos</text>
   <text x="540" y="262" font-size="9" fill="#475569">三大应用（数据/仿真/规划）</text>
@@ -80,43 +77,42 @@
   <text x="540" y="294" font-size="9" fill="#475569">长程一致性/物理准确性</text>
   <text x="540" y="310" font-size="8" fill="#94a3b8">推荐：WM 全景 + 流派对比</text>
 
-  <!-- Column 4: Scoring -->
+  <!-- Scoring -->
   <rect x="770" y="192" width="280" height="130" rx="6" fill="white" stroke="#ef4444" stroke-width="1.5" filter="url(#shadow)"/>
-  <rect x="770" y="192" width="280" height="24" rx="6" fill="url(#g4)"/>
-  <rect x="770" y="206" width="280" height="10" fill="url(#g4)"/>
-  <text x="910" y="209" text-anchor="middle" font-size="11" font-weight="bold" fill="white">⚡ Scoring + RL</text>
-  <text x="780" y="230" font-size="9" fill="#475569">词汇表/Vocab vs 动态生成 vs 扩散范式</text>
-  <text x="780" y="246" font-size="9" fill="#475569">SparseDriveV2 因子化词汇表+层级评分</text>
+  <rect x="770" y="192" width="280" height="24" rx="6" fill="url(#g4)"/><rect x="770" y="206" width="280" height="10" fill="url(#g4)"/>
+  <text x="910" y="209" text-anchor="middle" font-size="11" font-weight="bold" fill="white">[Scoring + RL] 评分与强化</text>
+  <text x="780" y="230" font-size="9" fill="#475569">词汇表 vs 动态生成 vs 扩散</text>
+  <text x="780" y="246" font-size="9" fill="#475569">SparseDriveV2 因子化+层级评分</text>
   <text x="780" y="262" font-size="9" fill="#475569">Flow-GRPO / DiffGRPO 对比</text>
-  <text x="780" y="278" font-size="9" fill="#475569">Reward Guidance / Rejection / Policy Gradient</text>
-  <text x="780" y="294" font-size="9" fill="#475569">GR vs PPO / on-policy vs off-policy</text>
-  <text x="780" y="310" font-size="8" fill="#94a3b8">推荐：Scoring 详解 + Flow-GRPO 详解</text>
+  <text x="780" y="278" font-size="9" fill="#475569">Reward Guidance/Rejection/PG</text>
+  <text x="780" y="294" font-size="9" fill="#475569">GRPO vs PPO / on vs off-policy</text>
+  <text x="780" y="310" font-size="8" fill="#94a3b8">推荐：Scoring 详解 + Flow-GRPO</text>
 
   <!-- Layer 3: Advanced -->
   <rect x="40" y="345" width="1020" height="28" rx="5" fill="url(#g5)"/>
-  <text x="550" y="364" text-anchor="middle" font-size="12" font-weight="bold" fill="white">第三层：进阶方向（选 1-2 个深入）</text>
+  <text x="550" y="364" text-anchor="middle" font-size="12" font-weight="bold" fill="white">[第三层] 进阶方向（选 1-2 个深入）</text>
 
   <rect x="50" y="382" width="320" height="85" rx="6" fill="white" stroke="#3b82f6" stroke-width="1.5" filter="url(#shadow)"/>
-  <text x="210" y="400" text-anchor="middle" font-size="11" font-weight="bold" fill="#2563eb">🧩 JEPA & 表征式世界模型</text>
-  <text x="60" y="418" font-size="9" fill="#475569">I-JEPA → V-JEPA → V-JEPA 2 演进</text>
+  <text x="210" y="400" text-anchor="middle" font-size="11" font-weight="bold" fill="#2563eb">[JEPA] 表征式世界模型</text>
+  <text x="60" y="418" font-size="9" fill="#475569">I-JEPA - V-JEPA - V-JEPA 2 演进</text>
   <text x="60" y="434" font-size="9" fill="#475569">Context Encoder + Target Encoder(EMA) + Predictor</text>
   <text x="60" y="450" font-size="9" fill="#475569">DRIVE-JEPA(特征提取) vs JEPA-DRIVE(自监督评分)</text>
 
   <rect x="390" y="382" width="320" height="85" rx="6" fill="white" stroke="#3b82f6" stroke-width="1.5" filter="url(#shadow)"/>
-  <text x="550" y="400" text-anchor="middle" font-size="11" font-weight="bold" fill="#2563eb">🌊 Flow-GRPO & 强化生成</text>
+  <text x="550" y="400" text-anchor="middle" font-size="11" font-weight="bold" fill="#2563eb">[Flow-GRPO] 强化生成</text>
   <text x="400" y="418" font-size="9" fill="#475569">ODE-to-SDE 转换 / Denoising Reduction</text>
-  <text x="400" y="434" font-size="9" fill="#475569">GRPO 组内优势 ($r_i-\bar r)/\sigma$，无需 critic</text>
-  <text x="400" y="450" font-size="9" fill="#475569">Flow-GRPO-Fast 窗口训练 / GRPO-Guard 防过优化</text>
+  <text x="400" y="434" font-size="9" fill="#475569">GRPO 组内优势 (r_i-mean)/std，无需 critic</text>
+  <text x="400" y="450" font-size="9" fill="#475569">Flow-GRPO-Fast 窗口 / GRPO-Guard 防过优化</text>
 
   <rect x="730" y="382" width="320" height="85" rx="6" fill="white" stroke="#3b82f6" stroke-width="1.5" filter="url(#shadow)"/>
-  <text x="890" y="400" text-anchor="middle" font-size="11" font-weight="bold" fill="#2563eb">🏭 工业方案 & 工程实践</text>
-  <text x="740" y="418" font-size="9" fill="#475569">FSD V12+ One-Model vs Momenta 模块化+数据驱动</text>
-  <text x="740" y="434" font-size="9" fill="#475569">华为ADS 多传感器+规则 vs 小鹏XNGP 渐进式E2E</text>
-  <text x="740" y="450" font-size="9" fill="#475569">影子模式 / 数据飞轮 / 仿真 vs 真实数据策略</text>
+  <text x="890" y="400" text-anchor="middle" font-size="11" font-weight="bold" fill="#2563eb">[Industry] 工业工程实践</text>
+  <text x="740" y="418" font-size="9" fill="#475569">FSD V12+ One-Model vs Momenta 模块化</text>
+  <text x="740" y="434" font-size="9" fill="#475569">华为ADS 多传感器+规则 vs 小鹏渐进E2E</text>
+  <text x="740" y="450" font-size="9" fill="#475569">影子模式 / 数据飞轮 / 仿真数据策略</text>
 
-  <!-- Layer 4: Cutting Edge -->
+  <!-- Layer 4 -->
   <rect x="40" y="485" width="1020" height="28" rx="5" fill="url(#g6)"/>
-  <text x="550" y="504" text-anchor="middle" font-size="12" font-weight="bold" fill="#e2e8f0">第四层：前沿方向（2026 年热点，建议追踪）</text>
+  <text x="550" y="504" text-anchor="middle" font-size="12" font-weight="bold" fill="#e2e8f0">[第四层] 前沿方向（2026 热点）</text>
 
   <rect x="50" y="522" width="240" height="70" rx="6" fill="#1e293b" filter="url(#shadow)"/>
   <text x="170" y="542" text-anchor="middle" font-size="10" font-weight="bold" fill="#e2e8f0">VLA + 世界模型融合</text>
@@ -135,23 +131,23 @@
 
   <rect x="830" y="522" width="220" height="70" rx="6" fill="#1e293b" filter="url(#shadow)"/>
   <text x="940" y="542" text-anchor="middle" font-size="10" font-weight="bold" fill="#e2e8f0">端到端 + GRPO</text>
-  <text x="840" y="558" font-size="9" fill="#94a3b8">Flow-GRPO → DiffGRPO</text>
+  <text x="840" y="558" font-size="9" fill="#94a3b8">Flow-GRPO - DiffGRPO</text>
   <text x="840" y="574" font-size="9" fill="#94a3b8">RL 超越模仿学习上限</text>
 
-  <!-- Self-check section -->
+  <!-- Self-check -->
   <rect x="40" y="610" width="1020" height="170" rx="8" fill="white" stroke="#f59e0b" stroke-width="1.5" filter="url(#shadow)"/>
-  <text x="550" y="635" text-anchor="middle" font-size="14" font-weight="bold" fill="#d97706">📋 知识自测清单</text>
+  <text x="550" y="635" text-anchor="middle" font-size="14" font-weight="bold" fill="#d97706">[知识自测清单]</text>
   <text x="60" y="660" font-size="10" font-weight="bold" fill="#1e293b">基础层（每题 2 分，共 20 分）：</text>
-  <text x="60" y="678" font-size="9" fill="#475569">□ 能说清 Transformer Cross-Attention 的计算流程和复杂度</text>
-  <text x="600" y="678" font-size="9" fill="#475569">□ 能解释 BEV 视角变换（LSS 方法）的原理</text>
-  <text x="60" y="696" font-size="9" fill="#475569">□ 能对比扩散模型和 Flow Matching 的核心区别</text>
-  <text x="600" y="696" font-size="9" fill="#475569">□ 能讲清 PPO 的 clipped objective 为什么有效</text>
-  <text x="60" y="714" font-size="9" fill="#475569">□ 能对比开环评测和闭环评测的优缺点</text>
-  <text x="600" y="714" font-size="9" fill="#475569">□ 能解释 PDMS 指标的组成和设计意图</text>
+  <text x="60" y="678" font-size="9" fill="#475569">[ ] 能说清 Transformer Cross-Attention 的计算流程和复杂度</text>
+  <text x="600" y="678" font-size="9" fill="#475569">[ ] 能解释 BEV 视角变换（LSS 方法）的原理</text>
+  <text x="60" y="696" font-size="9" fill="#475569">[ ] 能对比扩散模型和 Flow Matching 的核心区别</text>
+  <text x="600" y="696" font-size="9" fill="#475569">[ ] 能讲清 PPO 的 clipped objective 为什么有效</text>
+  <text x="60" y="714" font-size="9" fill="#475569">[ ] 能对比开环评测和闭环评测的优缺点</text>
+  <text x="600" y="714" font-size="9" fill="#475569">[ ] 能解释 PDMS 指标的组成和设计意图</text>
 
   <text x="60" y="740" font-size="10" font-weight="bold" fill="#1e293b">核心层（每题 4 分，共 40 分）：</text>
-  <text x="60" y="758" font-size="9" fill="#475569">□ 能梳理端到端三代架构的演进脉络和关键代表工作</text>
-  <text x="600" y="758" font-size="9" fill="#475569">□ 能比较三种动作头（离散/回归/扩散）的 trade-off</text>
-  <text x="60" y="776" font-size="9" fill="#475569">□ 能说出世界模型三大预测空间及其适用场景</text>
-  <text x="600" y="776" font-size="9" fill="#475569">□ 能对比 Scoring 三大范式并说出各自局限</text>
+  <text x="60" y="758" font-size="9" fill="#475569">[ ] 能梳理端到端三代架构的演进脉络和关键代表工作</text>
+  <text x="600" y="758" font-size="9" fill="#475569">[ ] 能比较三种动作头（离散/回归/扩散）的 trade-off</text>
+  <text x="60" y="776" font-size="9" fill="#475569">[ ] 能说出世界模型三大预测空间及其适用场景</text>
+  <text x="600" y="776" font-size="9" fill="#475569">[ ] 能对比 Scoring 三大范式并说出各自局限</text>
 </svg>
