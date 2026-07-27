@@ -882,13 +882,12 @@ def flow_grpo_train_step(model, scenes, reward_fn, group_size=8, K=2):
 
 #### 阶段 1：SFT 预训练（初始化）
 
-```
-数据：nuScenes / NAVSIM 专家轨迹
-目标：训练 Flow/Diffusion 模型学会"合理轨迹长什么样"
-损失：L = E[ ||v - v_θ(x_t, t)||² ]  (Flow)
-      或 L = E[ ||ε - ε_θ(x_t, t)||² ] (Diffusion)
-结果：模型可以生成多样化的合理轨迹
-```
+| 项目 | 内容 |
+|:----|:----|
+| 数据 | nuScenes / NAVSIM 专家轨迹 |
+| 目标 | 训练 Flow/Diffusion 模型学会"合理轨迹长什么样" |
+| 损失 | Flow: L = E[ \|\|v - v_θ(x_t, t)\|\|² ] 或 Diffusion: L = E[ \|\|ε - ε_θ(x_t, t)\|\|² ] |
+| 结果 | 模型可以生成多样化的合理轨迹 |
 
 这个阶段不涉及任何 RL。目标是让模型有一个好的初始化——在"合理的轨迹空间"内采样。
 
