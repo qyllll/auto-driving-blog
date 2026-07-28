@@ -1,0 +1,95 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 500" font-family="Arial, sans-serif">
+  <!-- Background -->
+  <rect width="900" height="500" fill="#f8f9fa"/>
+  
+  <!-- Title -->
+  <text x="450" y="35" text-anchor="middle" font-size="20" font-weight="bold" fill="#2c3e50">具身智能发展历程</text>
+  
+  <!-- Timeline line -->
+  <line x1="80" y1="120" x2="820" y2="120" stroke="#3498db" stroke-width="4"/>
+  
+  <!-- Timeline nodes -->
+  <!-- 1950s -->
+  <circle cx="120" cy="120" r="12" fill="#e74c3c"/>
+  <text x="120" y="105" text-anchor="middle" font-size="12" font-weight="bold" fill="#c0392b">1950s</text>
+  <text x="120" y="150" text-anchor="middle" font-size="10" fill="#555">Turing Test</text>
+  <text x="120" y="165" text-anchor="middle" font-size="9" fill="#777">智能行为测试</text>
+  
+  <!-- 1980s -->
+  <circle cx="220" cy="120" r="12" fill="#e67e22"/>
+  <text x="220" y="105" text-anchor="middle" font-size="12" font-weight="bold" fill="#d35400">1980s</text>
+  <text x="220" y="150" text-anchor="middle" font-size="10" fill="#555">行为机器人学</text>
+  <text x="220" y="165" text-anchor="middle" font-size="9" fill="#777">Brooks包容架构</text>
+  
+  <!-- 1990s -->
+  <circle cx="320" cy="120" r="12" fill="#f1c40f"/>
+  <text x="320" y="105" text-anchor="middle" font-size="12" font-weight="bold" fill="#f39c12">1990s</text>
+  <text x="320" y="150" text-anchor="middle" font-size="10" fill="#555">MIT Cog项目</text>
+  <text x="320" y="165" text-anchor="middle" font-size="9" fill="#777">类人机器人</text>
+  
+  <!-- 2010s -->
+  <circle cx="420" cy="120" r="12" fill="#2ecc71"/>
+  <text x="420" y="105" text-anchor="middle" font-size="12" font-weight="bold" fill="#27ae60">2010s</text>
+  <text x="420" y="150" text-anchor="middle" font-size="10" fill="#555">深度强化学习</text>
+  <text x="420" y="165" text-anchor="middle" font-size="9" fill="#777">DQN, A3C突破</text>
+  
+  <!-- 2020s -->
+  <circle cx="520" cy="120" r="12" fill="#3498db"/>
+  <text x="520" y="105" text-anchor="middle" font-size="12" font-weight="bold" fill="#2980b9">2020s</text>
+  <text x="520" y="150" text-anchor="middle" font-size="10" fill="#555">基础模型时代</text>
+  <text x="520" y="165" text-anchor="middle" font-size="9" fill="#777">CLIP, GPT-4, VLA</text>
+  
+  <!-- 2023 -->
+  <circle cx="620" cy="120" r="15" fill="#9b59b6"/>
+  <text x="620" y="100" text-anchor="middle" font-size="12" font-weight="bold" fill="#8e44ad">2023</text>
+  <text x="620" y="150" text-anchor="middle" font-size="10" fill="#555">PaLM-E, RT-2</text>
+  <text x="620" y="165" text-anchor="middle" font-size="9" fill="#777">VLA模型爆发</text>
+  
+  <!-- 2024 -->
+  <circle cx="720" cy="120" r="15" fill="#e91e63"/>
+  <text x="720" y="100" text-anchor="middle" font-size="12" font-weight="bold" fill="#c2185b">2024</text>
+  <text x="720" y="150" text-anchor="middle" font-size="10" fill="#555">π₀, OpenVLA</text>
+  <text x="720" y="165" text-anchor="middle" font-size="9" fill="#777">开源生态繁荣</text>
+  
+  <!-- Key milestones boxes -->
+  <rect x="50" y="200" width="250" height="120" rx="8" fill="#ecf0f1" stroke="#bdc3c7"/>
+  <text x="60" y="225" font-size="13" font-weight="bold" fill="#2c3e50">传统机器人学（1950-2010）</text>
+  <text x="60" y="248" font-size="10" fill="#555">• 符号AI + 专家系统</text>
+  <text x="60" y="265" font-size="10" fill="#555">• 行为机器人学（感知-动作循环）</text>
+  <text x="60" y="282" font-size="10" fill="#555">• 手工特征工程</text>
+  <text x="60" y="299" font-size="10" fill="#555">• 受限于环境复杂度</text>
+  
+  <rect x="330" y="200" width="250" height="120" rx="8" fill="#ecf0f1" stroke="#bdc3c7"/>
+  <text x="340" y="225" font-size="13" font-weight="bold" fill="#2c3e50">深度学习革命（2010-2022）</text>
+  <text x="340" y="248" font-size="10" fill="#555">• 端到端学习（DQN, A3C）</text>
+  <text x="340" y="265" font-size="10" fill="#555">• 模仿学习兴起</text>
+  <text x="340" y="282" font-size="10" fill="#555">• 仿真到真实迁移</text>
+  <text x="340" y="299" font-size="10" fill="#555">• 数据效率仍是瓶颈</text>
+  
+  <rect x="610" y="200" width="250" height="120" rx="8" fill="#ecf0f1" stroke="#bdc3c7"/>
+  <text x="620" y="225" font-size="13" font-weight="bold" fill="#2c3e50">基础模型时代（2023-至今）</text>
+  <text x="620" y="248" font-size="10" fill="#555">• VLA模型（RT-2, π₀）</text>
+  <text x="620" y="265" font-size="10" fill="#555">• 多模态融合（PaLM-E）</text>
+  <text x="620" y="282" font-size="10" fill="#555">• 开源生态（OpenVLA, Octo）</text>
+  <text x="620" y="299" font-size="10" fill="#555">• 具身智能协同</text>
+  
+  <!-- Future direction arrow -->
+  <path d="M 100 380 L 800 380" stroke="#3498db" stroke-width="2" stroke-dasharray="8,4"/>
+  <text x="450" y="375" text-anchor="middle" font-size="13" font-weight="bold" fill="#2c3e50">未来方向</text>
+  
+  <rect x="100" y="395" width="160" height="50" rx="5" fill="#3498db" opacity="0.8"/>
+  <text x="180" y="418" text-anchor="middle" font-size="11" fill="white">形态-动作-感知</text>
+  <text x="180" y="433" text-anchor="middle" font-size="10" fill="white">深度协同</text>
+  
+  <rect x="290" y="395" width="160" height="50" rx="5" fill="#2ecc71" opacity="0.8"/>
+  <text x="370" y="418" text-anchor="middle" font-size="11" fill="white">虚实对齐</text>
+  <text x="370" y="433" text-anchor="middle" font-size="10" fill="white">Sim-to-Real迁移</text>
+  
+  <rect x="480" y="395" width="160" height="50" rx="5" fill="#9b59b6" opacity="0.8"/>
+  <text x="560" y="418" text-anchor="middle" font-size="11" fill="white">多智能体</text>
+  <text x="560" y="433" text-anchor="middle" font-size="10" fill="white">协作系统</text>
+  
+  <rect x="670" y="395" width="160" height="50" rx="5" fill="#e74c3c" opacity="0.8"/>
+  <text x="750" y="418" text-anchor="middle" font-size="11" fill="white">安全与伦理</text>
+  <text x="750" y="433" text-anchor="middle" font-size="10" fill="white">可信赖AI</text>
+</svg>

@@ -10,7 +10,7 @@ summary: "首篇系统性综述视觉-语言-动作（VLA）模型的文章，�
 
 ## 📄 论文信息
 
-![VLA模型通用架构：视觉编码器提取PVRs，LLM编码语言指令，通过多种策略对齐视觉-语言嵌入并预测动作](/images/paper/2405.14093/figure1.png)
+<img src="/images/paper/2405.14093/figure1.png" alt="VLA模型通用架构" style="width:100%; max-width:900px; display:block; margin:0 auto;">
 
 - **标题**：*A Survey on Vision-Language-Action Models for Embodied AI*（具身智能视觉-语言-动作模型综述）
 - **团队**：香港中文大学（Yueen Ma, Irwin King）、布里斯托大学（Zixing Song）、华为诺亚方舟实验室（Yuzheng Zhuang, Jianye Hao）
@@ -46,7 +46,7 @@ VLA模型近年来经历了爆发式增长，涉及的研究方向众多且相�
 
 ## 📚 综述覆盖范围
 
-![VLA模型分类体系：组件、控制策略和任务规划的层级结构](/images/paper/2405.14093/figure3.png)
+<img src="/images/paper/2405.14093/figure3.png" alt="VLA模型分类体系" style="width:100%; max-width:900px; display:block; margin:0 auto;">
 
 ### 第一部分：VLA模型的核心组件
 
@@ -131,7 +131,7 @@ VLA模型中的推理研究包括：
 - **技能发现**：利用LLMs自动发现和组合基本技能
 - **任务分解**：将复杂任务分解为可执行的子任务序列
 
-![VLA模型层级框架：高级任务规划器分解任务，低级控制策略执行动作](/images/paper/2405.14093/figure4.png)
+<img src="/images/paper/2405.14093/figure4.png" alt="VLA模型层级框架" style="width:100%; max-width:900px; display:block; margin:0 auto;">
 
 ### 第二部分：低级控制策略
 
@@ -165,7 +165,7 @@ VLA模型中的推理研究包括：
 - **扩散动作**：通过扩散过程生成动作序列
 - **动作块（Action Chunk）**：预测未来多步动作的序列
 
-![PVRs训练目标对比：不同预训练方法的数学形式化](/images/paper/2405.14093/figure5.png)
+<img src="/images/paper/2405.14093/figure5.png" alt="PVRs训练目标对比" style="width:100%; max-width:900px; display:block; margin:0 auto;">
 
 ### 第三部分：高级任务规划
 
@@ -195,7 +195,7 @@ VLA模型中的推理研究包括：
 
 ---
 
-![VLA模型概念图与时间线：从单模态模型到VLA模型的演进](/images/paper/2405.14093/figure2.png)
+<img src="/images/paper/2405.14093/figure2.png" alt="VLA模型概念图与时间线" style="width:100%; max-width:900px; display:block; margin:0 auto;">
 
 ## 🗺️ 技术路线图
 
@@ -226,7 +226,7 @@ VLA模型中的推理研究包括：
 
 这种分类体系体现了当前机器人系统的层级框架：高级任务规划器利用大容量模型进行任务分解，低级控制策略专注于速度和精度，形成类似于层级强化学习的架构。
 
-![动力学学习方法对比：前向/逆向动力学的数学形式化](/images/paper/2405.14093/figure6.png)
+<img src="/images/paper/2405.14093/figure6.png" alt="动力学学习方法对比" style="width:100%; max-width:900px; display:block; margin:0 auto;">
 
 ---
 
@@ -245,7 +245,7 @@ VLA模型中的推理研究包括：
 | Code as Policies | Google | 2022 | LLM→代码 | - | 代码生成规划 |
 | ECoT | - | 2023 | LLM+思维链 | - | 具身推理 |
 
-![数据集与基准测试：真实世界机器人数据集和仿真环境](/images/paper/2405.14093/figure7.png)
+<img src="/images/paper/2405.14093/figure7.png" alt="数据集与基准测试" style="width:100%; max-width:900px; display:block; margin:0 auto;">
 
 ---
 
@@ -283,7 +283,7 @@ VLA模型中的推理研究包括：
 
 5. **开源生态的形成**：OpenVLA、Octo、LeRobot等开源项目的出现，正在推动VLA技术的民主化，降低研究门槛。
 
-![VLA模型面临的挑战与未来方向：安全、数据集、基础模型等](/images/paper/2405.14093/figure8.png)
+<img src="/images/paper/2405.14093/figure8.png" alt="VLA模型挑战与未来方向" style="width:100%; max-width:900px; display:block; margin:0 auto;">
 
 ---
 

@@ -1,0 +1,78 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600" font-family="Arial, sans-serif">
+  <!-- Background -->
+  <rect width="800" height="600" fill="#f8f9fa"/>
+  
+  <!-- Title -->
+  <text x="400" y="40" text-anchor="middle" font-size="22" font-weight="bold" fill="#2c3e50">具身智能：形态-动作-感知-学习协同框架</text>
+  
+  <!-- Central circle -->
+  <circle cx="400" cy="320" r="80" fill="#3498db" opacity="0.9"/>
+  <text x="400" y="315" text-anchor="middle" font-size="16" font-weight="bold" fill="white">具身智能</text>
+  <text x="400" y="335" text-anchor="middle" font-size="12" fill="white">Embodied Intelligence</text>
+  
+  <!-- Morphology (Top) -->
+  <rect x="320" y="80" width="160" height="70" rx="10" fill="#e74c3c" opacity="0.9"/>
+  <text x="400" y="110" text-anchor="middle" font-size="16" font-weight="bold" fill="white">形态</text>
+  <text x="400" y="130" text-anchor="middle" font-size="11" fill="white">Morphology</text>
+  
+  <!-- Action (Right) -->
+  <rect x="580" y="280" width="160" height="70" rx="10" fill="#2ecc71" opacity="0.9"/>
+  <text x="660" y="310" text-anchor="middle" font-size="16" font-weight="bold" fill="white">动作</text>
+  <text x="660" y="330" text-anchor="middle" font-size="11" fill="white">Action</text>
+  
+  <!-- Perception (Bottom) -->
+  <rect x="320" y="480" width="160" height="70" rx="10" fill="#9b59b6" opacity="0.9"/>
+  <text x="400" y="510" text-anchor="middle" font-size="16" font-weight="bold" fill="white">感知</text>
+  <text x="400" y="530" text-anchor="middle" font-size="11" fill="white">Perception</text>
+  
+  <!-- Learning (Left) -->
+  <rect x="60" y="280" width="160" height="70" rx="10" fill="#f39c12" opacity="0.9"/>
+  <text x="140" y="310" text-anchor="middle" font-size="16" font-weight="bold" fill="white">学习</text>
+  <text x="140" y="330" text-anchor="middle" font-size="11" fill="white">Learning</text>
+  
+  <!-- Connection lines with arrows -->
+  <!-- Morphology to Action -->
+  <line x1="480" y1="150" x2="580" y2="280" stroke="#e74c3c" stroke-width="3" marker-end="url(#arrow)"/>
+  <text x="545" y="200" font-size="10" fill="#c0392b" transform="rotate(35,545,200)">形态→动作</text>
+  
+  <!-- Action to Perception -->
+  <line x1="660" y1="350" x2="480" y2="480" stroke="#2ecc71" stroke-width="3" marker-end="url(#arrow)"/>
+  <text x="585" y="420" font-size="10" fill="#27ae60" transform="rotate(50,585,420)">动作→感知</text>
+  
+  <!-- Perception to Learning -->
+  <line x1="320" y1="510" x2="140" y2="350" stroke="#9b59b6" stroke-width="3" marker-end="url(#arrow)"/>
+  <text x="215" y="440" font-size="10" fill="#8e44ad" transform="rotate(65,215,440)">感知→学习</text>
+  
+  <!-- Learning to Morphology -->
+  <line x1="140" y1="280" x2="320" y2="150" stroke="#f39c12" stroke-width="3" marker-end="url(#arrow)"/>
+  <text x="215" y="200" font-size="10" fill="#d68910" transform="rotate(-35,215,200)">学习→形态</text>
+  
+  <!-- Bidirectional connections to center -->
+  <line x1="400" y1="150" x2="400" y2="240" stroke="#3498db" stroke-width="2" stroke-dasharray="5,5"/>
+  <line x1="580" y1="315" x2="480" y2="315" stroke="#3498db" stroke-width="2" stroke-dasharray="5,5"/>
+  <line x1="400" y1="480" x2="400" y2="400" stroke="#3498db" stroke-width="2" stroke-dasharray="5,5"/>
+  <line x1="220" y1="315" x2="320" y2="315" stroke="#3498db" stroke-width="2" stroke-dasharray="5,5"/>
+  
+  <!-- Arrow marker definition -->
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#555"/>
+    </marker>
+  </defs>
+  
+  <!-- Key insight box -->
+  <rect x="550" y="450" width="220" height="80" rx="8" fill="#ecf0f1" stroke="#bdc3c7" stroke-width="1"/>
+  <text x="560" y="475" font-size="12" font-weight="bold" fill="#2c3e50">核心洞察</text>
+  <text x="560" y="495" font-size="10" fill="#555">智能是大脑、身体与环境</text>
+  <text x="560" y="510" font-size="10" fill="#555">紧密耦合的协同产物</text>
+  
+  <!-- Legend -->
+  <rect x="30" y="550" width="15" height="15" fill="#e74c3c"/>
+  <text x="50" y="562" font-size="11" fill="#333">形态计算</text>
+  <rect x="130" y="550" width="15" height="15" fill="#2ecc71"/>
+  <text x="150" y="562" font-size="11" fill="#333">感知-动作循环</text>
+  <rect x="260" y="550" width="15" height="15" fill="#9b59b6"/>
+  <text x="280" y="562" font-size="11" fill="#333">多模态感知</text>
+  <rect x="390" y="550" width="15" height="15" fill="#f39c12"/>
+  <text x="410" y="562" font-size="11" fill="#333">强化/模仿学习</text>
+</svg>

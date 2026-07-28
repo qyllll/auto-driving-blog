@@ -10,6 +10,8 @@ summary: "本文从形态、动作、感知与学习四个维度的协同关系�
 
 ## 📄 论文信息
 
+<img src="/images/paper/embodied-intelligence/synergy-framework.svg" alt="具身智能：形态、动作、感知与学习协同框架" style="width:100%; max-width:800px; display:block; margin:0 auto;">
+
 - **标题**：*Embodied Intelligence: A Synergy of Morphology, Action, Perception and Learning*（具身智能：形态、动作、感知与学习的协同）
 - **团队**：清华大学、北京邮电大学、曼彻斯特大学
 - **发表**：ACM Computing Surveys, Volume 57, Issue 7, 2025（Article No.: 186, Pages 1–36）
@@ -44,6 +46,8 @@ summary: "本文从形态、动作、感知与学习四个维度的协同关系�
 ### 第一部分：悠久的历史与短暂的过去
 
 综述首先回顾了具身智能的历史发展脉络，这一脉络跨越了哲学、认知科学和控制论等多个学科领域。
+
+<img src="/images/paper/embodied-intelligence/historical-timeline.svg" alt="具身智能发展历程" style="width:100%; max-width:800px; display:block; margin:0 auto;">
 
 #### 哲学基础
 
@@ -80,6 +84,8 @@ Brooks的包容体系结构催生了行为主义机器人学（behavior-based ro
 ### 第二部分：具身智能的架构
 
 本综述提出了一个统一的具身智能架构，将形态、动作、感知和学习四个核心组件形式化为一个完整的框架，并特别关注组件之间的连接关系。作者将这四个组件之间的连接定义为八个方向，每个方向都对应着丰富的研究内容。
+
+<img src="/images/paper/embodied-intelligence/perception-action-loop.svg" alt="感知-动作循环" style="width:100%; max-width:700px; display:block; margin:0 auto;">
 
 #### 统一框架的形式化
 
