@@ -2,7 +2,7 @@
 title: "论文精读｜π0：基于Flow Matching的通用视觉-语言-动作模型"
 date: 2026-07-18
 draft: false
-categories: ["论文精读"]
+categories: ["论文精读", "具身智能"]
 tags: ["🤖 VLA", "🌊 Flow Matching", "🦾 机器人", "🧠 具身智能"]
 summary: "π0 用预训练 VLM 做大脑、Flow Matching 做动作头，开创了 VLA 模型动作头设计的第三条路线。Flow Matching 相比扩散采样步数更少、训练更简单，相比离散化精度更高，巧妙弥合了 VLM 与连续机器人控制之间的表征鸿沟。在迄今最大规模机器人数据集上训练，一个模型搞定从叠衣服到收桌子的多种高难度操作。"
 weight: 2

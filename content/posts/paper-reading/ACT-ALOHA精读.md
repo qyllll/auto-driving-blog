@@ -2,7 +2,7 @@
 title: "论文精读｜ACT + ALOHA：低成本双臂遥操作与动作分块策略"
 date: 2026-07-19
 draft: false
-categories: ["论文精读"]
+categories: ["论文精读", "具身智能"]
 tags: ["🤖 机器人", "🏫 遥操作", "⚡ ACT", "🦾 双臂"]
 summary: "ACT+ALOHA 用不到 2 万美元的开源双臂遥操作平台解决了精细双臂操控的数据获取难题。ACT 采用动作分块（Action Chunking）+CVAE Transformer 的抗复合误差策略，将模仿学习精度推至新高度。ALOHA 的低成本同构主从机械臂设计为具身智能数据采集建立了新范式。"
 weight: 40
