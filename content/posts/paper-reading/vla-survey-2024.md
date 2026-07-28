@@ -165,7 +165,7 @@ VLA模型中的推理研究包括：
 - **扩散动作**：通过扩散过程生成动作序列
 - **动作块（Action Chunk）**：预测未来多步动作的序列
 
-<img src="/images/paper/2405.14093/figure5.png" alt="PVRs训练目标对比" style="width:100%; max-width:900px; display:block; margin:0 auto;">
+<img src="/images/paper/2405.14093/figure5.png" alt="VLA模型代表性架构对比：FiLM、交叉注意力、拼接、工具使用等9种架构" style="width:100%; max-width:900px; display:block; margin:0 auto;">
 
 ### 第三部分：高级任务规划
 
@@ -226,7 +226,7 @@ VLA模型中的推理研究包括：
 
 这种分类体系体现了当前机器人系统的层级框架：高级任务规划器利用大容量模型进行任务分解，低级控制策略专注于速度和精度，形成类似于层级强化学习的架构。
 
-<img src="/images/paper/2405.14093/figure6.png" alt="动力学学习方法对比" style="width:100%; max-width:900px; display:block; margin:0 auto;">
+<img src="/images/paper/2405.14093/figure6.png" alt="任务规划方法：单体规划器与模块化规划器的两种范式" style="width:100%; max-width:900px; display:block; margin:0 auto;">
 
 ---
 
