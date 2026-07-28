@@ -11,6 +11,7 @@ summary: "首篇系统性综述视觉-语言-动作（VLA）模型的文章，�
 ## 📄 论文信息
 
 <img src="/images/paper/2405.14093/figure1.png" alt="VLA模型通用架构" style="width:100%; max-width:900px; display:block; margin:0 auto;">
+**图1: VLA模型通用架构**。视觉编码器提取预训练视觉表征(PVRs)，LLM编码语言指令，通过Flamingo/BLIP-2/LLaVA三种策略对齐视觉-语言嵌入，最终由LLM作为解码器预测动作。虚线框内展示了三种代表性动作预测方法。
 
 - **标题**：*A Survey on Vision-Language-Action Models for Embodied AI*（具身智能视觉-语言-动作模型综述）
 - **团队**：香港中文大学（Yueen Ma, Irwin King）、布里斯托大学（Zixing Song）、华为诺亚方舟实验室（Yuzheng Zhuang, Jianye Hao）
@@ -47,6 +48,7 @@ VLA模型近年来经历了爆发式增长，涉及的研究方向众多且相�
 ## 📚 综述覆盖范围
 
 <img src="/images/paper/2405.14093/figure3.png" alt="VLA模型分类体系" style="width:100%; max-width:900px; display:block; margin:0 auto;">
+**图3: VLA模型分类体系**。综述提出的三层分类树：组件研究(RL/PVRs/世界模型/推理)→低级控制策略(Transformer/扩散/大型VLA)→高级任务规划(端到端/模块化)。整篇综述的章节组织即遵循此分类体系。
 
 ### 第一部分：VLA模型的核心组件
 
@@ -132,6 +134,7 @@ VLA模型中的推理研究包括：
 - **任务分解**：将复杂任务分解为可执行的子任务序列
 
 <img src="/images/paper/2405.14093/figure4.png" alt="VLA模型层级框架" style="width:100%; max-width:900px; display:block; margin:0 auto;">
+**图4: 分层机器人策略示意图**。高级任务规划器将用户指令分解为子任务序列，低级控制策略逐步执行每个子动作。当前机器人系统普遍采用这种分层框架——高层利用大容量模型进行推理规划，底层专注于速度和精度。
 
 ### 第二部分：低级控制策略
 
@@ -165,7 +168,8 @@ VLA模型中的推理研究包括：
 - **扩散动作**：通过扩散过程生成动作序列
 - **动作块（Action Chunk）**：预测未来多步动作的序列
 
-<img src="/images/paper/2405.14093/figure5.png" alt="VLA模型代表性架构对比：FiLM、交叉注意力、拼接、工具使用等9种架构" style="width:100%; max-width:900px; display:block; margin:0 auto;">
+<img src="/images/paper/2405.14093/figure5.png" alt="VLA模型代表性架构对比" style="width:100%; max-width:900px; display:block; margin:0 auto;">
+**图5: VLA模型9种代表性架构**。(a)FiLM(特征线性调制) (b)交叉注意力 (c)拼接融合 (d)工具使用 (e)标准大型VLA (f)动作专家 (g)双系统推理 (h)VLA+世界模型 (i)量化方法。每种架构对应不同的视觉-语言融合策略和动作输出方式。
 
 ### 第三部分：高级任务规划
 
@@ -196,6 +200,7 @@ VLA模型中的推理研究包括：
 ---
 
 <img src="/images/paper/2405.14093/figure2.png" alt="VLA模型概念图与时间线" style="width:100%; max-width:900px; display:block; margin:0 auto;">
+**图2: VLA模型概念图与时间线**。(a)文氏图展示了具身AI的核心概念：视觉(Vision)、语言(Language)和机器人(Robotics)的交集构成VLA研究的完整版图。(b)时间线梳理了从单模态模型→视觉-语言模型→VLA模型的演进脉络。
 
 ## 🗺️ 技术路线图
 
@@ -226,7 +231,8 @@ VLA模型中的推理研究包括：
 
 这种分类体系体现了当前机器人系统的层级框架：高级任务规划器利用大容量模型进行任务分解，低级控制策略专注于速度和精度，形成类似于层级强化学习的架构。
 
-<img src="/images/paper/2405.14093/figure6.png" alt="任务规划方法：单体规划器与模块化规划器的两种范式" style="width:100%; max-width:900px; display:block; margin:0 auto;">
+<img src="/images/paper/2405.14093/figure6.png" alt="任务规划方法" style="width:100%; max-width:900px; display:block; margin:0 auto;">
+**图6: 任务规划方法对比**。(a)单体任务规划器：直接从原始输入端到端预测动作序列，无需显式任务分解。(b)模块化任务规划器：通过语言(如SayCan)或代码(如Code as Policies)将长期任务分解为子任务序列，再交由低级控制策略执行。
 
 ---
 
@@ -246,6 +252,7 @@ VLA模型中的推理研究包括：
 | ECoT | - | 2023 | LLM+思维链 | - | 具身推理 |
 
 <img src="/images/paper/2405.14093/figure7.png" alt="数据集与基准测试" style="width:100%; max-width:900px; display:block; margin:0 auto;">
+**图7: 关键单模态模型时间线**。从AlexNet、RNN、DQN到Transformer、GPT系列、CLIP，展示了推动VLA模型发展的基础技术演进。底部标注了各模型对VLA发展的贡献方向(NLP/CV/RL/Multimodal)。
 
 ---
 
@@ -284,6 +291,7 @@ VLA模型中的推理研究包括：
 5. **开源生态的形成**：OpenVLA、Octo、LeRobot等开源项目的出现，正在推动VLA技术的民主化，降低研究门槛。
 
 <img src="/images/paper/2405.14093/figure8.png" alt="VLA模型挑战与未来方向" style="width:100%; max-width:900px; display:block; margin:0 auto;">
+**图8: 单模态模型规模增长趋势**。展示了CV/NLP/RL三大领域模型参数量的增长曲线。GPT-4等大模型的出现为VLA提供了强大的基础能力，但同时也带来了计算开销和数据需求等挑战。
 
 ---
 
