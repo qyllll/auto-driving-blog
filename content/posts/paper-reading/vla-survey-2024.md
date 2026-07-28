@@ -46,6 +46,8 @@ VLA模型近年来经历了爆发式增长，涉及的研究方向众多且相�
 
 ## 📚 综述覆盖范围
 
+![VLA模型分类体系：组件、控制策略和任务规划的层级结构](/images/paper/2405.14093/figure3.png)
+
 ### 第一部分：VLA模型的核心组件
 
 综述首先深入分析了VLA模型的各个核心组件，这些组件构成了VLA模型的技术基础：
@@ -129,6 +131,8 @@ VLA模型中的推理研究包括：
 - **技能发现**：利用LLMs自动发现和组合基本技能
 - **任务分解**：将复杂任务分解为可执行的子任务序列
 
+![VLA模型层级框架：高级任务规划器分解任务，低级控制策略执行动作](/images/paper/2405.14093/figure4.png)
+
 ### 第二部分：低级控制策略
 
 控制策略负责将语言指令和视觉观察转换为低级动作。综述将其分为多个子类别：
@@ -161,6 +165,8 @@ VLA模型中的推理研究包括：
 - **扩散动作**：通过扩散过程生成动作序列
 - **动作块（Action Chunk）**：预测未来多步动作的序列
 
+![PVRs训练目标对比：不同预训练方法的数学形式化](/images/paper/2405.14093/figure5.png)
+
 ### 第三部分：高级任务规划
 
 任务规划器负责将长期任务分解为子任务序列，引导VLA模型完成更复杂的用户指令：
@@ -189,50 +195,38 @@ VLA模型中的推理研究包括：
 
 ---
 
+![VLA模型概念图与时间线：从单模态模型到VLA模型的演进](/images/paper/2405.14093/figure2.png)
+
 ## 🗺️ 技术路线图
 
-本综述提出了一个清晰的VLA模型分类体系：
+本综述提出了一个清晰的VLA模型分类体系，基于当前机器人系统的层级框架：
 
-```
-VLA模型
-├── 组件研究
-│   ├── 强化学习（DQN, DT, TT, Gato, RLHF）
-│   ├── 预训练视觉表征（PVRs）
-│   │   ├── CLIP（对比学习）
-│   │   ├── R3M（时间对比学习）
-│   │   ├── MVP（MAE）
-│   │   ├── VC-1（系统探索）
-│   │   ├── DINOv2（自蒸馏）
-│   │   ├── I-JEPA（联合嵌入预测）
-│   │   └── Theia（多模型蒸馏）
-│   ├── 视频表征（NeRF, 3D-GS）
-│   ├── 动力学学习
-│   │   ├── 前向动力学（预测下一状态）
-│   │   └── 逆向动力学（预测动作）
-│   ├── 世界模型
-│   │   ├── Dreamer系列（潜在动力学）
-│   │   ├── LLM诱导的世界模型（DECKARD, LLM-DM, RAP）
-│   │   └── 视觉世界模型（IRIS, TWM）
-│   ├── 推理能力（CoT, ToT, ECoT）
-│   └── 策略引导
-├── 低级控制策略
-│   ├── 非Transformer控制策略（CNN, RNN）
-│   ├── Transformer控制策略（RT-1, RT-2, OpenVLA, Octo）
-│   ├── 多模态指令控制策略
-│   ├── 3D视觉控制策略
-│   ├── 扩散策略（Diffusion Policy, 3D Diffusion Policy）
-│   └── 大型VLA模型（PaLM-E, CaP, π₀, SmolVLA）
-└── 高级任务规划
-    ├── 单体任务规划
-    │   ├── 端到端任务规划
-    │   ├── 3D视觉端到端任务规划
-    │   └── 具身任务规划（Grounded Task Planners）
-    └── 模块化任务规划
-        ├── 基于语言的任务规划（SayCan, Inner Monologue, DEPS）
-        └── 基于代码的任务规划（ProgPrompt, Code as Policies, VoxPoser）
-```
+**VLA模型分类体系：**
+
+- **组件研究**
+  - 强化学习（DQN, DT, TT, Gato, RLHF）
+  - 预训练视觉表征（PVRs）：CLIP（对比学习）、R3M（时间对比学习）、MVP（MAE）、VC-1（系统探索）、DINOv2（自蒸馏）、I-JEPA（联合嵌入预测）、Theia（多模型蒸馏）
+  - 视频表征（NeRF, 3D-GS）
+  - 动力学学习：前向动力学（预测下一状态）、逆向动力学（预测动作）
+  - 世界模型：Dreamer系列（潜在动力学）、LLM诱导的世界模型（DECKARD, LLM-DM, RAP）、视觉世界模型（IRIS, TWM）
+  - 推理能力（CoT, ToT, ECoT）
+  - 策略引导
+
+- **低级控制策略**
+  - 非Transformer控制策略（CNN, RNN）
+  - Transformer控制策略（RT-1, RT-2, OpenVLA, Octo）
+  - 多模态指令控制策略
+  - 3D视觉控制策略
+  - 扩散策略（Diffusion Policy, 3D Diffusion Policy）
+  - 大型VLA模型（PaLM-E, CaP, π₀, SmolVLA）
+
+- **高级任务规划**
+  - 单体任务规划：端到端任务规划、3D视觉端到端任务规划、具身任务规划（Grounded Task Planners）
+  - 模块化任务规划：基于语言的任务规划（SayCan, Inner Monologue, DEPS）、基于代码的任务规划（ProgPrompt, Code as Policies, VoxPoser）
 
 这种分类体系体现了当前机器人系统的层级框架：高级任务规划器利用大容量模型进行任务分解，低级控制策略专注于速度和精度，形成类似于层级强化学习的架构。
+
+![动力学学习方法对比：前向/逆向动力学的数学形式化](/images/paper/2405.14093/figure6.png)
 
 ---
 
@@ -250,6 +244,8 @@ VLA模型
 | SayCan | Google | 2022 | LLM+可行性 | - | 语言条件化规划 |
 | Code as Policies | Google | 2022 | LLM→代码 | - | 代码生成规划 |
 | ECoT | - | 2023 | LLM+思维链 | - | 具身推理 |
+
+![数据集与基准测试：真实世界机器人数据集和仿真环境](/images/paper/2405.14093/figure7.png)
 
 ---
 
@@ -286,6 +282,8 @@ VLA模型
 4. **数据稀缺的挑战**：高质量机器人数据的获取仍然是主要瓶颈，自动数据收集和模拟数据的利用成为重要研究方向。
 
 5. **开源生态的形成**：OpenVLA、Octo、LeRobot等开源项目的出现，正在推动VLA技术的民主化，降低研究门槛。
+
+![VLA模型面临的挑战与未来方向：安全、数据集、基础模型等](/images/paper/2405.14093/figure8.png)
 
 ---
 
