@@ -54,13 +54,23 @@ summary: "RT-1是Google Robotics团队提出的一种基于Transformer的机器�
 
 RT-1的核心思想非常直观：**借鉴NLP/CV领域的成功经验，用高容量Transformer架构配合大规模真实数据来训练机器人策略**。
 
-![RT-1 Architecture](/images/paper/2212.06817/rt1_teaser.png)
+![RT-1模型架构总览：从图像观测和语言指令到机器人动作的端到端流程](/images/paper/2212.06817/rt1_architecture.png)
+
+**上图是RT-1的核心架构图**，展示了完整的数据处理流程：
+
+1. **输入层**：机器人在每个时间步接收3帧连续图像 $I_t, I_{t-1}, I_{t-2}$（300×300分辨率）和自然语言指令 $l$（如"pick up the Coke can"）
+2. **视觉编码**：每帧图像通过FiLM-Conditioned EfficientNet-B3进行编码，语言指令通过FiLM层注入视觉特征，使模型"根据指令选择性关注"相关视觉信息
+3. **Token压缩**：Token Learner模块将每帧约900个视觉token压缩为16个学习到的token（3帧共48个），大幅降低计算成本
+4. **Transformer解码**：压缩后的视觉token与语言指令token一起送入8层Transformer解码器
+5. **动作输出**：Transformer输出经过分类头预测11维离散化动作（机械臂7维 + 底盘3维 + 模式切换1维）
 
 给定一组图像观测 $o_t = \{I_t, I_{t-1}, I_{t-2}\}$（当前帧和历史帧）以及自然语言指令 $l$，策略 $\pi$ 需要输出机器人动作 $a_t$：
 
 $$a_t \sim \pi(\cdot | o_t, l)$$
 
 ### 模型架构详解
+
+![RT-1机器人平台：Everyday Robots移动操作机器人](/images/paper/2212.06817/rt1_robot_setup.png)
 
 RT-1的架构由三个核心组件构成：
 
