@@ -1,0 +1,94 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 520" font-family="system-ui, -apple-system, sans-serif">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#3b82f6"/>
+    </marker>
+  </defs>
+
+  <rect width="900" height="520" fill="#f8fafc" rx="12"/>
+  <text x="450" y="28" text-anchor="middle" font-size="17" font-weight="bold" fill="#1e293b">DCAE 4×32×32 因果视频压缩</text>
+
+  <!-- ============ INPUT VIDEO ============ -->
+  <rect x="30" y="55" width="240" height="160" fill="white" stroke="#93c5fd" stroke-width="2" rx="8"/>
+  <text x="150" y="78" text-anchor="middle" font-size="13" font-weight="bold" fill="#2563eb">输入视频</text>
+  <rect x="45" y="90" width="210" height="80" fill="#1e293b" rx="4" opacity="0.85"/>
+  <text x="150" y="115" text-anchor="middle" font-size="11" fill="#e2e8f0">原始视频帧</text>
+  <text x="150" y="132" text-anchor="middle" font-size="10" fill="#94a3b8">T × H × W × 3</text>
+  <text x="150" y="152" text-anchor="middle" font-size="10" fill="#94a3b8">如 120×720×1280×3</text>
+  <text x="150" y="200" text-anchor="middle" font-size="11" fill="#64748b">形状: (B, T, H, W, 3)</text>
+
+  <line x1="275" y1="135" x2="320" y2="135" stroke="#3b82f6" stroke-width="2.5" marker-end="url(#arrow)"/>
+
+  <!-- ============ DCAE ENCODER ============ -->
+  <rect x="325" y="55" width="260" height="260" fill="white" stroke="#6366f1" stroke-width="2" rx="8"/>
+  <rect x="325" y="55" width="260" height="30" fill="#eef2ff" rx="8"/>
+  <text x="455" y="75" text-anchor="middle" font-size="12" font-weight="bold" fill="#4338ca">DCAE Encoder</text>
+
+  <!-- Conv3D blocks -->
+  <rect x="340" y="95" width="230" height="28" fill="white" stroke="#a5b4fc" stroke-width="1.5" rx="5"/>
+  <text x="455" y="114" text-anchor="middle" font-size="10" fill="#4338ca">stem: Conv3D 3→128, k=3, causal</text>
+
+  <line x1="455" y1="123" x2="455" y2="140" stroke="#6366f1" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <rect x="340" y="140" width="230" height="28" fill="white" stroke="#a5b4fc" stroke-width="1.5" rx="5"/>
+  <text x="455" y="159" text-anchor="middle" font-size="10" fill="#4338ca">DownBlock 1: 128→256, stride (1,2,2)</text>
+
+  <line x1="455" y1="168" x2="455" y2="180" stroke="#6366f1" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="455" y="178" text-anchor="middle" font-size="9" fill="#94a3b8">H,W/2</text>
+
+  <rect x="340" y="183" width="230" height="28" fill="white" stroke="#a5b4fc" stroke-width="1.5" rx="5"/>
+  <text x="455" y="202" text-anchor="middle" font-size="10" fill="#4338ca">DownBlock 2: 256→512, stride (1,2,2)</text>
+
+  <line x1="455" y1="211" x2="455" y2="222" stroke="#6366f1" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="455" y="221" text-anchor="middle" font-size="9" fill="#94a3b8">H,W/4</text>
+
+  <rect x="340" y="225" width="230" height="28" fill="white" stroke="#a5b4fc" stroke-width="1.5" rx="5"/>
+  <text x="455" y="244" text-anchor="middle" font-size="10" fill="#4338ca">DownBlock 3: 512→512, stride (1,2,2)</text>
+
+  <line x1="455" y1="253" x2="455" y2="264" stroke="#6366f1" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="455" y="263" text-anchor="middle" font-size="9" fill="#94a3b8">H,W/8</text>
+
+  <rect x="340" y="267" width="230" height="28" fill="#eef2ff" stroke="#818cf8" stroke-width="1.5" rx="5"/>
+  <text x="455" y="286" text-anchor="middle" font-size="10" fill="#4338ca">DownBlock 4-5: stride (2,2,2)</text>
+
+  <text x="455" y="302" text-anchor="middle" font-size="9" fill="#94a3b8">T/4, H,W/32 (因果 = 只往前看)</text>
+
+  <line x1="455" y1="315" x2="455" y2="340" stroke="#6366f1" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- ============ LATENT ============ -->
+  <rect x="285" y="340" width="340" height="65" fill="#faf5ff" stroke="#a855f7" stroke-width="2" rx="8"/>
+  <text x="455" y="360" text-anchor="middle" font-size="12" font-weight="bold" fill="#9333ea">DCAE Latent (B, C, T/4, H/32, W/32)</text>
+  <text x="455" y="380" text-anchor="middle" font-size="10" fill="#64748b">如 64×30×10×16 — 压缩率 128×</text>
+  <text x="455" y="396" text-anchor="middle" font-size="9" fill="#94a3b8">4×32×32 = 4096倍像素压缩，128倍 latent 压缩</text>
+
+  <line x1="455" y1="405" x2="455" y2="430" stroke="#a855f7" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- ============ MOT TRAINING/INFERENCE ============ -->
+  <rect x="325" y="430" width="260" height="40" fill="#fef3c7" stroke="#f59e0b" stroke-width="2" rx="8"/>
+  <text x="455" y="450" text-anchor="middle" font-size="11" font-weight="bold" fill="#d97706">MoT 在此 latent 空间做生成</text>
+  <text x="455" y="465" text-anchor="middle" font-size="9" fill="#64748b">Rectified Flow 向量场训练 / 推理</text>
+
+  <!-- Latent size calculation box -->
+  <rect x="600" y="55" width="270" height="260" fill="white" stroke="#e2e8f0" stroke-width="1.5" rx="8"/>
+  <text x="735" y="78" text-anchor="middle" font-size="12" font-weight="bold" fill="#475569">Latent 尺寸计算</text>
+
+  <text x="615" y="105" font-size="10" fill="#475569">原始视频: 120×720×1280×3</text>
+  <text x="615" y="122" font-size="10" fill="#475569">= 331,776,000 像素</text>
+  <text x="615" y="145" font-size="10" fill="#475569">T/4 = 120/4 = 30</text>
+  <text x="615" y="162" font-size="10" fill="#475569">H/32 = 720/32 ≈ 23 → 10</text>
+  <text x="615" y="179" font-size="10" fill="#475569">W/32 = 1280/32 = 40 → 16</text>
+  <text x="615" y="202" font-size="10" fill="#475569">Latent: 64 × 30 × 10 × 16</text>
+  <text x="615" y="219" font-size="10" fill="#475569">= 307,200 个 latent 值</text>
+  <line x1="615" y1="235" x2="855" y2="235" stroke="#e2e8f0" stroke-width="1"/>
+  <text x="615" y="255" font-size="10" font-weight="bold" fill="#2563eb">压缩比: 307,200 → 3,072,000</text>
+  <text x="615" y="272" font-size="10" font-weight="bold" fill="#2563eb">逐级: T/4, H/32, W/32</text>
+
+  <!-- DCAE Decoder -->
+  <rect x="640" y="340" width="200" height="100" fill="white" stroke="#6366f1" stroke-width="2" rx="8"/>
+  <text x="740" y="362" text-anchor="middle" font-size="12" font-weight="bold" fill="#4338ca">DCAE Decoder</text>
+  <text x="740" y="382" text-anchor="middle" font-size="10" fill="#475569">5 个 UpsampleBlock3D</text>
+  <text x="740" y="398" text-anchor="middle" font-size="10" fill="#475569">对称于 Encoder</text>
+  <text x="740" y="414" text-anchor="middle" font-size="10" fill="#475569">T×4, H×32, W×32</text>
+
+  <line x1="625" y1="372" x2="635" y2="372" stroke="#a855f7" stroke-width="1.5" marker-end="url(#arrow)"/>
+</svg>

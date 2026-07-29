@@ -1,0 +1,131 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 620" font-family="system-ui, -apple-system, sans-serif">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#3b82f6"/>
+    </marker>
+    <marker id="arrow-down" viewBox="0 0 10 10" refX="5" refY="9" markerWidth="5" markerHeight="5" orient="auto">
+      <path d="M 0 0 L 5 10 L 10 0 z" fill="#64748b"/>
+    </marker>
+  </defs>
+
+  <rect width="900" height="620" fill="#f8fafc" rx="12"/>
+  <text x="450" y="28" text-anchor="middle" font-size="17" font-weight="bold" fill="#1e293b">序列打包：und token + gen token 混合注意力</text>
+
+  <!-- ============ INPUT TOKENS ============ -->
+  <text x="450" y="58" text-anchor="middle" font-size="12" font-weight="bold" fill="#475569">输入 token 来源</text>
+
+  <!-- Und tokens -->
+  <rect x="80" y="70" width="320" height="80" fill="#eff6ff" stroke="#3b82f6" stroke-width="2" rx="8"/>
+  <text x="240" y="92" text-anchor="middle" font-size="12" font-weight="bold" fill="#2563eb">und tokens（理解 / Reasoner）</text>
+  <text x="240" y="112" text-anchor="middle" font-size="10" fill="#64748b">文本 prompt + 图像 token</text>
+  <text x="240" y="130" text-anchor="middle" font-size="10" fill="#64748b">位置编码: 1D RoPE</text>
+  <text x="240" y="145" text-anchor="middle" font-size="9" fill="#93c5fd">注意力: causal（只能看前面）</text>
+
+  <!-- Gen tokens -->
+  <rect x="500" y="70" width="320" height="80" fill="#fef3c7" stroke="#f59e0b" stroke-width="2" rx="8"/>
+  <text x="660" y="92" text-anchor="middle" font-size="12" font-weight="bold" fill="#d97706">gen tokens（生成 / Generator）</text>
+  <text x="660" y="112" text-anchor="middle" font-size="10" fill="#64748b">视频/音频 latent token</text>
+  <text x="660" y="130" text-anchor="middle" font-size="10" fill="#64748b">位置编码: 3D mRoPE (T, H, W)</text>
+  <text x="660" y="145" text-anchor="middle" font-size="9" fill="#fde68a">注意力: full（双向可见）</text>
+
+  <!-- Arrow down to packing -->
+  <path d="M 240 150 L 240 175" stroke="#3b82f6" stroke-width="1.5" marker-end="url(#arrow-down)" fill="none"/>
+  <path d="M 660 150 L 660 175" stroke="#f59e0b" stroke-width="1.5" marker-end="url(#arrow-down)" fill="none"/>
+  <line x1="240" y1="175" x2="660" y2="175" stroke="#94a3b8" stroke-width="1"/>
+  <path d="M 450 175 L 450 195" stroke="#2563eb" stroke-width="2" marker-end="url(#arrow)" fill="none"/>
+
+  <!-- ============ PACKED SEQUENCE ============ -->
+  <rect x="80" y="200" width="740" height="55" fill="white" stroke="#2563eb" stroke-width="2" rx="8"/>
+  <text x="450" y="220" text-anchor="middle" font-size="12" font-weight="bold" fill="#2563eb">打包序列 packed_input (1, total_len, H)</text>
+
+  <!-- Token bar -->
+  <rect x="95" y="230" width="50" height="18" fill="#eff6ff" stroke="#3b82f6" stroke-width="1" rx="3"/>
+  <text x="120" y="244" text-anchor="middle" font-size="9" fill="#2563eb">und</text>
+  <rect x="148" y="230" width="50" height="18" fill="#eff6ff" stroke="#3b82f6" stroke-width="1" rx="3"/>
+  <text x="173" y="244" text-anchor="middle" font-size="9" fill="#2563eb">und</text>
+  <rect x="202" y="230" width="50" height="18" fill="#eff6ff" stroke="#3b82f6" stroke-width="1" rx="3"/>
+  <text x="227" y="244" text-anchor="middle" font-size="9" fill="#2563eb">...</text>
+  <rect x="256" y="230" width="50" height="18" fill="#eff6ff" stroke="#3b82f6" stroke-width="1" rx="3"/>
+  <text x="281" y="244" text-anchor="middle" font-size="9" fill="#2563eb">und</text>
+  <rect x="310" y="230" width="50" height="18" fill="#fef3c7" stroke="#f59e0b" stroke-width="1" rx="3"/>
+  <text x="335" y="244" text-anchor="middle" font-size="9" fill="#d97706">gen</text>
+  <rect x="364" y="230" width="50" height="18" fill="#fef3c7" stroke="#f59e0b" stroke-width="1" rx="3"/>
+  <text x="389" y="244" text-anchor="middle" font-size="9" fill="#d97706">gen</text>
+  <rect x="418" y="230" width="50" height="18" fill="#fef3c7" stroke="#f59e0b" stroke-width="1" rx="3"/>
+  <text x="443" y="244" text-anchor="middle" font-size="9" fill="#d97706">...</text>
+  <rect x="472" y="230" width="50" height="18" fill="#fef3c7" stroke="#f59e0b" stroke-width="1" rx="3"/>
+  <text x="497" y="244" text-anchor="middle" font-size="9" fill="#d97706">gen</text>
+  <rect x="526" y="230" width="50" height="18" fill="#fef3c7" stroke="#f59e0b" stroke-width="1" rx="3"/>
+  <text x="551" y="244" text-anchor="middle" font-size="9" fill="#d97706">gen</text>
+  <rect x="580" y="230" width="50" height="18" fill="#fef3c7" stroke="#f59e0b" stroke-width="1" rx="3"/>
+  <text x="605" y="244" text-anchor="middle" font-size="9" fill="#d97706">...</text>
+  <rect x="634" y="230" width="50" height="18" fill="#fef3c7" stroke="#f59e0b" stroke-width="1" rx="3"/>
+  <text x="659" y="244" text-anchor="middle" font-size="9" fill="#d97706">gen</text>
+  <rect x="688" y="230" width="50" height="18" fill="#fef3c7" stroke="#f59e0b" stroke-width="1" rx="3"/>
+  <text x="713" y="244" text-anchor="middle" font-size="9" fill="#d97706">gen</text>
+  <rect x="742" y="230" width="50" height="18" fill="white" stroke="#94a3b8" stroke-width="1" rx="3"/>
+  <text x="767" y="244" text-anchor="middle" font-size="8" fill="#94a3b8">PAD</text>
+
+  <text x="450" y="265" text-anchor="middle" font-size="9" fill="#94a3b8">← L_und tokens (causal) → ← L_gen tokens (full + cross) →</text>
+
+  <!-- Arrow to attention matrix -->
+  <path d="M 450 255 L 450 280" stroke="#2563eb" stroke-width="1.5" marker-end="url(#arrow)" fill="none"/>
+
+  <!-- ============ moe_gen_mask ============ -->
+  <rect x="180" y="285" width="540" height="30" fill="#faf5ff" stroke="#a855f7" stroke-width="1.5" rx="5"/>
+  <text x="450" y="303" text-anchor="middle" font-size="10" fill="#9333ea">
+    moe_gen_mask: [False, False, ..., False, True, True, ..., True]
+  </text>
+  <text x="450" y="316" text-anchor="middle" font-size="9" fill="#94a3b8">False = und 路径 &nbsp;|&nbsp; True = gen 路径</text>
+
+  <!-- ============ ATTENTION MATRIX ============ -->
+  <text x="450" y="345" text-anchor="middle" font-size="12" font-weight="bold" fill="#475569">注意力 mask 矩阵（total_len × total_len）</text>
+
+  <!-- Mask grid -->
+  <rect x="200" y="358" width="500" height="200" fill="white" stroke="#cbd5e1" stroke-width="1.5" rx="4"/>
+
+  <!-- Row labels -->
+  <text x="190" y="390" text-anchor="end" font-size="9" fill="#64748b">und1</text>
+  <text x="190" y="420" text-anchor="end" font-size="9" fill="#64748b">und2</text>
+  <text x="190" y="450" text-anchor="end" font-size="9" fill="#64748b">...</text>
+  <text x="190" y="480" text-anchor="end" font-size="9" fill="#64748b">undN</text>
+  <text x="190" y="510" text-anchor="end" font-size="9" fill="#d97706">gen1</text>
+  <text x="190" y="540" text-anchor="end" font-size="9" fill="#d97706">gen2</text>
+
+  <!-- Column labels -->
+  <text x="248" y="372" text-anchor="middle" font-size="9" fill="#64748b">und1</text>
+  <text x="298" y="372" text-anchor="middle" font-size="9" fill="#64748b">und2</text>
+  <text x="348" y="372" text-anchor="middle" font-size="9" fill="#64748b">...</text>
+  <text x="398" y="372" text-anchor="middle" font-size="9" fill="#64748b">undN</text>
+  <text x="448" y="372" text-anchor="middle" font-size="9" fill="#d97706">gen1</text>
+  <text x="498" y="372" text-anchor="middle" font-size="9" fill="#d97706">gen2</text>
+  <text x="548" y="372" text-anchor="middle" font-size="9" fill="#d97706">...</text>
+  <text x="598" y="372" text-anchor="middle" font-size="9" fill="#d97706">genM</text>
+  <text x="648" y="372" text-anchor="middle" font-size="9" fill="#d97706">K</text>
+  <text x="698" y="372" text-anchor="middle" font-size="9" fill="#d97706">V</text>
+
+  <!-- und → und: causal (triangular) -->
+  <line x1="210" y1="378" x2="410" y2="378" stroke="#3b82f6" stroke-width="2"/>
+  <line x1="210" y1="378" x2="210" y2="488" stroke="#3b82f6" stroke-width="2"/>
+  <polygon points="210,378 410,378 210,488" fill="#3b82f6" opacity="0.15"/>
+  <polygon points="210,378 410,378 210,488" fill="none" stroke="#3b82f6" stroke-width="1" stroke-dasharray="4,2"/>
+
+  <!-- gen → gen: full (rectangle) -->
+  <rect x="420" y="488" width="260" height="50" fill="#f59e0b" opacity="0.15" rx="3"/>
+  <rect x="420" y="488" width="260" height="50" fill="none" stroke="#f59e0b" stroke-width="1" stroke-dasharray="4,2" rx="3"/>
+
+  <!-- gen → und: cross-attention (rectangle) -->
+  <rect x="210" y="488" width="200" height="50" fill="#ec4899" opacity="0.12" rx="3"/>
+  <rect x="210" y="488" width="200" height="50" fill="none" stroke="#ec4899" stroke-width="1" stroke-dasharray="4,2" rx="3"/>
+
+  <!-- und → gen: masked (X) -->
+  <text x="460" y="430" text-anchor="middle" font-size="20" fill="#fecaca" font-weight="bold">✕</text>
+  <text x="530" y="430" text-anchor="middle" font-size="20" fill="#fecaca" font-weight="bold">✕</text>
+
+  <!-- Legend -->
+  <text x="230" y="565" font-size="10" font-weight="bold" fill="#475569">颜色说明:</text>
+  <rect x="230" y="575" width="20" height="12" fill="#3b82f6" opacity="0.15" rx="2"/><text x="255" y="586" font-size="10" fill="#475569">und causal（只看前面）</text>
+  <rect x="430" y="575" width="20" height="12" fill="#f59e0b" opacity="0.15" rx="2"/><text x="455" y="586" font-size="10" fill="#475569">gen full（双向可见）</text>
+  <rect x="230" y="595" width="20" height="12" fill="#ec4899" opacity="0.12" rx="2"/><text x="255" y="606" font-size="10" fill="#475569">gen→und cross（gen 看 und）</text>
+  <text x="430" y="606" font-size="10" fill="#fecaca" font-weight="bold">✕</text><text x="445" y="606" font-size="10" fill="#475569"> und→gen 不可见（因果正确性）</text>
+</svg>

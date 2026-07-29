@@ -1,0 +1,131 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 680" font-family="system-ui, -apple-system, sans-serif">
+  <defs>
+    <marker id="arrow-right" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#3b82f6"/>
+    </marker>
+    <marker id="arrow-down" viewBox="0 0 10 10" refX="5" refY="9" markerWidth="5" markerHeight="5" orient="auto">
+      <path d="M 0 0 L 5 10 L 10 0 z" fill="#64748b"/>
+    </marker>
+    <marker id="arrow-down-blue" viewBox="0 0 10 10" refX="5" refY="9" markerWidth="5" markerHeight="5" orient="auto">
+      <path d="M 0 0 L 5 10 L 10 0 z" fill="#2563eb"/>
+    </marker>
+  </defs>
+
+  <rect width="900" height="680" fill="#f8fafc" rx="12"/>
+  <text x="450" y="30" text-anchor="middle" font-size="17" font-weight="bold" fill="#1e293b">MoTDecoderLayer：双塔共享一层，两套独立投影</text>
+
+  <!-- ============ INPUT ============ -->
+  <rect x="320" y="55" width="260" height="50" fill="white" stroke="#93c5fd" stroke-width="2" rx="8"/>
+  <text x="450" y="78" text-anchor="middle" font-size="12" font-weight="bold" fill="#2563eb">输入 hidden_states (B, L, H)</text>
+  <text x="450" y="96" text-anchor="middle" font-size="10" fill="#64748b">打包序列：und token + gen token</text>
+
+  <line x1="450" y1="105" x2="450" y2="135" stroke="#2563eb" stroke-width="2" marker-end="url(#arrow-down-blue)"/>
+
+  <!-- ============ moe_gen_mask routing ============ -->
+  <rect x="320" y="135" width="260" height="36" fill="#eff6ff" stroke="#93c5fd" stroke-width="1.5" rx="6"/>
+  <text x="450" y="155" text-anchor="middle" font-size="11" font-weight="bold" fill="#2563eb">moe_gen_mask 路由选择路径</text>
+  <text x="450" y="168" text-anchor="middle" font-size="9" fill="#64748b">True = gen 路径 / False = und 路径</text>
+
+  <!-- Split into two paths -->
+  <path d="M 450 171 L 450 190" stroke="#2563eb" stroke-width="1.5" fill="none"/>
+  <line x1="340" y1="190" x2="560" y2="190" stroke="#94a3b8" stroke-width="1.5"/>
+  <path d="M 340 190 L 280 215" stroke="#3b82f6" stroke-width="1.5" marker-end="url(#arrow-down)" fill="none"/>
+  <path d="M 560 190 L 620 215" stroke="#f59e0b" stroke-width="1.5" marker-end="url(#arrow-down)" fill="none"/>
+
+  <!-- ============ UND PATH (Left) ============ -->
+  <rect x="80" y="215" width="300" height="40" fill="#eff6ff" stroke="#3b82f6" stroke-width="2" rx="6"/>
+  <text x="230" y="235" text-anchor="middle" font-size="11" font-weight="bold" fill="#2563eb">und 路径（Reasoner）</text>
+  <text x="230" y="250" text-anchor="middle" font-size="9" fill="#64748b">因果自注意力 · causal mask</text>
+
+  <!-- LayerNorm -->
+  <path d="M 230 255 L 230 275" stroke="#3b82f6" stroke-width="1.5" marker-end="url(#arrow-down)" fill="none"/>
+  <rect x="130" y="275" width="200" height="28" fill="white" stroke="#a5b4fc" stroke-width="1.5" rx="5"/>
+  <text x="230" y="294" text-anchor="middle" font-size="10" fill="#4338ca">input_layernorm（und 专属）</text>
+
+  <!-- Attention -->
+  <path d="M 230 303 L 230 320" stroke="#3b82f6" stroke-width="1.5" marker-end="url(#arrow-down)" fill="none"/>
+  <rect x="80" y="320" width="300" height="50" fill="white" stroke="#6366f1" stroke-width="2" rx="6"/>
+  <text x="230" y="340" text-anchor="middle" font-size="11" font-weight="bold" fill="#4338ca">PackedAttentionMoT（und 分支）</text>
+  <text x="230" y="358" text-anchor="middle" font-size="9" fill="#64748b">q_proj / k_proj / v_proj / o_proj</text>
+
+  <!-- Residual -->
+  <path d="M 230 370 L 230 390" stroke="#3b82f6" stroke-width="1.5" marker-end="url(#arrow-down)" fill="none"/>
+  <text x="335" y="383" text-anchor="middle" font-size="9" fill="#94a3b8">+ 残差连接</text>
+
+  <!-- Post LN -->
+  <rect x="130" y="390" width="200" height="28" fill="white" stroke="#a5b4fc" stroke-width="1.5" rx="5"/>
+  <text x="230" y="409" text-anchor="middle" font-size="10" fill="#4338ca">post_attention_layernorm（und）</text>
+
+  <!-- FFN -->
+  <path d="M 230 418 L 230 435" stroke="#3b82f6" stroke-width="1.5" marker-end="url(#arrow-down)" fill="none"/>
+  <rect x="130" y="435" width="200" height="40" fill="white" stroke="#6366f1" stroke-width="2" rx="6"/>
+  <text x="230" y="455" text-anchor="middle" font-size="11" font-weight="bold" fill="#4338ca">mlp（und 专属 FFN）</text>
+  <text x="230" y="470" text-anchor="middle" font-size="9" fill="#64748b">SwiGLU 前馈网络</text>
+
+  <path d="M 230 475 L 230 500" stroke="#3b82f6" stroke-width="1.5" marker-end="url(#arrow-down)" fill="none"/>
+  <text x="335" y="493" text-anchor="middle" font-size="9" fill="#94a3b8">+ 残差连接</text>
+
+  <!-- ============ GEN PATH (Right) ============ -->
+  <rect x="520" y="215" width="300" height="40" fill="#fef3c7" stroke="#f59e0b" stroke-width="2" rx="6"/>
+  <text x="670" y="235" text-anchor="middle" font-size="11" font-weight="bold" fill="#d97706">gen 路径（Generator）</text>
+  <text x="670" y="250" text-anchor="middle" font-size="9" fill="#64748b">双向自注意力 · full mask</text>
+
+  <!-- LayerNorm -->
+  <path d="M 670 255 L 670 275" stroke="#f59e0b" stroke-width="1.5" marker-end="url(#arrow-down)" fill="none"/>
+  <rect x="570" y="275" width="200" height="28" fill="white" stroke="#fcd34d" stroke-width="1.5" rx="5"/>
+  <text x="670" y="294" text-anchor="middle" font-size="10" fill="#b45309">input_layernorm_moe_gen（gen 专属）</text>
+
+  <!-- Attention -->
+  <path d="M 670 303 L 670 320" stroke="#f59e0b" stroke-width="1.5" marker-end="url(#arrow-down)" fill="none"/>
+  <rect x="520" y="320" width="300" height="50" fill="white" stroke="#f59e0b" stroke-width="2" rx="6"/>
+  <text x="670" y="340" text-anchor="middle" font-size="11" font-weight="bold" fill="#d97706">PackedAttentionMoT（gen 分支）</text>
+  <text x="670" y="358" text-anchor="middle" font-size="9" fill="#64748b">q_proj_moe_gen / k_proj_moe_gen / v_proj_moe_gen / o_proj_moe_gen</text>
+
+  <!-- Residual -->
+  <path d="M 670 370 L 670 390" stroke="#f59e0b" stroke-width="1.5" marker-end="url(#arrow-down)" fill="none"/>
+  <text x="760" y="383" text-anchor="middle" font-size="9" fill="#94a3b8">+ 残差连接</text>
+
+  <!-- Post LN -->
+  <rect x="570" y="390" width="200" height="28" fill="white" stroke="#fcd34d" stroke-width="1.5" rx="5"/>
+  <text x="670" y="409" text-anchor="middle" font-size="10" fill="#b45309">post_attention_layernorm_moe_gen（gen）</text>
+
+  <!-- FFN -->
+  <path d="M 670 418 L 670 435" stroke="#f59e0b" stroke-width="1.5" marker-end="url(#arrow-down)" fill="none"/>
+  <rect x="555" y="435" width="230" height="40" fill="white" stroke="#f59e0b" stroke-width="2" rx="6"/>
+  <text x="670" y="455" text-anchor="middle" font-size="11" font-weight="bold" fill="#d97706">mlp_moe_gen（gen 专属 FFN）</text>
+  <text x="670" y="470" text-anchor="middle" font-size="9" fill="#64748b">SwiGLU 前馈网络</text>
+
+  <path d="M 670 475 L 670 500" stroke="#f59e0b" stroke-width="1.5" marker-end="url(#arrow-down)" fill="none"/>
+  <text x="760" y="493" text-anchor="middle" font-size="9" fill="#94a3b8">+ 残差连接</text>
+
+  <!-- ============ Cross-attention arrow between paths ============ -->
+  <path d="M 380 340 Q 450 340 520 340" stroke="#ec4899" stroke-width="1.5" stroke-dasharray="5,3" fill="none" marker-end="url(#arrow-right)"/>
+  <text x="450" y="332" text-anchor="middle" font-size="9" fill="#ec4899">gen→und cross-attn</text>
+
+  <!-- ============ MERGE OUTPUT ============ -->
+  <path d="M 230 500 L 230 540" stroke="#3b82f6" stroke-width="1.5" fill="none"/>
+  <path d="M 670 500 L 670 540" stroke="#f59e0b" stroke-width="1.5" fill="none"/>
+  <line x1="230" y1="540" x2="670" y2="540" stroke="#94a3b8" stroke-width="1.5"/>
+  <path d="M 450 540 L 450 555" stroke="#2563eb" stroke-width="1.5" marker-end="url(#arrow-down-blue)" fill="none"/>
+
+  <rect x="320" y="555" width="260" height="36" fill="#eff6ff" stroke="#93c5fd" stroke-width="1.5" rx="6"/>
+  <text x="450" y="575" text-anchor="middle" font-size="11" font-weight="bold" fill="#2563eb">torch.where(moe_gen_mask, gen_out, und_out)</text>
+  <text x="450" y="588" text-anchor="middle" font-size="9" fill="#64748b">合并两路径输出</text>
+
+  <line x1="450" y1="591" x2="450" y2="615" stroke="#2563eb" stroke-width="2" marker-end="url(#arrow-down-blue)"/>
+
+  <!-- OUTPUT -->
+  <rect x="320" y="615" width="260" height="40" fill="white" stroke="#93c5fd" stroke-width="2" rx="8"/>
+  <text x="450" y="635" text-anchor="middle" font-size="12" font-weight="bold" fill="#2563eb">输出 hidden_states (B, L, H)</text>
+  <text x="450" y="650" text-anchor="middle" font-size="9" fill="#64748b">und token + gen token 各走各路，一并输出</text>
+
+  <!-- Legend -->
+  <rect x="50" y="545" width="180" height="100" fill="white" stroke="#e2e8f0" stroke-width="1" rx="6"/>
+  <text x="60" y="565" font-size="10" font-weight="bold" fill="#475569">图例</text>
+  <rect x="60" y="575" width="30" height="14" fill="#eff6ff" stroke="#3b82f6" stroke-width="1.5" rx="3"/>
+  <text x="96" y="587" font-size="10" fill="#475569">und 路径（理解）</text>
+  <rect x="60" y="595" width="30" height="14" fill="#fef3c7" stroke="#f59e0b" stroke-width="1.5" rx="3"/>
+  <text x="96" y="607" font-size="10" fill="#475569">gen 路径（生成）</text>
+  <line x1="60" y1="625" x2="90" y2="625" stroke="#ec4899" stroke-width="1.5" stroke-dasharray="5,3"/>
+  <text x="96" y="629" font-size="10" fill="#475569">cross-attention</text>
+</svg>

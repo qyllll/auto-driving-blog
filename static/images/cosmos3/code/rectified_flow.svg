@@ -1,0 +1,95 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 560" font-family="system-ui, -apple-system, sans-serif">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#3b82f6"/>
+    </marker>
+    <marker id="arrow-pink" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#ec4899"/>
+    </marker>
+  </defs>
+
+  <rect width="900" height="560" fill="#f8fafc" rx="12"/>
+  <text x="450" y="28" text-anchor="middle" font-size="17" font-weight="bold" fill="#1e293b">Rectified Flow：从噪声到数据的直线路径</text>
+
+  <!-- ============ TRAINING SIDE ============ -->
+  <text x="225" y="60" text-anchor="middle" font-size="13" font-weight="bold" fill="#2563eb">训练阶段</text>
+
+  <!-- Data point -->
+  <rect x="90" y="75" width="200" height="100" fill="#eff6ff" stroke="#3b82f6" stroke-width="2" rx="8"/>
+  <text x="190" y="98" text-anchor="middle" font-size="12" font-weight="bold" fill="#2563eb">真实数据 x₁</text>
+  <text x="190" y="118" text-anchor="middle" font-size="10" fill="#64748b">来自 DCAE encoder</text>
+  <text x="190" y="135" text-anchor="middle" font-size="10" fill="#64748b">形状: (C, T/4, H/32, W/32)</text>
+  <text x="190" y="158" text-anchor="middle" font-size="10" fill="#64748b">如 64×30×10×16</text>
+
+  <!-- Noise point -->
+  <rect x="400" y="75" width="200" height="100" fill="#fce7f3" stroke="#ec4899" stroke-width="2" rx="8"/>
+  <text x="500" y="98" text-anchor="middle" font-size="12" font-weight="bold" fill="#be185d">噪声 x₀</text>
+  <text x="500" y="118" text-anchor="middle" font-size="10" fill="#64748b">标准高斯噪声 ~N(0, I)</text>
+  <text x="500" y="135" text-anchor="middle" font-size="10" fill="#64748b">同 DCAE latent 形状</text>
+  <text x="500" y="158" text-anchor="middle" font-size="10" fill="#64748b">随机采样</text>
+
+  <!-- Linear path -->
+  <line x1="295" y1="125" x2="395" y2="125" stroke="#3b82f6" stroke-width="2"/>
+  <text x="345" y="118" text-anchor="middle" font-size="10" fill="#64748b">x_t = (1-t)x₀ + t·x₁</text>
+
+  <!-- t sampling -->
+  <rect x="680" y="75" width="160" height="100" fill="#faf5ff" stroke="#a855f7" stroke-width="2" rx="8"/>
+  <text x="760" y="98" text-anchor="middle" font-size="12" font-weight="bold" fill="#9333ea">时间 t 采样</text>
+  <text x="760" y="118" text-anchor="middle" font-size="10" fill="#64748b">logit-normal 分布</text>
+  <text x="760" y="135" text-anchor="middle" font-size="10" fill="#64748b">shift=5</text>
+  <text x="760" y="155" text-anchor="middle" font-size="9" fill="#94a3b8">更关注中间 t</text>
+  <text x="760" y="168" text-anchor="middle" font-size="9" fill="#94a3b8">（最难学的区域）</text>
+
+  <!-- Interpolation box -->
+  <path d="M 190 175 L 190 205" stroke="#3b82f6" stroke-width="1.5" marker-end="url(#arrow)" fill="none"/>
+  <path d="M 500 175 L 500 205" stroke="#ec4899" stroke-width="1.5" marker-end="url(#arrow)" fill="none"/>
+  <path d="M 760 175 L 760 205" stroke="#a855f7" stroke-width="1.5" marker-end="url(#arrow)" fill="none"/>
+
+  <rect x="130" y="205" width="640" height="50" fill="white" stroke="#6366f1" stroke-width="2" rx="8"/>
+  <text x="450" y="228" text-anchor="middle" font-size="13" font-weight="bold" fill="#4338ca">x_t = (1 - t) × noise + t × data</text>
+  <text x="450" y="248" text-anchor="middle" font-size="10" fill="#64748b">线性插值构造带噪样本 x_t，送入 MoT 预测向量场</text>
+
+  <!-- Loss box -->
+  <path d="M 450 255 L 450 280" stroke="#6366f1" stroke-width="1.5" marker-end="url(#arrow)" fill="none"/>
+
+  <rect x="170" y="280" width="560" height="65" fill="#eef2ff" stroke="#818cf8" stroke-width="2" rx="8"/>
+  <text x="450" y="302" text-anchor="middle" font-size="13" font-weight="bold" fill="#4338ca">损失: L = MSE( v_pred, v_target )</text>
+  <text x="450" y="322" text-anchor="middle" font-size="11" fill="#64748b">v_target = x₁ - x₀ &nbsp;|&nbsp; v_pred = GenHead(hidden_states)</text>
+  <text x="450" y="338" text-anchor="middle" font-size="9" fill="#94a3b8">向量场 MSE 回归，没有 KL / 对抗 / 花活</text>
+
+  <!-- ============ INFERENCE SIDE ============ -->
+  <line x1="50" y1="365" x2="850" y2="365" stroke="#cbd5e1" stroke-width="1" stroke-dasharray="8,4"/>
+  <text x="450" y="380" text-anchor="middle" font-size="13" font-weight="bold" fill="#475569">推理阶段: 35 步 UniPC ODE 积分</text>
+
+  <!-- Euler step loop -->
+  <rect x="80" y="395" width="180" height="90" fill="#fce7f3" stroke="#ec4899" stroke-width="2" rx="8"/>
+  <text x="170" y="418" text-anchor="middle" font-size="12" font-weight="bold" fill="#be185d">初始噪声 x₀</text>
+  <text x="170" y="438" text-anchor="middle" font-size="10" fill="#64748b">纯高斯噪声 ~N(0, I)</text>
+  <text x="170" y="458" text-anchor="middle" font-size="10" fill="#64748b">同 DCAE latent 形状</text>
+  <text x="170" y="475" text-anchor="middle" font-size="9" fill="#94a3b8">t = 0</text>
+
+  <line x1="265" y1="440" x2="330" y2="440" stroke="#3b82f6" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <rect x="335" y="395" width="250" height="90" fill="#eff6ff" stroke="#3b82f6" stroke-width="2" rx="8"/>
+  <text x="460" y="418" text-anchor="middle" font-size="12" font-weight="bold" fill="#2563eb">每步: MoT 预测 v</text>
+  <text x="460" y="438" text-anchor="middle" font-size="10" fill="#64748b">x_{i+1} = x_i + Δt × v(x_i, t_i)</text>
+  <text x="460" y="458" text-anchor="middle" font-size="10" fill="#64748b">UniPC 多步调度</text>
+  <text x="460" y="475" text-anchor="middle" font-size="9" fill="#94a3b8">CFG: v = v_uncond + 6.0 × (v_cond - v_uncond)</text>
+
+  <line x1="590" y1="440" x2="650" y2="440" stroke="#3b82f6" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <rect x="655" y="395" width="180" height="90" fill="#f0fdf4" stroke="#22c55e" stroke-width="2" rx="8"/>
+  <text x="745" y="418" text-anchor="middle" font-size="12" font-weight="bold" fill="#16a34a">生成结果 x₁</text>
+  <text x="745" y="438" text-anchor="middle" font-size="10" fill="#64748b">35 步后的</text>
+  <text x="745" y="455" text-anchor="middle" font-size="10" fill="#64748b">干净 latent</text>
+  <text x="745" y="475" text-anchor="middle" font-size="9" fill="#94a3b8">t = 1</text>
+
+  <!-- Step count -->
+  <text x="450" y="505" text-anchor="middle" font-size="10" fill="#64748b">共计 35 步 UniPC，从 t=0 逐步走到 t=1</text>
+  <text x="450" y="520" text-anchor="middle" font-size="9" fill="#94a3b8">蒸馏版仅需 4 步（fixed-step sampler）</text>
+
+  <!-- Final decode -->
+  <path d="M 745 485 L 745 510" stroke="#22c55e" stroke-width="1.5" marker-end="url(#arrow)" fill="none"/>
+  <rect x="640" y="515" width="210" height="30" fill="white" stroke="#22c55e" stroke-width="1.5" rx="6"/>
+  <text x="745" y="535" text-anchor="middle" font-size="10" fill="#16a34a">DCAE Decoder → 视频帧</text>
+</svg>
