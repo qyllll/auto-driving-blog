@@ -107,7 +107,7 @@ $$\text{scene\_token} = \text{OSRT}(\mathcal{O}) \in \mathbb{R}^{N_o \times d}$$
 
 将编码后的连续token与文本token交错排列，形成多模态句子：
 
-$$\text{MM-Sentence} = [\text{<img>}, t_1, t_2, ..., \text{<img>}, t_3, t_4, ..., \text{text}]$$
+$$\text{MM-Sentence} = [\text{< img>}, t_1, t_2, ..., \text{< img>}, t_3, t_4, ..., \text{text}]$$
 
 其中 `<img>` 是特殊的多模态token标记，用于分隔不同的模态输入。论文还提出了**实体标注（entity-labeling）**技术，为每个模态输入添加语义标签（如"red star"、"green block"），增强模型对物体的理解。
 

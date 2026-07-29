@@ -131,7 +131,7 @@ $$\text{Weighted: } R_{\text{weighted}} = \sum_{k} w_k \cdot \mathbb{1}[\hat{a}_
 
 $$\text{Diversity: } R_{\text{div}} = 1 - \min\big(0.2,\; \text{该答案在组内占比}\big)$$
 
-$$\text{Format: } R_{\text{fmt}} = \begin{cases} 1 & \text{含 }\texttt{<think>}\text{ 和 }\texttt{<answer>}\\ 0 & \text{otherwise} \end{cases}$$
+$$\text{Format: } R_{\text{fmt}} = \begin{cases} 1 & \text{含 }\texttt{< think>}\text{ 和 }\texttt{< answer>}\\ 0 & \text{otherwise} \end{cases}$$
 
 ### 与其他 RL 算法的对比
 

@@ -68,8 +68,8 @@ $$z_1, q_1, z_2, q_2, \dots, z_T, q_T$$
 
 | 子任务 | 序列视角 | 直觉 |
 |------|----------|------|
-| **世界建模** | $p_\theta(z_t \mid z_{<t}, q_{<t})$ | "我做了这个动作，下一帧世界会变成啥" |
-| **端到端规划** | $p_\theta(q_t \mid z_{\le t}, q_{<t})$ | "看到这个场景，下一步该怎么走" |
+| **世界建模** | $p_\theta(z_t \mid z_{< t}, q_{< t})$ | "我做了这个动作，下一帧世界会变成啥" |
+| **端到端规划** | $p_\theta(q_t \mid z_{\le t}, q_{< t})$ | "看到这个场景，下一步该怎么走" |
 
 推理时，图像 token 走 VQ-VAE 解码器还原成视频，动作 token 则通过**相对位姿矩阵连乘**积分回绝对轨迹：
 
@@ -127,7 +127,7 @@ $$x = [z_1^1, \dots, z_1^{N_v}, q_1, z_2^1, \dots, z_2^{N_v}, q_2, \dots, z_T^{N
 
 模型在因果注意力下最大化序列似然：
 
-$$\mathcal{L} = -\sum_{t=1}^T \left[ \underbrace{\sum_{j=1}^{N_v} \log p_\theta(z_t^j \mid x_{<t}^j)}_{\text{世界建模}} + \underbrace{\log p_\theta(q_t \mid x_{\le t})}_{\text{规划}} \right]$$
+$$\mathcal{L} = -\sum_{t=1}^T \left[ \underbrace{\sum_{j=1}^{N_v} \log p_\theta(z_t^j \mid x_{< t}^j)}_{\text{世界建模}} + \underbrace{\log p_\theta(q_t \mid x_{\le t})}_{\text{规划}} \right]$$
 
 ### 训练细节与消融
 

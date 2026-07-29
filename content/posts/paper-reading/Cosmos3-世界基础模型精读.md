@@ -149,7 +149,7 @@ Cosmos 3 的训练在两条管线上同步推进：
 
 | 训练管线 | 模型模式 | 目标函数 | 数据 | 生成方式 |
 |----------|----------|----------|------|----------|
-| **Reasoner** | 自回归 VLM | $\mathcal{L}_{\text{reasoner}} = -\sum \log p(t_i \mid t_{<i})$ | 图文对+视频标注+推理链 | next-token 预测 |
+| **Reasoner** | 自回归 VLM | $\mathcal{L}_{\text{reasoner}} = -\sum \log p(t_i \mid t_{< i})$ | 图文对+视频标注+推理链 | next-token 预测 |
 | **Generator** | 扩散 Transformer | $\mathcal{L}_{\text{gen}} = \mathbb{E}[\|\mu_\theta(\bm{x}^{(t)}, t, \bm{c}) - \bm{x}^{(0)}\|^2]$ | 2000 万小时视频+音频+动作 | 迭代去噪 |
 
 联合优化目标：$\mathcal{L} = \mathcal{L}_{\text{reasoner}} + \lambda \mathcal{L}_{\text{gen}} + \alpha \mathcal{L}_{\text{balance}}$，其中 $\mathcal{L}_{\text{balance}}$ 为模态负载均衡项。训练先用海量互联网数据预训练，再用仿真合成数据做物理对齐后训练。
