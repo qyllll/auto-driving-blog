@@ -71,7 +71,7 @@ VLA 模型按视觉表示分为两大流派，作者为各自量身定制了世�
 
 AR 世界模型将未来图像 $\mathbf{I}_{t+1}$ 编码为离散 token 序列 $\{w_{t+1}^j\}_{j=1}^{N}$，在 VLM 的因果注意力下做 next-token 预测：
 
-$$\mathcal{L}_{\text{WM-AR}} = -\sum_{j=1}^{N} \log p_\theta(w_{t+1}^j \mid \mathbf{I}_{\le t}, \mathbf{A}_{\le t}, w_{t+1}^{<j})$$
+$$\mathcal{L}_{\text{WM-AR}} = -\sum_{j=1}^{N} \log p_\theta(w_{t+1}^j \mid \mathbf{I}_{\le t}, \mathbf{A}_{\le t}, w_{t+1}^{< j})$$
 
 条件包含历史所有视觉-动作对，模型必须理解"我做了什么动作→世界变成什么样"的因果链。生成时 MoVQGAN 解码器将 token 序列渲染回像素。
 
@@ -106,7 +106,7 @@ VLA 基线有两个变体：
 
 动作预测使用标准交叉熵损失：
 
-$$\mathcal{L}_{\text{Action}} = -\sum_{i=1}^{L} \log P(a_i | S_t, a_{<i})$$
+$$\mathcal{L}_{\text{Action}} = -\sum_{i=1}^{L} \log P(a_i | S_t, a_{< i})$$
 
 ---
 
