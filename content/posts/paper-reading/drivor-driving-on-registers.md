@@ -66,6 +66,12 @@ DrivoR并非第一个试图压缩视觉token的工作，但其思路独树一帜
 
 DrivoR的核心问题非常简单直接：**到底需要多少个token才能表示一个驾驶场景？**
 
+作者的回答是：**24个就够了**（6个相机 x 4个寄存器token）。这比ViT直接输出的6144个token压缩了256倍。
+
+打个比方：传统方法在描述场景时，相当于把6张高清照片的每个像素都送给决策系统；DrivoR则用24个"关键词"来概括整个场景——"前方有车、右侧有车道、交通灯是绿的……"。这24个token由ViT中的**寄存器token (register tokens)**自动学习生成，不需要人工标注，也不需要BEV变换等复杂中间表示。
+
+> 核心洞察：驾驶决策不需要"看清每个像素"，只需要"理解场景的稀疏语义结构"。寄存器token就是提取这种结构化语义的钥匙。
+
 ---
 
 ## 🏗️ 核心架构
@@ -77,16 +83,13 @@ DrivoR的设计哲学是"极简"——没有BEV表示、没有大规模轨迹词
 
 ### 总体架构概览
 
-整个网络的计算流程如下：
+整个网络按流水线顺序执行：
 
 ```
-多相机图像 → ViT + Registers → 场景token (N×R个)
-                                         ↓
-自车状态 → [场景token, 状态embedding] → 轨迹解码器 → K条候选轨迹
-                                                         ↓
-              候选轨迹 → 轨迹embedding → 评分解码器 → 多维子分数
-                                                         ↓
-              子分数 × 行为权重 λ → 加权总分 → 选取得分最高轨迹
+Step 1: 多相机图像 → ViT + Registers → 场景token (N x R个)
+Step 2: 场景token + 自车状态 → 轨迹解码器 → K条候选轨迹
+Step 3: 候选轨迹 + 场景token → 评分解码器 → 多维子分数
+Step 4: 子分数 x 行为权重 λ → 加权总分 → 选取得分最高轨迹
 ```
 
 ### 1. 感知编码器（Perception Encoder）
@@ -100,7 +103,9 @@ DrivoR的设计哲学是"极简"——没有BEV表示、没有大规模轨迹词
 2. **Patch token**：将图像切分为P×P的patch，线性投影为token序列，长度为 H×W / P²
 3. **位置编码**：为每个patch添加空间位置信息
 
-DrivoR在此基础上额外引入了**R个可学习的寄存器token**，构成完整的输入序列：
+可以这样理解寄存器token：一辆车的前方场景包含多种视觉元素（车道线、前车、行人、路标），传统方法让驾驶模型自己从6144个patch token中"大海捞针"；DrivoR则提前开辟了R个**专用信息通道**，每个通道负责从图像中提取一类关键信息。
+
+具体实现上，DrivoR在ViT的输入序列末尾追加了**R个可学习的寄存器token**：
 
 ```
 Input = [CLS, Register_1, Register_2, ..., Register_R, Patch_1, Patch_2, ..., Patch_n]
@@ -116,8 +121,8 @@ X_l = FFN(LN(X_l)) + X_l
 其中 LN 为LayerNorm，FFN 为前馈网络。在这个过程中，寄存器token通过自注意力从patch token中**提取和汇聚**与驾驶场景相关的视觉信息，同时patch token也获得来自寄存器的全局上下文。
 
 关键区别在于：
-- **CLS token**：目标是聚合全局信息进行分类，与所有patch等权重交互
-- **Register token**：每个register是一个独立的"信息通道"，可以关注不同的视觉模式（如前方车辆、车道线、红绿灯）
+- **CLS token**：目标是聚合全局信息进行分类，与所有patch等权重交互，输出一个笼统的"全局特征"
+- **Register token**：每个register是一个独立的**信息通道**，可以关注不同的视觉模式（如Register 1关注前方车辆、Register 2关注车道线、Register 3关注红绿灯）。这种分工是模型**自动学习**的，无需人工指定。
 
 #### 相机感知的设计
 
@@ -170,11 +175,11 @@ DrivoR采用**LoRA（Low-Rank Adaptation）**进行ViT backbone的微调：
 
 - **交叉注意力层**：
   ```
-  Q = trajectory_queries + ego_state_embedding    (K × d_model)
-  K = scene_tokens                                 (N×R × d_model)
-  V = scene_tokens                                 (N×R × d_model)
-  
-  Attention(Q,K,V) = softmax(QK^T / √d_k) × V
+  Q = trajectory_queries + ego_state_embedding    (K x d_model)
+  K = scene_tokens                                 (N x R x d_model)
+  V = scene_tokens                                 (N x R x d_model)
+
+  Attention(Q,K,V) = softmax(QK^T / sqrt(d_k)) x V
   ```
   
   其中 d_k = d_model / n_heads 为每个注意力头的维度。
@@ -190,6 +195,10 @@ DrivoR采用**LoRA（Low-Rank Adaptation）**进行ViT backbone的微调：
 
 WTA是轨迹多模态生成的关键训练策略：
 
+> 直觉：让K条候选轨迹**竞争**——谁离真实轨迹最近，谁就获得训练信号；其他轨迹得不到梯度，被迫去寻找其他可行的驾驶模式（如不同车道、不同速度曲线）。
+
+训练流程如下：
+
 1. 解码器生成K条候选轨迹 {τ₁, τ₂, ..., τ_K}
 2. 计算每条轨迹与GT轨迹的匹配代价（L2距离或碰撞感知代价）
 3. 选出与GT匹配代价最小的轨迹作为"胜者" τ_win
@@ -202,13 +211,13 @@ L_WTA = L_reg + L_aux
 
 其中 L_aux 可包括额外的正则项，如轨迹平滑性约束。
 
-WTA策略的直觉是：**每条轨迹查询会竞争性地专注于不同的驾驶模式**。由于只有最接近GT的查询得到梯度更新，其他查询被迫寻找不同的模式，从而实现轨迹的多样化。这与Mixture of Experts（MoE）的"soft"路由不同，WTA是一种hard routing策略。
+WTA的巧妙之处在于：**每条轨迹查询会竞争性地专注于不同的驾驶模式**。由于只有最接近GT的查询得到梯度更新，其他查询被迫寻找不同的模式——就像组里的同事，只有业绩最好的人拿到奖金，其他人只能另辟蹊径。这与Mixture of Experts（MoE）的"soft"路由不同，WTA是一种hard routing策略。
 
 ### 3. 评分解码器（Scoring Decoder）
 
-评分解码器与轨迹解码器共享相同的架构，但关键区别在于**梯度分离**。
+评分解码器与轨迹解码器共享相同的架构，但关键区别在于**梯度分离（gradient stopping）**。
 
-#### 梯度分离机制
+> 直觉：如果不分离梯度，生成网络和评分网络会互相"作弊"——生成网络专挑简单的轨迹出，评分网络就给简单轨迹打高分，两者一起摆烂。梯度分离强迫它们各司其职。
 
 评分解码器的输入是轨迹解码器输出的轨迹token（经过梯度截断）：
 
@@ -217,16 +226,18 @@ trajectory_token = StopGradient(Decoder_output)
 ```
 
 这意味着：
-- 评分网络的梯度不会反传回轨迹生成网络
+- 评分网络的梯度**不会**反传回轨迹生成网络
 - 轨迹生成网络只接收回归损失（WTA）的梯度
 - 评分网络独立学习如何评估给定轨迹
 
-如果去掉梯度分离，生成和评分会陷入不良平衡：
+为什么必须分离？去掉梯度分离后，生成和评分会陷入不良平衡：
 
 ```
-问题情形：评分网络倾向于给"简单但低质量"的轨迹打高分
-         轨迹生成网络发现"高分=简单轨迹"，产生更多简单轨迹
-         正反馈循环导致两者收敛到次优解
+问题情形：
+评分网络发现"给简单轨迹打高分"最容易降低自身损失
+→ 生成网络发现"高分 = 简单轨迹"，于是只产生简单轨迹
+→ 评分网络更确认简单轨迹是对的
+→ 正反馈循环 → 两者收敛到次优解
 ```
 
 梯度分离打破了这一循环，使两个网络各司其职：生成网络专注于覆盖所有可能的驾驶模式，评分网络专注于准确评估每条轨迹的质量。
@@ -270,7 +281,9 @@ DrivoR最实用的特性——**推理时无需重新训练即可调节驾驶风
 #### 行为调节公式
 
 ```
-Score(τ) = λ_safety × s_safety + λ_comfort × s_comfort + λ_efficiency × s_efficiency + λ_progress × s_progress + λ_legality × s_legality
+Score(tau) = lam_safety * s_safety + lam_comfort * s_comfort
+           + lam_efficiency * s_efficiency + lam_progress * s_progress
+           + lam_legality * s_legality
 ```
 
 其中 λ 为各子分数的权重，满足 Σ λ = 1。
