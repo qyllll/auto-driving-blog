@@ -85,7 +85,7 @@ DrivoR的设计哲学是"极简"——没有BEV表示、没有大规模轨迹词
 
 整个网络按流水线顺序执行：
 
-```
+```text
 Step 1: 多相机图像 → ViT + Registers → 场景token (N x R个)
 Step 2: 场景token + 自车状态 → 轨迹解码器 → K条候选轨迹
 Step 3: 候选轨迹 + 场景token → 评分解码器 → 多维子分数
@@ -107,13 +107,13 @@ Step 4: 子分数 x 行为权重 λ → 加权总分 → 选取得分最高轨�
 
 具体实现上，DrivoR在ViT的输入序列末尾追加了**R个可学习的寄存器token**：
 
-```
+```text
 Input = [CLS, Register_1, Register_2, ..., Register_R, Patch_1, Patch_2, ..., Patch_n]
 ```
 
 这些寄存器token经过ViT的L层Transformer层的前向传播后，在每层中都与patch token通过**多头自注意力（MHSA）**进行信息交互。以第l层为例：
 
-```
+```text
 X_l = MHSA(LN(X_{l-1})) + X_{l-1}
 X_l = FFN(LN(X_l)) + X_l
 ```
@@ -174,7 +174,7 @@ DrivoR采用**LoRA（Low-Rank Adaptation）**进行ViT backbone的微调：
   - 场景token作为交叉注意力的Key和Value
 
 - **交叉注意力层**：
-  ```
+  ```text
   Q = trajectory_queries + ego_state_embedding    (K x d_model)
   K = scene_tokens                                 (N x R x d_model)
   V = scene_tokens                                 (N x R x d_model)
@@ -185,7 +185,7 @@ DrivoR采用**LoRA（Low-Rank Adaptation）**进行ViT backbone的微调：
   其中 d_k = d_model / n_heads 为每个注意力头的维度。
 
 - **输出**：通过多层解码和MLP头，每条轨迹查询输出一个轨迹向量
-  ```
+  ```text
   τ_i = MLP(Decoder(trajectory_query_i, scene_tokens))
   ```
   
@@ -204,7 +204,7 @@ WTA是轨迹多模态生成的关键训练策略：
 3. 选出与GT匹配代价最小的轨迹作为"胜者" τ_win
 4. 仅对胜者轨迹计算回归损失：
 
-```
+```text
 L_reg = ||τ_win - τ_GT||²
 L_WTA = L_reg + L_aux
 ```
@@ -221,7 +221,7 @@ WTA的巧妙之处在于：**每条轨迹查询会竞争性地专注于不同的
 
 评分解码器的输入是轨迹解码器输出的轨迹token（经过梯度截断）：
 
-```
+```text
 trajectory_token = StopGradient(Decoder_output)
 ```
 
@@ -232,7 +232,7 @@ trajectory_token = StopGradient(Decoder_output)
 
 为什么必须分离？去掉梯度分离后，生成和评分会陷入不良平衡：
 
-```
+```text
 问题情形：
 评分网络发现"给简单轨迹打高分"最容易降低自身损失
 → 生成网络发现"高分 = 简单轨迹"，于是只产生简单轨迹
@@ -246,7 +246,7 @@ trajectory_token = StopGradient(Decoder_output)
 
 每条轨迹 τ_i 通过评分解码器后，输出多个维度的子分数：
 
-```
+```text
 [s_safety, s_comfort, s_efficiency, s_progress, s_legality] = ScoringDecoder(traj_token_i, scene_tokens)
 ```
 
@@ -262,13 +262,13 @@ trajectory_token = StopGradient(Decoder_output)
 
 评分器的训练使用数据集提供的**oracle评分**作为监督信号：
 
-```
+```text
 L_score = Σ_i CrossEntropy(s_i, oracle_score_i)
 ```
 
 其中 oracle_score 通常由仿真器的碰撞检测、路线偏移等规则计算得出。如果oracle评分为标量，则分解训练通过如下方式进行：
 
-```
+```text
 L_score_disentangled = Σ_d Σ_i CrossEntropy(s_i^d, oracle_score_i^d)
 ```
 
@@ -280,7 +280,7 @@ DrivoR最实用的特性——**推理时无需重新训练即可调节驾驶风
 
 #### 行为调节公式
 
-```
+```text
 Score(tau) = lam_safety * s_safety + lam_comfort * s_comfort
            + lam_efficiency * s_efficiency + lam_progress * s_progress
            + lam_legality * s_legality
@@ -465,7 +465,7 @@ DrivoR在参数量和速度上具有压倒性优势，同时在精度上达到�
 
 3. **寄存器token的可解释性**。虽然整体架构简单，但寄存器token具体编码了哪些视觉信息还缺乏深入分析。未来可以通过注意力图可视化、token属性分析等方式揭示寄存器token的编码模式：
 
-   ```
+   ```text
    假设：R=4的寄存器可能分别编码
    - Register 1：动态物体（车辆、行人）
    - Register 2：道路结构（车道线、路沿）

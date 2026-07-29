@@ -44,7 +44,7 @@ MOSAIC 的关键洞察：**不同数据域的缩放行为不同**，通过在域
 
 ### 算法流程
 
-```
+```text
 Algorithm: Mixture Optimization via Scaling-Aware Iterative Collection (MOSAIC)
 
 1. 将候选数据集 D_pool 聚类为 M 个域

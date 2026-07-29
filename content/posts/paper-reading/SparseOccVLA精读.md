@@ -101,7 +101,7 @@ SparseOccVLA 由三个核心模块组成：**稀疏占用编码器、统一 LLM 
 
 LLM 的输入序列由三部分组成：
 
-```
+```text
 [System Prompt] + [稀疏占用查询 token] + [任务 Prompt]
 ```
 

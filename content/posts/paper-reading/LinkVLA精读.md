@@ -27,7 +27,7 @@ LinkVLA 的整体架构遵循"视觉编码器 → LLM → 离散动作解码"的
 
 ### 数据处理流
 
-```
+```text
 前视相机图像
     ↓
 InternViT-300M（视觉编码器） → 视觉 token（patch embeddings，~256 个）

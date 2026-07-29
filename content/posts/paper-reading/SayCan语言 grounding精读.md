@@ -105,7 +105,7 @@ SayCan通过精心设计的提示词来获取LLM的概率估计。提示词包�
 
 例如，对于"我洒了饮料，能帮忙吗？"的提示词可能如下：
 
-```
+```text
 You are a robot operating in an office kitchen. When a human asks 
 you to do a task, you will respond with the sequence of actions 
 you would do to accomplish the task.

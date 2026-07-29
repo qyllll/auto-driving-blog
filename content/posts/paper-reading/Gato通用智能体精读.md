@@ -78,7 +78,7 @@ $$x' = \frac{\text{sign}(x) \cdot \ln(1 + \mu |x|)}{\ln(1 + \mu)}$$
 
 Token 化之后，所有数据被组织成统一的序列格式。这是 Gato 能够用一个模型处理所有任务的关键：
 
-```
+```text
 [observation_tokens] [sep] [action_tokens] [observation_tokens] [sep] [action_tokens] ...
 ```
 

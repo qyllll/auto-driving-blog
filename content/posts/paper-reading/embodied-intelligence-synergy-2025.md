@@ -95,7 +95,7 @@ $$\mathcal{E} = \{\mathcal{M}, \mathcal{A}, \mathcal{P}, \mathcal{L}\}$$
 
 其中 $\mathcal{M}$ 表示形态（Morphology），$\mathcal{A}$ 表示动作（Action），$\mathcal{P}$ 表示感知（Perception），$\mathcal{L}$ 表示学习（Learning）。这四个模块之间的八个连接方向可以表示为：
 
-```
+```text
                     ┌─────────────────────────────────────────┐
                     │          具身智能协同框架                │
                     └─────────────────────────────────────────┘
@@ -290,7 +290,7 @@ $$\mathcal{E} = \{\mathcal{M}, \mathcal{A}, \mathcal{P}, \mathcal{L}\}$$
 
 本综述提出了一个清晰的具身智能分类体系，以四个核心组件及其八个连接方向为骨架：
 
-```
+```text
 具身智能
 ├── 形态（Morphology）
 │   ├── 刚性机器人

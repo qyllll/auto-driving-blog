@@ -86,7 +86,7 @@ EmbodiedGPT 的第一个重要贡献是构建了**EgoCOT数据集**，这是目�
 
 #### 1.1 数据构建流程
 
-```
+```text
 Ego4D 原始视频
     ↓
 精心筛选（选择适合规划任务的视频）
@@ -104,7 +104,7 @@ EgoCOT 数据集
 
 EgoCOT 中的每个样本包含：
 
-```
+```text
 {
   "video": "8帧关键帧序列",
   "task_description": "任务描述（如'打开橱柜'）",
@@ -256,7 +256,7 @@ $$\text{Actions} = \text{PolicyNetwork}(\text{TaskFeatures})$$
 
 EmbodiedGPT 使用精心设计的 Prompt 进行思维链预训练：
 
-```
+```text
 Watch this video, identify the actions and devise a plan using chain-of-thought. 
 Extract detailed actions using this schema:
 
