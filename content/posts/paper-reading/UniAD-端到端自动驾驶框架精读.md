@@ -188,6 +188,10 @@ Q_{\text{pos}} = \text{MLP}(\text{PE}(I^s)) + \text{MLP}(\text{PE}(I^a)) + \text
 
 运动预测只对**被检测到的、可跟踪的目标**做轨迹预测。但真实世界里还有大量**未观测到、不规则、难以归类**的障碍物（散落物、异形车、施工围挡）。OccFormer 用一个 BEV 栅格去预测"未来某个时刻，每个格子会不会被占据"，补上了运动预测的盲区。
 
+![OccFormer 架构：T_o 个时序块，每个块内包含 pixel-level self-attention 与 pixel-agent cross-attention（带 attention mask），最终通过卷积 decoder 输出未来占用栅格](/images/uniad/fig6_occformer.png)
+
+**图 4：OccFormer 架构。** OccFormer 由 T_o=5 个时序块堆叠而成。每个块以 BEV 特征和 agent 特征为输入：BEV 特征依次经过下采样 → pixel self-attention → pixel-agent cross-attention（受注意力 mask 约束）→ 上采样 → 残差相加；agent 特征由 track query、agent 位置和 motion query 经时序特化 MLP 融合得到。每个块输出当前时间步的占用预测，同时传入下一块作为输入。
+
 ### 设计机制
 
 OccFormer 在时间上展开——**5 个时间块**，每个块预测未来一个时间步的占用栅格。
@@ -225,7 +229,7 @@ G^t = \text{MLP}_t([Q_A, P_A, Q_X]), \quad t = 1, \dots, 5
 
 ![Planner 架构：自车 query 通过 cross-attention 与 BEV 特征及 MotionFormer 输出交互，生成安全轨迹](/images/uniad/fig7_planner.png)
 
-**图 4：Planner 架构。** 自车 query \(Q_{\text{ego}}\) 在 3 层 Transformer decoder 中依次与 BEV 特征 B 和 motion query 做交叉注意力，融合场景理解后输出规划轨迹。碰撞损失与占用优化在训练/推理时提供安全约束。
+**图 5：Planner 架构。** 自车 query \(Q_{\text{ego}}\) 在 3 层 Transformer decoder 中依次与 BEV 特征 B 和 motion query 做交叉注意力，融合场景理解后输出规划轨迹。碰撞损失与占用优化在训练/推理时提供安全约束。
 
 ### 输入
 
@@ -313,7 +317,7 @@ UniAD 在 **nuScenes** 上做了全面评测。下图展示了环视图像与 BE
 
 ![UniAD 在 nuScenes 上的可视化结果（Fig.3）：环视六相机 + BEV 视角的全任务输出](/images/uniad/nuscenes-results.png)
 
-**图 5：UniAD nuScenes 可视化结果。** 上排：六环视相机图像，每张图上标注了检测框（3D框投影到图像）和轨迹预测；下排：BEV 视角，展示 Track（彩色框 + ID）、Map（蓝色车道线）、Motion（虚线轨迹）、Occ（黄色/绿色占用区域）、Plan（粗绿线为自车规划轨迹）。图中场景为自车在路口礼让对向黑车。
+**图 6：UniAD nuScenes 可视化结果。** 上排：六环视相机图像，每张图上标注了检测框（3D框投影到图像）和轨迹预测；下排：BEV 视角，展示 Track（彩色框 + ID）、Map（蓝色车道线）、Motion（虚线轨迹）、Occ（黄色/绿色占用区域）、Plan（粗绿线为自车规划轨迹）。图中场景为自车在路口礼让对向黑车。
 
 ### 规划结果
 
@@ -411,7 +415,7 @@ UniAD 在多种城市驾驶场景中都能生成高质量的中间表示与规�
 
 ![UniAD 城市巡航可视化：多场景展示检测、地图、运动预测与规划输出的一致性](/images/uniad/fig9_cruising.png)
 
-**图 6：UniAD 城市巡航可视化。** 图中展示了多个城市驾驶场景下的全任务输出。每个场景中，BEV 视角统一展示了检测跟踪框、矢量化地图元素、多模态运动预测轨迹与自车规划轨迹（粗绿线）。UniAD 在不同道路拓扑与交通环境下均能保持各模块输出的一致性——跟踪框准确、地图元素完整、运动预测合理、规划轨迹平滑安全。
+**图 7：UniAD 城市巡航可视化。** 图中展示了多个城市驾驶场景下的全任务输出。每个场景中，BEV 视角统一展示了检测跟踪框、矢量化地图元素、多模态运动预测轨迹与自车规划轨迹（粗绿线）。UniAD 在不同道路拓扑与交通环境下均能保持各模块输出的一致性——跟踪框准确、地图元素完整、运动预测合理、规划轨迹平滑安全。
 
 ---
 
