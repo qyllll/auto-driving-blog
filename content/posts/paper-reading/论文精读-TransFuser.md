@@ -178,7 +178,7 @@ for t = 1 to 4:
 
 只靠 4 个 waypoint 的 L1 损失监督是不够的——场景太复杂，梯度信号太稀疏。TransFuser 加了 4 个辅助任务，让中间特征学到更丰富的场景表示：
 
-![辅助任务：图像分支预测深度和语义分割，BEV 分支预测 HD 地图和检测框](/images/transfuser/fig3_auxiliary.jpg)
+![辅助任务：图像分支预测深度和语义分割，BEV 分支预测 HD 地图和检测框](/images/transfuser/fig3_auxiliary.png)
 
 **图 3：辅助损失。** 除了 waypoint L1 损失，还有 4 个辅助任务。
 
@@ -282,7 +282,7 @@ TransFuser 的训练数据通过一个**规则专家**在 CARLA 中采集：
 
 **图 4a：专家在路口等待。** 自行车模型预测如果此时左转会撞到对向车辆，所以专家选择停车等待。
 
-![对向车流通过后，专家完成左转](/images/transfuser/fig4_expert_b.jpg)
+![对向车流通过后，专家完成左转](/images/transfuser/fig4_expert_b.png)
 
 **图 4b：对向车流通过后，专家完成左转。** 碰撞预测显示安全后，专家加速通过路口。
 
