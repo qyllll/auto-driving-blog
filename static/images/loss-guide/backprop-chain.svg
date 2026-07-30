@@ -1,0 +1,69 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 320">
+  <style>
+    text { font-family: -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif; }
+    .title { font-size: 14px; font-weight: bold; fill: #1a1a2e; }
+    .layer { font-size: 12px; fill: #fff; font-weight: bold; }
+    .info { font-size: 11px; fill: #555; }
+    .fw { stroke: #4A90D9; stroke-width: 2; fill: none; }
+    .bw { stroke: #E74C3C; stroke-width: 2; fill: none; stroke-dasharray: 6,4; }
+  </style>
+
+  <text x="400" y="25" text-anchor="middle" class="title">链式法则：前向传播（蓝）→ 反向传播（红）</text>
+
+  <!-- Input -->
+  <rect x="15" y="60" width="80" height="40" rx="6" fill="#2C3E50"/>
+  <text x="55" y="86" text-anchor="middle" class="layer">输入 x</text>
+
+  <!-- Layer 1 -->
+  <rect x="135" y="60" width="80" height="40" rx="6" fill="#4A90D9"/>
+  <text x="175" y="86" text-anchor="middle" class="layer">W₁, b₁</text>
+
+  <!-- Layer 2 -->
+  <rect x="255" y="60" width="80" height="40" rx="6" fill="#4A90D9"/>
+  <text x="295" y="86" text-anchor="middle" class="layer">W₂, b₂</text>
+
+  <!-- Layer 3 -->
+  <rect x="375" y="60" width="80" height="40" rx="6" fill="#4A90D9"/>
+  <text x="415" y="86" text-anchor="middle" class="layer">W₃, b₃</text>
+
+  <!-- Layer 4 -->
+  <rect x="495" y="60" width="80" height="40" rx="6" fill="#4A90D9"/>
+  <text x="535" y="86" text-anchor="middle" class="layer">W₄, b₄</text>
+
+  <!-- Output + Loss -->
+  <rect x="615" y="60" width="80" height="40" rx="6" fill="#27AE60"/>
+  <text x="655" y="86" text-anchor="middle" class="layer">ŷ (预测)</text>
+
+  <rect x="715" y="60" width="70" height="40" rx="6" fill="#C0392B"/>
+  <text x="750" y="86" text-anchor="middle" class="layer">Loss</text>
+
+  <!-- Forward arrows -->
+  <line x1="95" y1="80" x2="135" y2="80" class="fw"/>
+  <line x1="215" y1="80" x2="255" y2="80" class="fw"/>
+  <line x1="335" y1="80" x2="375" y2="80" class="fw"/>
+  <line x1="455" y1="80" x2="495" y2="80" class="fw"/>
+  <line x1="575" y1="80" x2="615" y2="80" class="fw"/>
+  <line x1="695" y1="80" x2="715" y2="80" class="fw"/>
+
+  <!-- Forward label -->
+  <text x="400" y="125" text-anchor="middle" fill="#4A90D9" font-size="11">前向传播：x → h₁ → h₂ → h₃ → h₄ → ŷ → Loss</text>
+
+  <!-- Backward arrows -->
+  <line x1="715" y1="170" x2="695" y2="170" class="bw"/>
+  <line x1="575" y1="170" x2="495" y2="170" class="bw"/>
+  <line x1="455" y1="170" x2="375" y2="170" class="bw"/>
+  <line x1="335" y1="170" x2="255" y2="170" class="bw"/>
+  <line x1="215" y1="170" x2="135" y2="170" class="bw"/>
+  <line x1="93" y1="170" x2="18" y2="170" class="bw"/>
+
+  <!-- Backward label -->
+  <text x="400" y="195" text-anchor="middle" fill="#E74C3C" font-size="11">反向传播：∂Loss/∂θ₄ → ∂Loss/∂θ₃ → ∂Loss/∂θ₂ → ∂Loss/∂θ₁</text>
+
+  <!-- Gradient update -->
+  <rect x="200" y="225" width="400" height="36" rx="8" fill="#FFFDE7" stroke="#F39C12" stroke-width="1.5"/>
+  <text x="400" y="248" text-anchor="middle" fill="#E67E22" font-size="13" font-weight="bold">参数更新：θ_new = θ_old − η · ∂Loss / ∂θ</text>
+
+  <!-- Gradient info -->
+  <text x="400" y="290" text-anchor="middle" fill="#666" font-size="11">∂Loss / ∂θ → 损失对参数的"敏感度"：θ 变化一点点，Loss 变化多少</text>
+  <text x="400" y="308" text-anchor="middle" fill="#666" font-size="11">η（学习率）→ 每次更新的步长：太大震荡，太小收敛慢</text>
+</svg>

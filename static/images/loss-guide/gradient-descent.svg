@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 380">
+  <style>
+    text { font-family: -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif; }
+    .title { font-size: 15px; font-weight: bold; fill: #1a1a2e; }
+    .label { font-size: 12px; fill: #555; }
+  </style>
+
+  <text x="400" y="25" text-anchor="middle" class="title">梯度下降：Loss 如何驱动神经网络学习</text>
+
+  <!-- Loss landscape -->
+  <defs>
+    <linearGradient id="grad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#E74C3C;stop-opacity:0.3"/>
+      <stop offset="100%" style="stop-color:#27AE60;stop-opacity:0.3"/>
+    </linearGradient>
+    <marker id="arrowG" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M0,0 L10,5 L0,10 Z" fill="#E74C3C"/>
+    </marker>
+  </defs>
+
+  <!-- Loss curve -->
+  <path d="M50 310 Q100 280 150 270 Q200 260 250 220 Q300 180 350 160 Q400 150 420 130 Q440 110 470 100 Q500 90 530 95 Q560 100 590 80 Q620 60 660 55 Q700 50 750 50"
+        fill="none" stroke="#4A90D9" stroke-width="3"/>
+
+  <!-- Gradient arrows on curve -->
+  <line x1="150" y1="272" x2="180" y2="268" stroke="#E74C3C" stroke-width="2" marker-end="url(#arrowG)"/>
+  <line x1="300" y1="186" x2="330" y2="176" stroke="#E74C3C" stroke-width="2" marker-end="url(#arrowG)"/>
+  <line x1="470" y1="104" x2="495" y2="96" stroke="#E74C3C" stroke-width="2" marker-end="url(#arrowG)"/>
+  <line x1="620" y1="64" x2="645" y2="56" stroke="#E74C3C" stroke-width="2" marker-end="url(#arrowG)"/>
+
+  <!-- Points on curve -->
+  <circle cx="150" cy="272" r="5" fill="#E74C3C"/>
+  <circle cx="300" cy="186" r="5" fill="#E74C3C"/>
+  <circle cx="470" cy="104" r="5" fill="#E74C3C"/>
+  <circle cx="620" cy="64" r="5" fill="#E74C3C"/>
+  <circle cx="750" cy="50" r="6" fill="#27AE60"/>
+
+  <!-- Labels -->
+  <text x="150" y="258" text-anchor="middle" fill="#E74C3C" font-size="11">起步</text>
+  <text x="300" y="175" text-anchor="middle" fill="#E74C3C" font-size="11">Loss 高</text>
+  <text x="470" y="96" text-anchor="middle" fill="#E74C3C" font-size="11">下降中</text>
+  <text x="620" y="55" text-anchor="middle" fill="#27AE60" font-size="11">收敛</text>
+
+  <!-- Axes -->
+  <line x1="30" y1="330" x2="770" y2="330" stroke="#999" stroke-width="1.5"/>
+  <line x1="40" y1="330" x2="40" y2="40" stroke="#999" stroke-width="1.5"/>
+  <text x="400" y="360" text-anchor="middle" fill="#999" font-size="12">训练步数（时间）</text>
+  <text x="25" y="200" text-anchor="middle" fill="#999" font-size="12" transform="rotate(-90,25,200)">Loss 值</text>
+
+  <!-- Bottom explanation: forward vs backward -->
+  <rect x="80" y="290" width="280" height="32" rx="6" fill="#4A90D9" opacity="0.15"/>
+  <rect x="440" y="290" width="280" height="32" rx="6" fill="#E74C3C" opacity="0.15"/>
+  <text x="220" y="311" text-anchor="middle" fill="#4A90D9" font-size="12" font-weight="bold">前向传播（Forward）</text>
+  <text x="580" y="311" text-anchor="middle" fill="#E74C3C" font-size="12" font-weight="bold">反向传播（Backward）</text>
+</svg>
