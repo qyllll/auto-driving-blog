@@ -47,7 +47,7 @@ UniAD 给出了一条**折中路线**，介于"纯分模块"与"纯黑盒端到�
 
 先看 UniAD 的整体架构，再理解它为什么选择了这种设计。
 
-![UniAD 整体架构（Fig.2）：Track → Map → Motion → Occupancy → Planner 的五段式 query 通路](/images/uniad/architecture.png)
+![UniAD 整体架构（Fig.2）：Track → Map → Motion → Occupancy → Planner 的五段式 query 通路](/images/uniad/framework-design.png)
 
 **图 1：UniAD 整体架构。** 环视六相机图像流式输入，经 BEVFormer 编码为 BEV 特征 B。随后五个 Transformer decoder 模块依次处理：TrackFormer 输出 agent query Q_A（跟踪到的智能体），MapFormer 输出 map query Q_M（地图元素），MotionFormer 输出多模态轨迹预测，OccFormer 输出未来占用栅格，Planner 结合自车 query 生成规划轨迹。所有模块通过 query 接口传递信息，梯度可从规划 loss 贯通至感知。
 
@@ -55,7 +55,7 @@ UniAD 的完整 pipeline：**多相机图像 → TrackFormer（跟踪） → Map
 
 作为对比，下图为论文给出的几种自动驾驶框架设计路线——从纯分模块、多任务学习到最终 UniAD 选择的显式端到端范式，展示了 UniAD 在设计哲学上的选择：
 
-![UniAD 框架设计对比（Fig.1）：从分模块、多任务学习到以规划为导向的显式端到端（c.3）](/images/uniad/framework-design.png)
+![UniAD 框架设计对比（Fig.1）：从分模块、多任务学习到以规划为导向的显式端到端（c.3）](/images/uniad/architecture.png)
 
 **图 2：五种自动驾驶架构范式对比。** (a) 分模块独立模型：各任务独立训练，信息传递有损，误差累积严重。(b) 多任务学习（MTL）：共享骨干但各任务 head 独立，缺乏任务间显式交互。(c.1) 黑盒端到端：传感器直出控制信号，完全不可解释。(c.2) 部分组件端到端：仅局部链路可微。(c.3) **UniAD 的规划导向范式**：所有感知/预测模块以 Transformer decoder 结构组织，通过 task query 交互，最终服务于规划。相比其他范式，UniAD 同时做到了"梯度贯通"和"可解释性"。
 
