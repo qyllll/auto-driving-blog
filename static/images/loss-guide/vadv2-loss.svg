@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 750 350">
+  <style>
+    text { font-family: -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif; }
+    .title { font-size: 15px; font-weight: bold; fill: #1a1a2e; }
+    .sub { font-size: 12px; fill: #555; }
+  </style>
+
+  <text x="375" y="25" text-anchor="middle" class="title">VADv2 三重损失 &amp; 为什么用 sigmoid 而非 softmax</text>
+
+  <!-- Three losses -->
+  <!-- Distribution Loss -->
+  <rect x="20" y="50" width="220" height="120" rx="8" fill="#E8F8E8" stroke="#27AE60" stroke-width="1.5"/>
+  <text x="130" y="75" text-anchor="middle" fill="#27AE60" font-size="13" font-weight="bold">① 分布损失</text>
+  <text x="130" y="95" text-anchor="middle" fill="#333" font-size="12">ℒ_dist = D_KL(p_data ∥ p_pred)</text>
+  <text x="130" y="115" text-anchor="middle" fill="#333" font-size="12">= −∑ p_data(a) · log p_pred(a)</text>
+  <text x="130" y="140" text-anchor="middle" fill="#666" font-size="11">从人类演示学"哪条路更常见"</text>
+  <text x="130" y="156" text-anchor="middle" fill="#666" font-size="11">等价于分类交叉熵</text>
+
+  <!-- Conflict Loss -->
+  <rect x="265" y="50" width="220" height="120" rx="8" fill="#FDEDEC" stroke="#C0392B" stroke-width="1.5"/>
+  <text x="375" y="75" text-anchor="middle" fill="#C0392B" font-size="13" font-weight="bold">② 冲突损失</text>
+  <text x="375" y="95" text-anchor="middle" fill="#333" font-size="12">ℒ_conflict = ∑ 𝟙_conf(a) · log p_pred(a)</text>
+  <text x="375" y="115" text-anchor="middle" fill="#333" font-size="12">碰撞 / 偏离 → 压低概率</text>
+  <text x="375" y="140" text-anchor="middle" fill="#666" font-size="11">告诉模型"什么绝对不能做"</text>
+  <text x="375" y="156" text-anchor="middle" fill="#666" font-size="11">安全先验注入</text>
+
+  <!-- Token Loss -->
+  <rect x="510" y="50" width="220" height="120" rx="8" fill="#F0F6FF" stroke="#4A90D9" stroke-width="1.5"/>
+  <text x="620" y="75" text-anchor="middle" fill="#4A90D9" font-size="13" font-weight="bold">③ Token 监督</text>
+  <text x="620" y="95" text-anchor="middle" fill="#333" font-size="12">地图：L1 + Focal</text>
+  <text x="620" y="115" text-anchor="middle" fill="#333" font-size="12">Agent：L1 + Focal + minFDE</text>
+  <text x="620" y="135" text-anchor="middle" fill="#333" font-size="12">交通灯：Focal Loss</text>
+  <text x="620" y="156" text-anchor="middle" fill="#666" font-size="11">各场景 token 独立监督</text>
+
+  <!-- sigmoid vs softmax -->
+  <rect x="100" y="195" width="550" height="135" rx="8" fill="#FFFDE7" stroke="#F39C12" stroke-width="1.5"/>
+  <text x="375" y="220" text-anchor="middle" fill="#E67E22" font-size="14" font-weight="bold">关键设计：为什么用 sigmoid 而不是 softmax？</text>
+
+  <text x="375" y="245" text-anchor="middle" fill="#333" font-size="12">softmax:  p(a) = exp(s_a) / Σ exp(s_i)  → 概率和为 1，各类互斥</text>
+  <text x="375" y="265" text-anchor="middle" fill="#333" font-size="12">sigmoid:  p(a) = σ(s_a) = 1/(1+e^{-s_a})  → 每个动作独立判断，互不排斥</text>
+
+  <text x="375" y="295" text-anchor="middle" fill="#666" font-size="11">驾驶中"直行"和"变道"可能同时合理 → sigmoid 允许两者都高概率</text>
+  <text x="375" y="315" text-anchor="middle" fill="#666" font-size="11">softmax 强制互斥：一个高了另一个必须低 → 与驾驶多模态性矛盾</text>
+</svg>

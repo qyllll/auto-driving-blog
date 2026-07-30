@@ -1,0 +1,91 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 440">
+  <style>
+    text { font-family: -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif; }
+    .title { font-size: 15px; font-weight: bold; fill: #1a1a2e; }
+    .task { font-size: 12px; fill: #fff; font-weight: bold; }
+    .loss { font-size: 11px; fill: #555; }
+    .arrow { stroke: #999; stroke-width: 1.5; fill: none; }
+  </style>
+
+  <text x="400" y="25" text-anchor="middle" class="title">多任务联合优化：UniAD 的 Loss 设计全景</text>
+
+  <!-- Input -->
+  <rect x="340" y="45" width="120" height="32" rx="6" fill="#2C3E50"/>
+  <text x="400" y="66" text-anchor="middle" class="task">多视图图像</text>
+
+  <!-- Backbone -->
+  <rect x="340" y="90" width="120" height="30" rx="5" fill="#34495E"/>
+  <text x="400" y="110" text-anchor="middle" class="task" font-size="11">BEVFormer 骨干</text>
+
+  <!-- Grad flow arrow -->
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M0,0 L10,5 L0,10 Z" fill="#E74C3C"/>
+    </marker>
+  </defs>
+
+  <!-- Track -->
+  <rect x="30" y="140" width="130" height="36" rx="5" fill="#4A90D9"/>
+  <text x="95" y="163" text-anchor="middle" class="task">TrackFormer</text>
+  <rect x="30" y="185" width="130" height="80" rx="6" fill="#F0F6FF" stroke="#4A90D9" stroke-width="1"/>
+  <text x="95" y="202" text-anchor="middle" class="loss" fill="#4A90D9" font-weight="bold">检测 + 跟踪 Loss</text>
+  <text x="95" y="218" text-anchor="middle" class="loss">Focal Loss</text>
+  <text x="95" y="233" text-anchor="middle" class="loss">+ 框 L1 回归 Loss</text>
+  <text x="95" y="248" text-anchor="middle" class="loss">+ 关联匹配 Loss</text>
+
+  <!-- Map -->
+  <rect x="195" y="140" width="130" height="36" rx="5" fill="#E67E22"/>
+  <text x="260" y="163" text-anchor="middle" class="task">MapFormer</text>
+  <rect x="195" y="185" width="130" height="80" rx="6" fill="#FFF3E0" stroke="#E67E22" stroke-width="1"/>
+  <text x="260" y="202" text-anchor="middle" class="loss" fill="#E67E22" font-weight="bold">在线建图 Loss</text>
+  <text x="260" y="218" text-anchor="middle" class="loss">Focal 分类 Loss</text>
+  <text x="260" y="233" text-anchor="middle" class="loss">+ 点集 L1 回归 Loss</text>
+
+  <!-- Motion -->
+  <rect x="360" y="140" width="130" height="36" rx="5" fill="#27AE60"/>
+  <text x="425" y="163" text-anchor="middle" class="task">MotionFormer</text>
+  <rect x="360" y="185" width="130" height="80" rx="6" fill="#E8F8E8" stroke="#27AE60" stroke-width="1"/>
+  <text x="425" y="202" text-anchor="middle" class="loss" fill="#27AE60" font-weight="bold">运动预测 Loss</text>
+  <text x="425" y="218" text-anchor="middle" class="loss">轨迹 L1 回归</text>
+  <text x="425" y="233" text-anchor="middle" class="loss">+ 模态分类 Focal</text>
+  <text x="425" y="248" text-anchor="middle" class="loss">+ 终点分类 Loss</text>
+
+  <!-- Occ -->
+  <rect x="525" y="140" width="130" height="36" rx="5" fill="#8E44AD"/>
+  <text x="590" y="163" text-anchor="middle" class="task">OccFormer</text>
+  <rect x="525" y="185" width="130" height="80" rx="6" fill="#F4ECF7" stroke="#8E44AD" stroke-width="1"/>
+  <text x="590" y="202" text-anchor="middle" class="loss" fill="#8E44AD" font-weight="bold">占用预测 Loss</text>
+  <text x="590" y="218" text-anchor="middle" class="loss">二值交叉熵 Loss</text>
+  <text x="590" y="233" text-anchor="middle" class="loss">+ Dice Loss</text>
+
+  <!-- Plan -->
+  <rect x="690" y="140" width="100" height="36" rx="5" fill="#C0392B"/>
+  <text x="740" y="163" text-anchor="middle" class="task">Planner</text>
+  <rect x="690" y="185" width="100" height="80" rx="6" fill="#FDEDEC" stroke="#C0392B" stroke-width="1"/>
+  <text x="740" y="202" text-anchor="middle" class="loss" fill="#C0392B" font-weight="bold">规划 Loss</text>
+  <text x="740" y="218" text-anchor="middle" class="loss">轨迹 L2 回归</text>
+  <text x="740" y="233" text-anchor="middle" class="loss">+ 碰撞 Loss</text>
+
+  <!-- Backbone connection arrows -->
+  <line x1="400" y1="120" x2="95" y2="140" stroke="#999" stroke-width="1.2" class="arrow"/>
+  <line x1="400" y1="120" x2="260" y2="140" stroke="#999" stroke-width="1.2" class="arrow"/>
+  <line x1="400" y1="120" x2="425" y2="140" stroke="#999" stroke-width="1.2" class="arrow"/>
+  <line x1="400" y1="120" x2="590" y2="140" stroke="#999" stroke-width="1.2" class="arrow"/>
+  <line x1="400" y1="120" x2="740" y2="140" stroke="#999" stroke-width="1.2" class="arrow"/>
+
+  <!-- Pipeline arrows -->
+  <line x1="160" y1="158" x2="195" y2="158" stroke="#bbb" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <line x1="325" y1="158" x2="360" y2="158" stroke="#bbb" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <line x1="490" y1="158" x2="525" y2="158" stroke="#bbb" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <line x1="655" y1="158" x2="690" y2="158" stroke="#bbb" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- Total loss -->
+  <rect x="250" y="295" width="300" height="36" rx="8" fill="#2C3E50"/>
+  <text x="400" y="318" text-anchor="middle" class="task">ℒ_total = ℒ_track + ℒ_map + ℒ_motion + ℒ_occ + ℒ_plan</text>
+
+  <!-- Two-stage training -->
+  <rect x="155" y="350" width="490" height="70" rx="8" fill="#FFFDE7" stroke="#F39C12" stroke-width="1.5"/>
+  <text x="400" y="372" text-anchor="middle" fill="#E67E22" font-size="12" font-weight="bold">两阶段训练策略</text>
+  <text x="400" y="390" text-anchor="middle" fill="#666" font-size="11">阶段一：各模块分别预训练 → 阶段二：一起联合微调（规划 Loss 回传至感知）</text>
+  <text x="400" y="407" text-anchor="middle" fill="#999" font-size="10">关键经验：直接从头联合训练会崩——梯度尺度不一（规划≈1 量级，跟踪≈0.01 量级）</text>
+</svg>
