@@ -31,9 +31,9 @@ weight: 38
 
 这两种方式的共同问题：**融合是静态的、一次性的**——图像和 LiDAR 的特征没有真正"交流"过。比如 LiDAR 看到了远处一辆车的点云但不知道是啥类型，相机能识别出"那是一辆卡车"但不知道它的准确距离——这两种信息应该在多个层次上反复交互，而不是到了最后一层才拼接。
 
-![TransFuser 核心动机：在密集交通场景下，几何融合和后融合远不如注意力融合](/images/transfuser/fig1_motivation.jpg)
+![TransFuser 的核心动机：相机和 LiDAR 的互补性以及多传感器融合的挑战](/images/transfuser/fig1_teaser.jpg)
 
-**图 1：TransFuser 的核心动机。** 在高密度动态交通场景下（多车、多行人、复杂路口），基于几何投影或简单拼接的融合方式会让模型漏掉关键的交互信息。TransFuser 用 Transformer 的自注意力机制让图像和 BEV 特征在**多个分辨率层次**上反复交互，最终学到融合了全局 3D 场景上下文的紧凑特征。
+**图 1：TransFuser 的核心动机。** 相机提供丰富的语义信息（物体类别、交通灯颜色）但缺乏深度，LiDAR 提供精确的 3D 几何信息（距离、形状）但缺乏语义。TransFuser 的核心问题是：如何让这两种互补的传感器在特征层面充分交互？
 
 ---
 
@@ -178,7 +178,7 @@ for t = 1 to 4:
 
 只靠 4 个 waypoint 的 L1 损失监督是不够的——场景太复杂，梯度信号太稀疏。TransFuser 加了 4 个辅助任务，让中间特征学到更丰富的场景表示：
 
-![辅助任务：图像分支预测深度和语义分割，BEV 分支预测 HD 地图和检测框](/images/transfuser/fig3_auxiliary.jpg)
+![辅助任务：图像分支预测深度和语义分割，BEV 分支预测 HD 地图和检测框](/images/transfuser/fig3_auxiliary.png)
 
 **图 3：辅助损失。** 除了 waypoint L1 损失，还有 4 个辅助任务。
 
@@ -191,21 +191,69 @@ for t = 1 to 4:
 
 **为什么辅助任务重要**：它们提供了强力的**中间监督**，确保中间特征图不仅仅服务于 waypoint 预测，还编码了场景的各种结构化信息。这相当于把"暗盒"的特征提取变成了"带语义标签"的特征提取。
 
-### 五、损失函数
+### 五、损失函数详解
 
-总的训练损失：
+TransFuser 的总训练损失由 5 个部分组成，每个的数学形式和设计动机如下：
 
-\[
-\mathcal{L} = \mathcal{L}_{\text{waypoint}} + \lambda_1 \mathcal{L}_{\text{depth}} + \lambda_2 \mathcal{L}_{\text{semantic}} + \lambda_3 \mathcal{L}_{\text{HDmap}} + \lambda_4 \mathcal{L}_{\text{detection}}
-\]
-
-其中 waypoint 损失是 L1：
+#### 5.1 Waypoint 预测损失（主损失）
 
 \[
 \mathcal{L}_{\text{waypoint}} = \sum_{t=1}^{T} ||w_t - w_t^{gt}||_1
 \]
 
-所有损失权重 λ 都设为 1（简单均匀加权）。
+- T=4（预测 4 个未来 waypoint，对应 2 秒，间隔 0.5 秒）
+- 使用 L1 而非 L2：L1 对大误差的惩罚更温和，在驾驶场景中更鲁棒（突然的大误差可能是标注噪声而非真正的危险）
+- 差分形式 \(w_t = w_{t-1} + \delta w_t\)：预测位移增量而非绝对坐标，训练更稳定
+
+#### 5.2 深度估计损失
+
+\[
+\mathcal{L}_{\text{depth}} = ||\hat{D} - D^{gt}||_1
+\]
+
+- 从图像分支特征经卷积解码器输出深度图 \(\hat{D}\)
+- GT 深度 \(D^{gt}\) 由 LiDAR 点云投影到图像平面得到
+- 作用：迫使图像特征编码距离信息，弥补单目缺少深度模态时的线索
+
+#### 5.3 语义分割损失
+
+\[
+\mathcal{L}_{\text{semantic}} = \text{CrossEntropy}(\hat{S}, S^{gt})
+\]
+
+- 7 类：未标注、车辆、道路、红灯、行人、车道标线、人行道
+- 从图像分支特征解码
+- 作用：让图像特征学会识别关键语义元素，尤其是**红灯**和**行人**这类规划决策的关键信号
+
+#### 5.4 HD 地图预测损失
+
+\[
+\mathcal{L}_{\text{HDmap}} = \text{CrossEntropy}(\hat{M}, M^{gt})
+\]
+
+- 3 类：道路、车道标线、其他
+- 从 BEV 分支特征经卷积解码器输出 64×64 的 BEV 分割图
+- 作用：让 BEV 特征编码可通行区域和道路结构
+
+#### 5.5 车辆检测损失
+
+\[
+\mathcal{L}_{\text{detection}} = \mathcal{L}_{\text{focal}}(\hat{P}, P^{gt}) + \mathcal{L}_{\text{CE}}(\hat{O}, O^{gt}) + ||\hat{R} - R^{gt}||_1
+\]
+
+- CenterNet 风格解码器，从 BEV 特征输出：
+  - 位置热力图 \(\hat{P}\)：Focal 损失（检测车辆中心）
+  - 粗方向分类 \(\hat{O}\)：交叉熵损失（12 类，每类 30°）
+  - 精方向回归 + 尺寸 + 位置偏移 \(\hat{R}\)：L1 损失
+- 作用：让 BEV 特征感知周围车辆的精确位置、朝向和尺寸
+
+#### 5.6 总损失与权重
+
+\[
+\mathcal{L} = \mathcal{L}_{\text{waypoint}} + \mathcal{L}_{\text{depth}} + \mathcal{L}_{\text{semantic}} + \mathcal{L}_{\text{HDmap}} + \mathcal{L}_{\text{detection}}
+\]
+
+所有权重设为 1（简单均匀加权）。作者在消融实验中验证了每个辅助任务都有正向贡献，但没有做精细的权重搜索——这是一个简化设计，后续工作可以用不确定性加权或 GradNorm 进一步优化。
 
 ---
 
@@ -234,9 +282,72 @@ TransFuser 的训练数据通过一个**规则专家**在 CARLA 中采集：
 
 **图 4a：专家在路口等待。** 自行车模型预测如果此时左转会撞到对向车辆，所以专家选择停车等待。
 
-![对向车流通过后，专家完成左转](/images/transfuser/fig4_expert_b.jpg)
+![对向车流通过后，专家完成左转](/images/transfuser/fig4_expert_b.png)
 
 **图 4b：对向车流通过后，专家完成左转。** 碰撞预测显示安全后，专家加速通过路口。
+
+---
+
+## 推理：从图像到控制信号
+
+TransFuser 的推理流程是完整的端到端链路，不依赖任何规则后处理（除了蠕行安全启发式）：
+
+### 推理流程（每帧）
+
+```text
+多视图图像 (400×300) + LiDAR 点云
+       ↓
+图像分支 CNN + BEV 分支 CNN（并行，4 层 TransFuser 融合）
+       ↓
+两个 512 维特征向量 → 元素相加 → 全局场景特征
+       ↓
+MLP(512→256→128→64) → 64 维向量
+       ↓
+GRU 自回归解码（4 step，每步输入上一步位置 + 目标位置）
+       ↓
+4 个差分 waypoint → 累加得到 4 个绝对 waypoint
+       ↓
+PID 控制器（横向 + 纵向）
+       ↓
+方向盘转角 + 油门 + 刹车
+```
+
+### 每一步的细节
+
+**Step 1：传感器输入**
+- RGB 图像：单目前视，400×300 分辨率
+- LiDAR 点云：投影为 256×256×2 的 BEV 栅格（高度通道 + 密度通道）
+
+**Step 2：多分辨率融合**
+- 图像分支和 BEV 分支各自独立做卷积
+- 在 4 个分辨率层级上，特征被展平、拼接、送入 Transformer（L=4, heads=4）
+- 融合后再 reshape 回原分辨率，与原始特征相加
+
+**Step 3：全局特征**
+- 两个分支最终的特征图（22×5×C 和 8×8×C）分别 AvgPool + FC 到 512 维
+- 两个 512 维向量元素相加得到全局场景向量
+
+**Step 4：Waypoint 解码**
+- 全局向量经 MLP 降为 64 维，作为 GRU 初始隐状态
+- GRU 逐 step 解码 4 个 waypoint，每步输入目标位置 G
+
+**Step 5：PID 控制**
+- 横向 PID：根据 waypoint 间的方向算方向盘转角
+- 纵向 PID：根据 waypoint 间的距离算目标速度 → 油门/刹车
+- PID 参数：横向 Kp=1.25 Ki=0.75 Kd=0.3，纵向 Kp=5.0 Ki=0.5 Kd=1.0
+
+**Step 6：安全蠕行**
+- 如果车静止超过 55 秒，设定目标速度 4 m/s 蠕动 1.5 秒
+- 蠕动前用 LiDAR 检测前方有无障碍物
+
+### 推理配置
+
+| 配置项 | 值 |
+|-------|-----|
+| 帧率 | 实时（27.6 ms/帧 ≈ 36 FPS）|
+| 硬件 | 单张 RTX 3090 |
+| 集成方式 | 单模型或 3 模型集成（集成时 59.6 ms/帧 ≈ 17 FPS）|
+| 后处理 | 仅蠕行安全启发式，无规则轨迹修正 |
 
 ---
 
@@ -339,9 +450,9 @@ TransFuser 在单 RTX 3090 上 **>36 FPS**，完全可以实时运行。
 
 ### 注意力可视化
 
-![注意力图可视化](/images/transfuser/fig6_attention1.png)
+![注意力图可视化](/images/transfuser/fig6_attention.jpg)
 
-**图 5：注意力可视化。** 对于红色标记的 query token（上图是图像 token，下图是 LiDAR token），绿色标记了 top-5 高注意力权重的 token（来自另一个模态）。可以看到 TransFuser 的注意力高度集中在车辆、行人、交通灯等关键目标周围——说明模型学会了跨模态关注"什么重要"。
+**图 5：注意力可视化。** 对于红色标记的 query token，绿色标记了 top-5 高注意力权重的 token（来自另一个模态）。上方 4 行是图像 token 关注 LiDAR token 的区域，下方 4 行是 LiDAR token 关注图像 token 的区域。可以看到 TransFuser 的注意力高度集中在车辆、行人、交通灯等关键目标周围——说明模型学会了跨模态关注"什么重要"。
 
 ---
 
