@@ -1,0 +1,98 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 700" font-family="'Noto Sans SC','Microsoft YaHei',Arial,sans-serif">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M0,0 L10,5 L0,10 Z" fill="#4A5568"/>
+    </marker>
+    <marker id="arrow-down" viewBox="0 0 10 10" refX="5" refY="9" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M0,0 L5,10 L10,0 Z" fill="#4A5568"/>
+    </marker>
+    <filter id="shadow" x="-5%" y="-5%" width="110%" height="110%">
+      <feDropShadow dx="2" dy="2" stdDeviation="3" flood-opacity="0.12"/>
+    </filter>
+  </defs>
+
+  <!-- Title -->
+  <text x="450" y="35" text-anchor="middle" font-size="20" font-weight="bold" fill="#2D3748">GRPO Advantage 计算详解</text>
+  <text x="450" y="55" text-anchor="middle" font-size="12" fill="#718096">PerPromptStatTracker：组内竞争驱动策略优化</text>
+
+  <!-- Group visualization -->
+  <rect x="50" y="80" width="800" height="80" rx="10" fill="#F7FAFC" stroke="#CBD5E0" stroke-width="1.5"/>
+  <text x="450" y="100" text-anchor="middle" font-size="13" font-weight="bold" fill="#4A5568">同一个 prompt → 生成 G 张不同图片（group_size = G）</text>
+
+  <!-- Individual image boxes -->
+  <rect x="70" y="112" width="70" height="35" rx="6" fill="#FFF5F5" stroke="#FC8181" stroke-width="1.5"/>
+  <text x="105" y="134" text-anchor="middle" font-size="10" fill="#C53030">img₁</text>
+
+  <rect x="160" y="112" width="70" height="35" rx="6" fill="#FFF5F5" stroke="#FC8181" stroke-width="1.5"/>
+  <text x="195" y="134" text-anchor="middle" font-size="10" fill="#C53030">img₂</text>
+
+  <rect x="250" y="112" width="70" height="35" rx="6" fill="#FFF5F5" stroke="#FC8181" stroke-width="1.5"/>
+  <text x="285" y="134" text-anchor="middle" font-size="10" fill="#C53030">img₃</text>
+
+  <text x="340" y="134" text-anchor="middle" font-size="12" fill="#A0AEC0">⋯</text>
+
+  <rect x="370" y="112" width="70" height="35" rx="6" fill="#FFF5F5" stroke="#FC8181" stroke-width="1.5"/>
+  <text x="405" y="134" text-anchor="middle" font-size="10" fill="#C53030">img_G</text>
+
+  <!-- Arrows down from each img -->
+  <line x1="105" y1="147" x2="105" y2="175" stroke="#4A5568" stroke-width="1.5" marker-end="url(#arrow-down)"/>
+  <line x1="195" y1="147" x2="195" y2="175" stroke="#4A5568" stroke-width="1.5" marker-end="url(#arrow-down)"/>
+  <line x1="285" y1="147" x2="285" y2="175" stroke="#4A5568" stroke-width="1.5" marker-end="url(#arrow-down)"/>
+  <line x1="405" y1="147" x2="405" y2="175" stroke="#4A5568" stroke-width="1.5" marker-end="url(#arrow-down)"/>
+
+  <!-- Reward row -->
+  <text x="15" y="195" font-size="12" font-weight="bold" fill="#C05621">Reward</text>
+
+  <rect x="70" y="180" width="70" height="35" rx="6" fill="#FFFAF0" stroke="#F6AD55" stroke-width="1.5"/>
+  <text x="105" y="202" text-anchor="middle" font-size="11" fill="#C05621">r₁</text>
+
+  <rect x="160" y="180" width="70" height="35" rx="6" fill="#FFFAF0" stroke="#F6AD55" stroke-width="1.5"/>
+  <text x="195" y="202" text-anchor="middle" font-size="11" fill="#C05621">r₂</text>
+
+  <rect x="250" y="180" width="70" height="35" rx="6" fill="#FFFAF0" stroke="#F6AD55" stroke-width="1.5"/>
+  <text x="285" y="202" text-anchor="middle" font-size="11" fill="#C05621">r₃</text>
+
+  <text x="340" y="202" text-anchor="middle" font-size="12" fill="#A0AEC0">⋯</text>
+
+  <rect x="370" y="180" width="70" height="35" rx="6" fill="#FFFAF0" stroke="#F6AD55" stroke-width="1.5"/>
+  <text x="405" y="202" text-anchor="middle" font-size="11" fill="#C05621">r_G</text>
+
+  <!-- Arrow to stat_tracker -->
+  <line x1="450" y1="197" x2="530" y2="197" stroke="#4A5568" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- PerPromptStatTracker -->
+  <rect x="540" y="170" width="310" height="55" rx="8" fill="#FAF5FF" stroke="#B794F4" stroke-width="2" filter="url(#shadow)"/>
+  <text x="695" y="191" text-anchor="middle" font-size="12" font-weight="bold" fill="#6B46C1">PerPromptStatTracker</text>
+  <text x="695" y="209" text-anchor="middle" font-size="10" fill="#4A5568">μ = mean(r₁⋯r_G), σ = std(r₁⋯r_G)</text>
+
+  <!-- Advantage computation formula -->
+  <rect x="50" y="250" width="800" height="90" rx="10" fill="#FFF5F5" stroke="#FC8181" stroke-width="2"/>
+  <text x="450" y="275" text-anchor="middle" font-size="14" font-weight="bold" fill="#C53030">Advantage（优势）计算公式</text>
+  <text x="450" y="305" text-anchor="middle" font-size="16" font-weight="bold" fill="#E53E3E">A_i = (r_i - μ) / σ</text>
+  <text x="450" y="325" text-anchor="middle" font-size="11" fill="#718096">组内归一化：同一 prompt 下，比平均好的图片获得正优势，差的获得负优势</text>
+
+  <!-- Concrete example -->
+  <rect x="50" y="365" width="800" height="150" rx="10" fill="#EDF2F7" stroke="#CBD5E0" stroke-width="1.5"/>
+  <text x="450" y="388" text-anchor="middle" font-size="13" font-weight="bold" fill="#2D3748">具体例子（OCR 奖励场景）</text>
+  
+  <text x="80" y="412" font-size="11" fill="#4A5568">prompt："A sign that says 'Hello World'"</text>
+  <text x="80" y="432" font-size="11" fill="#4A5568">G = 6 张图片</text>
+
+  <text x="80" y="455" font-size="11" fill="#4A5568">r = [0.00, 0.12, 0.45, 0.78, 0.91, 1.00]  →  μ = 0.543,  σ = 0.395</text>
+
+  <text x="80" y="478" font-size="11" fill="#4A5568">A = [-1.37, -1.07, -0.24,  0.60,  0.93,  1.16]</text>
+
+  <text x="80" y="501" font-size="11" fill="#4A5568">A &lt; 0 的样本（文字生成差）→ log_prob 下降； A &gt; 0 的样本 → log_prob 上升</text>
+
+  <!-- Why GRPO not PPO -->
+  <rect x="50" y="540" width="800" height="130" rx="10" fill="#EBF8FF" stroke="#63B3ED" stroke-width="1.5"/>
+  <text x="450" y="563" text-anchor="middle" font-size="13" font-weight="bold" fill="#2B6CB0">为什么 GRPO 不需要 Critic / Value Network？</text>
+  
+  <text x="80" y="588" font-size="11" fill="#4A5568">PPO（标准强化学习）：</text>
+  <text x="100" y="608" font-size="11" fill="#4A5568">A(s,a) = Q(s,a) - V(s)  → 需要训练一个 Critic 网络来估计 V(s)</text>
+  <text x="100" y="628" font-size="11" fill="#4A5568">Critic 网络参数量 ≈ Policy 网络 → 训练内存翻倍</text>
+
+  <text x="80" y="653" font-size="11" fill="#4A5568">GRPO（本工作）：</text>
+  <text x="100" y="673" font-size="11" fill="#4A5568">A_i = (r_i - μ_group) / σ_group  → 不需 Critic，组内统计代替</text>
+  <text x="100" y="693" font-size="11" fill="#4A5568">代价：采样量增大（组内必须有足够多样本才能准确估计 μ, σ）</text>
+</svg>

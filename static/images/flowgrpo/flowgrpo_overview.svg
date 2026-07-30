@@ -1,0 +1,147 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 750" font-family="'Noto Sans SC','Microsoft YaHei',Arial,sans-serif">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M0,0 L10,5 L0,10 Z" fill="#4A5568"/>
+    </marker>
+    <marker id="arrow-blue" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M0,0 L10,5 L0,10 Z" fill="#3182CE"/>
+    </marker>
+    <marker id="arrow-red" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M0,0 L10,5 L0,10 Z" fill="#E53E3E"/>
+    </marker>
+    <linearGradient id="g-blue" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#EBF8FF"/>
+      <stop offset="100%" stop-color="#BEE3F8"/>
+    </linearGradient>
+    <linearGradient id="g-green" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#F0FFF4"/>
+      <stop offset="100%" stop-color="#C6F6D5"/>
+    </linearGradient>
+    <linearGradient id="g-orange" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#FFFAF0"/>
+      <stop offset="100%" stop-color="#FEEBC8"/>
+    </linearGradient>
+    <linearGradient id="g-purple" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#FAF5FF"/>
+      <stop offset="100%" stop-color="#E9D8FD"/>
+    </linearGradient>
+    <linearGradient id="g-red" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#FFF5F5"/>
+      <stop offset="100%" stop-color="#FED7D7"/>
+    </linearGradient>
+    <filter id="shadow" x="-5%" y="-5%" width="110%" height="110%">
+      <feDropShadow dx="2" dy="2" stdDeviation="3" flood-opacity="0.15"/>
+    </filter>
+  </defs>
+
+  <!-- Title -->
+  <text x="500" y="35" text-anchor="middle" font-size="20" font-weight="bold" fill="#2D3748">Flow-GRPO 完整训练循环</text>
+  <text x="500" y="55" text-anchor="middle" font-size="12" fill="#718096">从文本 prompt 到模型参数更新的完整数据流</text>
+
+  <!-- Step 1: Dataset & Prompt -->
+  <rect x="50" y="80" width="180" height="65" rx="10" fill="url(#g-blue)" stroke="#3182CE" stroke-width="2" filter="url(#shadow)"/>
+  <text x="140" y="107" text-anchor="middle" font-size="13" font-weight="bold" fill="#2B6CB0">① 数据集 / Prompt</text>
+  <text x="140" y="127" text-anchor="middle" font-size="10" fill="#4A5568">train.txt 中的文本 prompt</text>
+
+  <!-- Arrow 1
+  <line x1="230" y1="112" x2="290" y2="112" stroke="#4A5568" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- Step 2: Text Embedding -->
+  <rect x="300" y="80" width="180" height="65" rx="10" fill="url(#g-blue)" stroke="#3182CE" stroke-width="2" filter="url(#shadow)"/>
+  <text x="390" y="107" text-anchor="middle" font-size="13" font-weight="bold" fill="#2B6CB0">② 文本编码</text>
+  <text x="390" y="127" text-anchor="middle" font-size="10" fill="#4A5568">T5 → prompt_embeds</text>
+
+  <!-- Arrow 2 -->
+  <line x1="480" y1="112" x2="540" y2="112" stroke="#4A5568" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- Step 3: Flow Sampling -->
+  <rect x="550" y="70" width="200" height="85" rx="10" fill="url(#g-green)" stroke="#38A169" stroke-width="2" filter="url(#shadow)"/>
+  <text x="650" y="97" text-anchor="middle" font-size="13" font-weight="bold" fill="#276749">③ Flow Sampling</text>
+  <text x="650" y="117" text-anchor="middle" font-size="10" fill="#4A5568">噪声 latent → 10步去噪 → 图片</text>
+  <text x="650" y="133" text-anchor="middle" font-size="10" fill="#4A5568">SDE 采样 + log_prob 记录</text>
+
+  <!-- Arrow 3 - down -->
+  <line x1="650" y1="155" x2="650" y2="210" stroke="#4A5568" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- Step 4: Reward -->
+  <rect x="550" y="220" width="200" height="65" rx="10" fill="url(#g-orange)" stroke="#DD6B20" stroke-width="2" filter="url(#shadow)"/>
+  <text x="650" y="247" text-anchor="middle" font-size="13" font-weight="bold" fill="#C05621">④ Reward 打分</text>
+  <text x="650" y="267" text-anchor="middle" font-size="10" fill="#4A5568">OCR / GenEval / PickScore</text>
+
+  <!-- Arrow 4 - left to Stat Tracker -->
+  <line x1="550" y1="252" x2="480" y2="252" stroke="#4A5568" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- Step 5: Stat Tracker -->
+  <rect x="290" y="220" width="180" height="65" rx="10" fill="url(#g-purple)" stroke="#805AD5" stroke-width="2" filter="url(#shadow)"/>
+  <text x="380" y="247" text-anchor="middle" font-size="13" font-weight="bold" fill="#6B46C1">⑤ PerPromptStatTracker</text>
+  <text x="380" y="267" text-anchor="middle" font-size="10" fill="#4A5568">同组 reward → advantage</text>
+
+  <!-- Branch: inside Stat Tracker -->
+  <rect x="50" y="200" width="220" height="100" rx="8" fill="#F7FAFC" stroke="#CBD5E0" stroke-width="1.5" stroke-dasharray="5,3"/>
+  <text x="160" y="218" text-anchor="middle" font-size="11" font-weight="bold" fill="#4A5568">advantage = (reward - μ) / σ</text>
+  <text x="160" y="236" text-anchor="middle" font-size="10" fill="#718096">同一个 prompt 的组内比较</text>
+  <text x="160" y="254" text-anchor="middle" font-size="10" fill="#718096">比平均好 → advantage > 0 → 提高概率</text>
+  <text x="160" y="272" text-anchor="middle" font-size="10" fill="#718096">比平均差 → advantage &lt; 0 → 降低概率</text>
+  <line x1="270" y1="252" x2="285" y2="252" stroke="#4A5568" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- Arrow 5 - down from Stat Tracker -->
+  <line x1="380" y1="285" x2="380" y2="340" stroke="#4A5568" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- Step 6: PPO Loss -->
+  <rect x="280" y="350" width="200" height="80" rx="10" fill="url(#g-red)" stroke="#E53E3E" stroke-width="2" filter="url(#shadow)"/>
+  <text x="380" y="377" text-anchor="middle" font-size="13" font-weight="bold" fill="#C53030">⑥ PPO 损失计算</text>
+  <text x="380" y="397" text-anchor="middle" font-size="10" fill="#4A5568">ratio = exp(log_prob_new - log_prob_old)</text>
+  <text x="380" y="415" text-anchor="middle" font-size="10" fill="#4A5568">L = max(ratio×A, clip(ratio)×A)</text>
+
+  <!-- Arrow 6 -->
+  <line x1="380" y1="430" x2="380" y2="470" stroke="#4A5568" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- Step 7: Backward -->
+  <rect x="310" y="480" width="140" height="55" rx="10" fill="#EDF2F7" stroke="#4A5568" stroke-width="2" filter="url(#shadow)"/>
+  <text x="380" y="507" text-anchor="middle" font-size="13" font-weight="bold" fill="#2D3748">⑦ backward()</text>
+  <text x="380" y="525" text-anchor="middle" font-size="10" fill="#4A5568">梯度 → 优化 LoRA 参数</text>
+
+  <!-- Arrow 7 - loop back to sampling -->
+  <path d="M450,507 Q520,507 520,350 Q520,250 520,155 Q520,112 500,112" fill="none" stroke="#3182CE" stroke-width="2" stroke-dasharray="6,3" marker-end="url(#arrow-blue)"/>
+  <text x="535" y="310" font-size="11" fill="#3182CE" font-weight="bold">下一个 epoch</text>
+
+  <!-- Top right: on-policy说明 -->
+  <rect x="790" y="70" width="190" height="160" rx="8" fill="#FFF5F5" stroke="#FC8181" stroke-width="1.5"/>
+  <text x="885" y="92" text-anchor="middle" font-size="12" font-weight="bold" fill="#C53030">⚠️ On-Policy 关键点</text>
+  <text x="800" y="112" font-size="10" fill="#4A5568">• 采样 &amp; 训练用</text>
+  <text x="800" y="128" font-size="10" fill="#4A5568">  同一组模型参数</text>
+  <text x="800" y="148" font-size="10" fill="#4A5568">• 先采样 → 记录 log_prob_old</text>
+  <text x="800" y="168" font-size="10" fill="#4A5568">• 再训练 → 计算 log_prob_new</text>
+  <text x="800" y="188" font-size="10" fill="#4A5568">• ratio 理论上应为 1.0</text>
+  <text x="800" y="208" font-size="10" fill="#4A5568">• clip_range 防止更新过猛</text>
+
+  <!-- Process说明 -->
+  <text x="500" y="570" text-anchor="middle" font-size="14" font-weight="bold" fill="#2D3748">核心代码文件</text>
+  <line x1="200" y1="585" x2="800" y2="585" stroke="#CBD5E0" stroke-width="1"/>
+  
+  <rect x="50" y="600" width="170" height="40" rx="6" fill="#EBF8FF" stroke="#63B3ED" stroke-width="1"/>
+  <text x="135" y="618" text-anchor="middle" font-size="10" font-weight="bold" fill="#2B6CB0">scripts/train_flux_fast.py</text>
+  <text x="135" y="632" text-anchor="middle" font-size="9" fill="#718096">主训练循环</text>
+
+  <rect x="240" y="600" width="170" height="40" rx="6" fill="#F0FFF4" stroke="#68D391" stroke-width="1"/>
+  <text x="325" y="618" text-anchor="middle" font-size="10" font-weight="bold" fill="#276749">config/grpo.py</text>
+  <text x="325" y="632" text-anchor="middle" font-size="9" fill="#718096">训练配方 / 超参数</text>
+
+  <rect x="430" y="600" width="170" height="40" rx="6" fill="#FFFAF0" stroke="#F6AD55" stroke-width="1"/>
+  <text x="515" y="618" text-anchor="middle" font-size="10" font-weight="bold" fill="#C05621">flow_grpo/rewards.py</text>
+  <text x="515" y="632" text-anchor="middle" font-size="9" fill="#718096">Reward 函数定义</text>
+
+  <rect x="620" y="600" width="170" height="40" rx="6" fill="#FAF5FF" stroke="#B794F4" stroke-width="1"/>
+  <text x="705" y="618" text-anchor="middle" font-size="10" font-weight="bold" fill="#6B46C1">flow_grpo/stat_tracking.py</text>
+  <text x="705" y="632" text-anchor="middle" font-size="9" fill="#718096">Advantage 计算</text>
+
+  <rect x="810" y="600" width="170" height="40" rx="6" fill="#FFF5F5" stroke="#FC8181" stroke-width="1"/>
+  <text x="895" y="618" text-anchor="middle" font-size="10" font-weight="bold" fill="#C53030">diffusers_patch/*</text>
+  <text x="895" y="632" text-anchor="middle" font-size="9" fill="#718096">SDE 采样 + log_prob</text>
+
+  <!-- Group size说明 -->
+  <rect x="790" y="260" width="190" height="75" rx="8" fill="#F0FFF4" stroke="#68D391" stroke-width="1.5"/>
+  <text x="885" y="280" text-anchor="middle" font-size="12" font-weight="bold" fill="#276749">📊 典型参数</text>
+  <text x="800" y="300" font-size="10" fill="#4A5568">• group_size = 24 张/组</text>
+  <text x="800" y="318" font-size="10" fill="#4A5568">• 32 GPU × 训练 48 个 prompt</text>
+</svg>

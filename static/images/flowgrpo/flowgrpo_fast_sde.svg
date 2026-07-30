@@ -1,0 +1,81 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 650" font-family="'Noto Sans SC','Microsoft YaHei',Arial,sans-serif">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M0,0 L10,5 L0,10 Z" fill="#4A5568"/>
+    </marker>
+    <filter id="shadow" x="-5%" y="-5%" width="110%" height="110%">
+      <feDropShadow dx="2" dy="2" stdDeviation="3" flood-opacity="0.12"/>
+    </filter>
+  </defs>
+
+  <!-- Title -->
+  <text x="450" y="35" text-anchor="middle" font-size="20" font-weight="bold" fill="#2D3748">Flow-GRPO-Fast：SDE 滑动窗口加速</text>
+  <text x="450" y="55" text-anchor="middle" font-size="12" fill="#718096">在不损失梯度精度前提下大幅减少 GPU 显存占用</text>
+
+  <!-- Problem statement -->
+  <rect x="50" y="80" width="800" height="55" rx="8" fill="#FFF5F5" stroke="#FC8181" stroke-width="1.5"/>
+  <text x="450" y="102" text-anchor="middle" font-size="13" font-weight="bold" fill="#C53030">问题：SDE 采样图到计算图→求 loss → backward() 需要记录所有中间状态</text>
+  <text x="450" y="122" text-anchor="middle" font-size="11" fill="#4A5568">10 步 SDE × 每步 Diffusion Transformer → GPU 显存爆炸（Flux.1-dev 约 12B 参数）</text>
+
+  <!-- Solution -->
+  <rect x="50" y="155" width="800" height="55" rx="8" fill="#F0FFF4" stroke="#68D391" stroke-width="1.5"/>
+  <text x="450" y="177" text-anchor="middle" font-size="13" font-weight="bold" fill="#276749">解决方案：SDE 采样窗口（Window）</text>
+  <text x="450" y="197" text-anchor="middle" font-size="11" fill="#4A5568">将 SDE 的 10 步分为两个阶段：前 N 步不记录梯度，后 (10-N) 步开启梯度记录</text>
+
+  <!-- Window diagram -->
+  <rect x="50" y="230" width="800" height="200" rx="10" fill="#F7FAFC" stroke="#CBD5E0" stroke-width="1.5"/>
+  <text x="450" y="252" text-anchor="middle" font-size="13" font-weight="bold" fill="#2D3748">SDE 采样窗口可视化</text>
+
+  <!-- Time axis -->
+  <line x1="100" y1="280" x2="800" y2="280" stroke="#CBD5E0" stroke-width="3"/>
+  
+  <!-- t=0 -->
+  <circle cx="120" cy="280" r="5" fill="#A0AEC0"/>
+  <text x="120" y="302" text-anchor="middle" font-size="10" fill="#718096">t=0</text>
+  <text x="120" y="268" text-anchor="middle" font-size="9" fill="#A0AEC0">噪声</text>
+
+  <!-- Step markers -->
+  <circle cx="195" cy="280" r="5" fill="#A0AEC0"/>
+  <circle cx="270" cy="280" r="5" fill="#A0AEC0"/>
+  <circle cx="345" cy="280" r="5" fill="#A0AEC0"/>
+  <circle cx="420" cy="280" r="5" fill="#A0AEC0"/>
+  <circle cx="495" cy="280" r="5" fill="#A0AEC0"/>
+  <circle cx="570" cy="280" r="5" fill="#38A169"/>
+  <circle cx="645" cy="280" r="5" fill="#38A169"/>
+  <circle cx="720" cy="280" r="5" fill="#38A169"/>
+
+  <!-- t=T -->
+  <circle cx="790" cy="280" r="5" fill="#38A169"/>
+  <text x="790" y="302" text-anchor="middle" font-size="10" fill="#718096">t=1</text>
+  <text x="790" y="268" text-anchor="middle" font-size="9" fill="#276749">图片</text>
+
+  <!-- Window bracket -->
+  <rect x="540" y="320" width="280" height="35" rx="6" fill="#E6FFFA" stroke="#38A169" stroke-width="2"/>
+  <text x="680" y="343" text-anchor="middle" font-size="12" font-weight="bold" fill="#276749">梯度窗口（window_size=5）</text>
+
+  <path d="M125,285 Q125,340 540,340" fill="none" stroke="#A0AEC0" stroke-width="1.5" stroke-dasharray="4,2"/>
+  <path d="M125,285 Q125,340 540,340" fill="none" stroke="#A0AEC0" stroke-width="1.5" stroke-dasharray="4,2"/>
+
+  <!-- Labels under steps -->
+  <rect x="150" y="335" width="300" height="40" rx="6" fill="#FFF5F5" stroke="#FC8181" stroke-width="1" />
+  <text x="300" y="355" text-anchor="middle" font-size="10" font-weight="bold" fill="#C53030">前 5 步：torch.no_grad()</text>
+  <text x="300" y="369" text-anchor="middle" font-size="9" fill="#718096">不记录计算图，仅存储最后 latent x</text>
+
+  <rect x="550" y="370" width="280" height="40" rx="6" fill="#F0FFF4" stroke="#68D391" stroke-width="1" />
+  <text x="690" y="390" text-anchor="middle" font-size="10" font-weight="bold" fill="#276749">后 5 步：开启梯度记录</text>
+  <text x="690" y="404" text-anchor="middle" font-size="9" fill="#718096">构造计算图，loss.backward() 传播到</text>
+
+  <!-- Code snippet -->
+  <rect x="50" y="460" width="800" height="80" rx="8" fill="#1A202C" stroke="#4A5568" stroke-width="1.5"/>
+  <text x="60" y="480" font-size="10" fill="#A0AEC0" font-family="'Fira Code','Cascadia Code',monospace"># 前 N 步（不记录梯度）</text>
+  <text x="60" y="497" font-size="10" fill="#A0AEC0" font-family="'Fira Code','Cascadia Code',monospace">for i in range(num_inference_steps - window_size):</text>
+  <text x="80" y="514" font-size="10" fill="#A0AEC0" font-family="'Fira Code','Cascadia Code',monospace">x = model(x, t, prompt_embeds)  # torch.no_grad()</text>
+  <text x="60" y="531" font-size="10" fill="#A0AEC0" font-family="'Fira Code','Cascadia Code',monospace">for i in range(window_size):</text>
+  <text x="80" y="548" font-size="10" fill="#A0AEC0" font-family="'Fira Code','Cascadia Code',monospace">x = model(x, t, prompt_embeds)  # 记录梯度</text>
+
+  <!-- Summary -->
+  <rect x="50" y="560" width="800" height="65" rx="8" fill="#FAF5FF" stroke="#B794F4" stroke-width="1.5"/>
+  <text x="450" y="582" text-anchor="middle" font-size="12" font-weight="bold" fill="#6B46C1">效果：显存从 OOM → 可控范围</text>
+  <text x="450" y="602" text-anchor="middle" font-size="11" fill="#4A5568">window_size=5 时，计算图只包含最后 5 步 DiT（≈12B × 5 = 60B 激活 → 约 36GB 显存）</text>
+  <text x="450" y="618" text-anchor="middle" font-size="11" fill="#4A5568">虽然只对后 5 步求导，但由于 SDE 马尔可夫性，梯度仍可回传到所有模型参数</text>
+</svg>
