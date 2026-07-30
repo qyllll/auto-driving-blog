@@ -1,692 +1,692 @@
 ---
-title: "Flow-GRPO 完全讲解：与扩散模型的在线强化学习训练"
+title: "Flow-GRPO 完全讲解：训练/推理/梯度流/Loss 设计的逐行拆解"
 date: 2026-07-30
 draft: false
 categories: ["个人思考"]
-summary: "深入理解 Flow-GRPO——用 GRPO（Group Relative Policy Optimization）训练 Flux 扩散模型的完整框架。本文从原理到代码，逐层展开，解释每个模块的角色、数据流和设计动机。"
-tags: ["Flow Matching", "GRPO", "强化学习", "扩散模型", "Flux", "SDE"]
+summary: "从 train_flux_fast.py 第 1 行开始，逐层追踪 Flow-GRPO 的完整逻辑链：采样阶段做了什么？reward 怎么变成 advantage？训练阶段的计算图是怎么构造的？loss 为什么那样设计？梯度如何从最后一个 log_prob 传到 LoRA 参数？每段代码都标注了源文件行号。"
+tags: ["Flow Matching", "GRPO", "强化学习", "扩散模型", "Flux", "SDE", "梯度流"]
 math: true
 weight: 99
 ---
 
-## 本文导览
+## 本文的讲解方式
 
-Flow-GRPO 是将 **GRPO（Group Relative Policy Optimization）** 应用于 **Flow Matching（流匹配）** 模型的在线强化学习训练框架。它挑战了"扩散模型只能做模仿学习 / 监督微调"的固有认知——用 RL 来优化扩散策略，**直接在推理阶段根据下游任务的 reward（奖励）信号更新模型参数**。
+**不从概念讲起，而是从代码的入口出发，沿着执行路径一步一步深入。**
 
-**逻辑树总图：**
+我们追踪一辆"数据快车"：
+
+```
+train_flux_fast.py:1 → 初始化 → 采样阶段 → reward → advantage → 训练阶段 → loss → backward → optimizer
+```
+
+每到一个关键节点，我都会：
+1. 标注代码位置（文件名 + 行号）
+2. 说明"这个函数接收什么、输出什么"
+3. 解释背后的数学/算法动机
+4. 配逻辑分支图
+
+---
+
+## 第 0 步：先理解总图
 
 ![Flow-GRPO 训练循环总图](/images/flowgrpo/flowgrpo_overview.svg)
 
-本文的讲解路径：
+**整个框架只有两个大阶段，反复交替：**
 
-1. **GRPO 基础**：为什么需要 GRPO？它跟 PPO 的区别是什么？
-2. **Flow Matching 基础**：扩散模型怎么变成了"速度场"？
-3. **Flow-GRPO 训练流程**：从 train.txt 里的 prompt 到模型参数更新的完整逻辑树
-4. **Flow-GRPO-Fast 加速**：SDE 滑动窗口技术
-5. **Reward 系统**：各种 reward 函数的设计
-6. **关键超参数**：config 里每个参数的意义
-7. **实验结果**：训练出了什么效果？
+| 阶段 | 发生位置 | 是否记录梯度 | 产出 |
+|------|---------|------------|------|
+| **采样阶段** (SAMPLE) | `train_flux_fast.py:610-712` | `torch.no_grad()` ❌ | 图片 + log_prob_old + latent 轨迹 |
+| **训练阶段** (TRAIN) | `train_flux_fast.py:803-917` | `requires_grad=True` ✅ | loss → backward → optimizer |
 
----
-
-## 1 | 先看 GRPO：不需要 Critic 的 PPO
-
-### 1.1 标准 PPO 的痛点
-
-PPO（Proximal Policy Optimization）是目前最主流的在线 RL 算法。它的目标函数是：
-
-$$ L^{PPO} = \mathbb{E}\left[ \min\left( \frac{\pi_\theta(a|s)}{\pi_{\theta_{old}}(a|s)} \cdot A^{\pi}(s,a), \;\; \text{clip}\left(\frac{\pi_\theta(a|s)}{\pi_{\theta_{old}}(a|s)}, 1-\epsilon, 1+\epsilon\right) \cdot A^{\pi}(s,a) \right) \right] $$
-
-其中 advantage $A^{\pi}(s,a)$ 一般通过 GAE（Generalized Advantage Estimation）计算：
-
-$$ A^{\pi}(s,a) = Q^{\pi}(s,a) - V^{\pi}(s) $$
-
-这意味着你需要一个 **Critic（评价者）网络**来估计状态价值函数 $V^{\pi}(s)$。Critic 网络通常和 Policy 网络结构类似（比如都是 Transformer），这导致：
-
-- 模型参数量翻倍 → 显存翻倍
-- 需要同时维护 Policy 和 Critic 两个优化器
-- 训练不稳定：Critic 的估计误差会引入 bias
-
-### 1.2 GRPO 的核心洞察
-
-GRPO（Group Relative Policy Optimization）来自 DeepSeek 团队的 DeepSeekMath 论文。它提出了一个极简的想法：
-
-> **不需要 Critic！用组内统计量代替价值函数。**
-
-具体来说：对于同一个 prompt（或 state），采样 G 个不同的输出（action），计算这 G 个输出的 reward，然后**在组内做归一化**：
-
-$$ A_i = \frac{r_i - \mu_{group}}{\sigma_{group}} $$
-
-其中 $\mu_{group} = \frac{1}{G}\sum_{i=1}^{G}r_i$, $\sigma_{group} = \sqrt{\frac{1}{G}\sum_{i=1}^{G}(r_i - \mu_{group})^2}$.
-
-**这个公式为什么 work？**
-
-- 若当前输出的 reward 比组内平均好 → $A_i > 0$ → 梯度更新会**提高**这个输出路径的概率
-- 若当前输出的 reward 比组内平均差 → $A_i < 0$ → 梯度更新会**降低**这个输出路径的概率
-- 关键在于：**不需要绝对准确的 reward 值，只需要相对比较！**
-
-### 1.3 GRPO vs PPO 的对比
-
-| 维度 | PPO | GRPO |
-|------|-----|------|
-| 需要 Critic | ✅ 需要额外 Value Network | ❌ 不需要 |
-| 参数量 | Policy + Critic ≈ 2×Policy | Policy ≈ 1×Policy |
-| Advantage 来源 | GAE (需要多步采样或 TD) | 组内归一化 |
-| 代价 | 增加一次前向传播（Critic） | 增加采样量（group_size 更大） |
-| 适合场景 | 单步 reward 可得的场景 | 每步 reward 可得 + 可批量采样 |
-
-GRPO 的缺点也很明显：**组内必须有足够多样本**才能让 $\mu, \sigma$ 的估计可靠。Flow-GRPO 的典型 group_size = 24（分布在 32 张 GPU 上）。
+这是**在线（on-policy）强化学习的标志**：采样和训练用同一组模型参数。采样时你的行为（policy）是什么，训练时就优化那个行为。
 
 ---
 
-## 2 | 再看 Flow Matching：扩散模型的"速度"视角
+## 第 1 步：入口 & 初始化 (`train_flux_fast.py:329-565`)
 
-### 2.1 从 Diffusion 到 Flow
-
-传统扩散模型（DDPM）定义了一个**噪声预测**问题：
-
-$$ \mathcal{L}_{DDPM} = \mathbb{E}_{t,x_0,\epsilon}\left[ \|\epsilon - \epsilon_\theta(x_t, t)\|^2 \right] $$
-
-其中 $\epsilon_\theta$ 预测当前时刻的噪声，推理时从纯噪声 $x_T$ 逐步去噪到 $x_0$。
-
-**Flow Matching**（也叫 Rectified Flow / Stochastic Interpolation）换了一个角度：不再预测噪声，而是预测**速度场（vector field）**。
-
-给定数据分布 $p_1$ 和高斯分布 $p_0$（$x_0 \sim \mathcal{N}(0,I)$），定义线性插值路径：
-
-$$ x_t = (1-t) \cdot x_0 + t \cdot x_1 \quad \text{for } t \in [0,1] $$
-
-其中 $x_1$ 是真实数据。对时间求导：
-
-$$ \frac{dx_t}{dt} = x_1 - x_0 $$
-
-所以目标函数变成：
-
-$$ \mathcal{L}_{FM} = \mathbb{E}_{t, x_0, x_1}\left[ \| (x_1 - x_0) - v_\theta(x_t, t) \|^2 \right] $$
-
-即：**学习一个向量场 $v_\theta$，让它匹配从噪声到数据的直线速度**。
-
-推理时（采样），从 $x_0 \sim \mathcal{N}(0,I)$ 出发，沿预测的速度场积分：
-
-$$ \frac{dx_t}{dt} = v_\theta(x_t, t) \quad \rightarrow \quad x_{t+\Delta t} = x_t + v_\theta(x_t, t) \cdot \Delta t $$
-
-### 2.2 Flow vs DDPM 对比图
-
-![Flow Matching 去噪过程](/images/flowgrpo/flowgrpo_flow_matching.svg)
-
-**关键区别总结：**
-
-| 维度 | DDPM | Flow Matching |
-|------|------|---------------|
-| 预测目标 | 噪声 $\epsilon$ | 速度 $v$ |
-| 训练损失 | $\|\epsilon - \epsilon_\theta\|^2$ | $\|(x_1 - x_0) - v_\theta\|^2$ |
-| 采样方式 | 逐步去噪（100-1000步） | ODE/SDE 积分（10-50步） |
-| 轨迹 | 离散 Markov 链 | 连续时间路径 |
-| 步数 | 多（100-1000） | 少（4-50） |
-
-Flow Matching 最大的优势是**采样步数少**——这也是 Flow-GRPO 能够用 RL 训练的关键前提。如果采样需要 1000 步，计算图会爆炸。
-
----
-
-## 3 | Flow-GRPO 训练流程（逐层展开）
-
-现在进入核心。训练流程可以用下面的逻辑树完全展开：
-
-### 逻辑树 Level 1：主循环
-
-```
-train_flux_fast.py
-│
-├── 1. 初始化
-│   ├── 加载 config（grpo.py × base.py）
-│   ├── 初始化模型（Flux.1-dev + LoRA）
-│   ├── 初始化 optimizer + dataset
-│   └── 准备 reward 函数
-│
-├── 2. 每个 epoch 循环
-│   ├── 2.1 采样阶段
-│   │   ├── 读 prompt 列表（batch 个 prompt）
-│   │   ├── T5 编码 prompt_embeds
-│   │   ├── SDE 采样（window 模式）
-│   │   └── 记录 log_prob_old + 保存图片
-│   │
-│   ├── 2.2 Reward 阶段
-│   │   ├── 对每张图片计算 reward
-│   │   └── 去中心化计算
-│   │
-│   ├── 2.3 同步阶段
-│   │   ├── all_gather 所有 GPU 的 reward
-│   │   └── PerPromptStatTracker → advantage
-│   │
-│   ├── 2.4 训练阶段
-│   │   ├── 再次推理（梯度模式）→ log_prob_new
-│   │   ├── 计算 PPO loss
-│   │   └── backward() + optimizer.step()
-│   │
-│   └── 3. 日志 & 保存
-│       ├── wandb 记录 reward / loss / 图片
-│       └── 定期保存 checkpoint
-```
-
-### 逻辑树 Level 2：采样阶段的细节
-
-采样是 Flow-GRPO 最复杂的部分，因为它需要同时满足两个要求：
-1. **生成图片**（用于计算 reward）
-2. **记录生成的 log_prob**（作为 $\pi_{\theta_{old}}$ 的行为）
-
-#### 采样过程的代码结构（伪代码）：
+### 1.1 入口
 
 ```python
-# ===== 采样阶段 =====
-with torch.no_grad():
-    noise = torch.randn(B, C, H, W)  # 初始噪声 x_0
-    
-    # 前 N 步：no_grad，不记录计算图
-    for i in range(num_inference_steps - window_size):
-        x_t = model(x_t, t_i, prompt_embeds)
-        log_prob += compute_sde_log_prob(x_t, x_t_plus_1, ...)
-    
-    # 后 window_size 步：no_grad，但记录 log_prob
-    for i in range(window_size):
-        x_t = model(x_t, t_i, prompt_embeds)
-        log_prob += compute_sde_log_prob(x_t, x_t_plus_1, ...)
-    
-    images = vae.decode(x_t)  # latent → pixel
+# train_flux_fast.py:329
+def main(_):
+    config = FLAGS.config          # 加载 config/base.py 中的默认参数
+```
 
-# ===== Reward 阶段 =====
-rewards = reward_fn(images, prompts)
+### 1.2 关键初始化
 
-# ===== 训练阶段 =====
-# 再次做 SDE 推理，但这次开启梯度
-x_t = noise
-for i in range(num_inference_steps - window_size):
-    x_t = model(x_t, t_i, prompt_embeds)  # no_grad
-for i in range(window_size):
-    x_t = model(x_t, t_i, prompt_embeds)  # grad ON
-    log_prob_new += compute_sde_log_prob(x_t, x_t_plus_1, ...)
-
-# PPO loss
-ratio = torch.exp(log_prob_new - log_prob_old)
-loss = -torch.min(
-    ratio * advantage,
-    torch.clamp(ratio, 1-eps, 1+eps) * advantage
+**FSDP 配置** (`train_flux_fast.py:350-358`):
+```python
+accelerator = Accelerator(
+    gradient_accumulation_steps=config.train.gradient_accumulation_steps * num_train_timesteps,
 )
-loss.backward()
-optimizer.step()
 ```
+注意 `num_train_timesteps` = `config.sample.sde_window_size`（默认 5）——梯度累积步数乘以 window_size，因为每一步 DiT 前向都算一次梯度累积。
 
-### 逻辑树 Level 3：log_prob 的计算
-
-这是 Flow-GRPO 最精妙的地方。在 SDE 采样过程中，每一步的转移概率可以解析计算。
-
-对于 SDE：
-
-$$ dx = v_\theta(x, t) dt + g(t) dW $$
-
-每一步的转移概率是高斯分布：
-
-$$ p(x_{t+1}|x_t) = \mathcal{N}\left(x_t + v_\theta(x_t, t)\Delta t, \; g(t)^2\Delta t \cdot I\right) $$
-
-所以 log_prob 是：
-
+**LoRA 注入** (`train_flux_fast.py:414-441`):
 ```python
-def compute_sde_log_prob(x_t_plus_1, x_t, v_pred, noise_std, dt):
-    mean = x_t + v_pred * dt
-    var = noise_std ** 2 * dt
-    diff = x_t_plus_1 - mean
-    log_prob = -0.5 * (diff ** 2 / var + torch.log(2 * torch.pi * var))
-    return log_prob.sum(dim=(1, 2, 3))
+transformer_lora_config = LoraConfig(
+    r=64, lora_alpha=128,           # LoRA 秩和缩放
+    target_modules=["attn.to_k", "attn.to_q", ...]  # 所有 attention + FFN 层
+)
+pipeline.transformer = get_peft_model(pipeline.transformer, transformer_lora_config)
 ```
+只有 LoRA 参数可训练，Flux 的原始权重全部冻结。
 
-**注意一个重要的细节**：Flow-GRPO 的 `log_prob_old` 是在**采样阶段**（`torch.no_grad()`）记录的，而 `log_prob_new` 是在**训练阶段**（开启梯度）计算的。由于采样阶段和训练阶段用的是**同一组模型参数**（在线强化学习的特性），ratio 的期望值理论上是 1.0——这意味着 GRPO 在每一步开始时的 KL 散度接近 0，保证了训练稳定性。
+**Reward 函数工厂** (`train_flux_fast.py:554-558`):
+```python
+reward_fn = getattr(flow_grpo.rewards, 'multi_score')(accelerator.device, config.reward_fn)
+```
+根据 `config.reward_fn`（如 `"ocr"`）动态加载对应的 reward 计算器。
+
+**EMA 包装器** (`train_flux_fast.py:446`):
+```python
+ema = EMAModuleWrapper(transformer_trainable_parameters, decay=0.9, update_step_interval=8)
+```
 
 ---
 
-## 4 | PerPromptStatTracker：Advantage 计算的完整实现
+## 第 2 步：采样阶段——生成图片 + 记录 log_prob_old
 
-这是 `flow_grpo/stat_tracking.py` 中最重要的类。它的设计值得仔细分析。
-
-### 4.1 数据结构
+### 2.1 总体结构
 
 ```python
-class PerPromptStatTracker:
-    def __init__(self, buffer_size, min_count):
-        self.buffer_size = buffer_size      # 统计缓冲区大小
-        self.min_count = min_count           # 最小计数
-        self.stats = {}                      # {prompt: [reward1, reward2, ...]}
+# train_flux_fast.py:610-712
+#################### SAMPLING ####################
+pipeline.transformer.eval()        # 切到 eval 模式（BN/ dropout 行为不同）
+for i in range(config.sample.num_batches_per_epoch):
+    prompts, prompt_metadata = next(train_iter)
+    
+    # 2.1.1 文本编码 (line 623-629)
+    prompt_embeds, pooled_prompt_embeds = compute_text_embeddings(...)
+    
+    # 2.1.2 采样 (line 643-659)
+    with torch.no_grad():           # ← 整个采样不记录任何梯度！
+        images, latents, image_ids, text_ids, log_probs, timesteps = pipeline_with_logprob(
+            pipeline,
+            prompt_embeds=prompt_embeds,
+            num_inference_steps=config.sample.num_steps,     # 默认 10
+            guidance_scale=config.sample.guidance_scale,
+            sde_window_size=config.sample.sde_window_size,   # 默认 5
+            sde_window_range=config.sample.sde_window_range,
+            sde_type=config.sample.sde_type,
+        )
+    
+    # 2.1.3 整理采样结果 (line 661-664)
+    latents = torch.stack(latents, dim=1)       # (B, num_steps+1, 16, 96, 96)
+    log_probs = torch.stack(log_probs, dim=1)   # (B, window_size)
+    
+    # 2.1.4 异步提交 reward 计算 (line 667)
+    rewards = executor.submit(reward_fn, images, prompts, ...)
 ```
 
-`stats` 字典以 prompt 为 key，存储该 prompt 的**历史 reward 列表**。这允许计算 running mean/std 来替代纯 group 内的归一化。
+**关键理解：** `pipeline_with_logprob` 返回了 `log_probs`——这是**旧模型**（当前参数）下，生成这张图片的 SDE 轨迹中每一步的 log_prob。它们将作为 `π_θ_old` 的行为，用于后续的 PPO ratio 计算。
 
-### 4.2 Update 方法
+### 2.2 pipeline_with_logprob 内部 (`flux_pipeline_with_logprob_fast.py:23-213`)
+
+```
+输入: prompt_embeds, num_inference_steps=10, sde_window_size=5, noise_level=0.7
+输出: images, all_latents, image_ids, text_ids, all_log_probs, all_timesteps
+```
+
+**SDE 窗口机制** (`flux_pipeline_with_logprob_fast.py:136-142`):
 
 ```python
-def update(self, prompts, rewards):
-    # 将新 reward 追加到对应 prompt 的历史队列
-    for prompt, reward in zip(prompts, rewards):
-        if prompt not in self.stats:
-            self.stats[prompt] = []
-        self.stats[prompt].append(reward)
-        # 保持 buffer 大小
-        if len(self.stats[prompt]) > self.buffer_size:
-            self.stats[prompt].pop(0)
+if sde_window_size > 0:
+    start = randint(sde_window_range[0], sde_window_range[1] - sde_window_size)
+    end = start + sde_window_size
+    sde_window = (start, end)              # 例如 (2, 7)，表示只记录第 3-7 步的 log_prob
+else:
+    sde_window = (0, len(timesteps) - 1)   # 全部记录
+```
+
+**去噪循环** (`flux_pipeline_with_logprob_fast.py:158-202`):
+
+```python
+for i, t in enumerate(timesteps):                    # timesteps 共 10 个
+    # 决定当前步的噪声水平
+    if i < sde_window[0]:     cur_noise_level = 0     # 窗口前：确定性 ODE
+    elif i == sde_window[0]:  cur_noise_level = noise_level  # 窗口起点：开始加噪声
+    elif i < sde_window[1]:   cur_noise_level = noise_level  # 窗口内：SDE
+    else:                     cur_noise_level = 0     # 窗口后：ODE
     
-    # 对每个 prompt 计算 advantage
-    advantages = []
-    for prompt, reward in zip(prompts, rewards):
-        prompt_stats = self.stats[prompt]
-        if len(prompt_stats) < self.min_count:
-            advantages.append(0.0)  # 数据不足时优势为 0
+    # DiT 前向 (line 173-183)
+    noise_pred = self.transformer(
+        hidden_states=latents,
+        timestep=timestep / 1000,
+        guidance=guidance,
+        pooled_projections=pooled_prompt_embeds,
+        encoder_hidden_states=prompt_embeds,
+        ...
+    )[0]
+    
+    # SDE 步进 (line 185-192)
+    latents, log_prob, prev_latents_mean, std_dev_t = sde_step_with_logprob(
+        self.scheduler, noise_pred.float(), t, latents.float(),
+        noise_level=cur_noise_level,
+        sde_type=sde_type,
+    )
+    
+    # 仅在窗口内记录 (line 196-199)
+    if i >= sde_window[0] and i < sde_window[1]:
+        all_latents.append(latents)     # 存储 latent 轨迹（供训练阶段复用）
+        all_log_probs.append(log_prob)  # 存储 log_prob_old
+        all_timesteps.append(t)
+```
+
+### 2.3 SDE 一步的数学
+
+`sde_step_with_logprob` (`sd3_sde_with_logprob.py:39-171`) 是理解整个框架的核心函数。它做了两件事：
+
+**第 1 件事**：计算下一步的均值（模型预测方向）
+```python
+# sd3_sde_with_logprob.py:109 (sde_type='sde')
+prev_sample_mean = sample * (1 + std_dev_t²/(2*sigma)*dt) 
+                 + model_output * (1 + std_dev_t²*(1-sigma)/(2*sigma)) * dt
+```
+
+**第 2 件事**：从均值 + 噪声得到下一步 latent，并计算它的 log_prob
+```python
+# sd3_sde_with_logprob.py:111-119
+if prev_sample is None:     # 采样阶段
+    variance_noise = randn_tensor(...)
+    prev_sample = prev_sample_mean + std_dev_t * √(-dt) * variance_noise
+
+# sd3_sde_with_logprob.py:121-133
+# 高斯 log_prob 公式
+log_prob = -((prev_sample.detach() - prev_sample_mean)²) / (2 * (std_dev_t * √(-dt))²)
+           - log(std_dev_t * √(-dt))
+           - log(√(2π))
+
+# sd3_sde_with_logprob.py:167: 除 batch 维外全部 mean 掉
+log_prob = log_prob.mean(dim=tuple(range(1, log_prob.ndim)))  # (B,) 每个样本一个标量
+```
+
+**注意这里**：`prev_sample.detach()`——在采样阶段 prev_sample 是刚随机采出来的，detach() 切断梯度。但如果你看训练阶段（稍后），情况会不同！
+
+---
+
+## 第 3 步：Reward 阶段 (`train_flux_fast.py:689-701`)
+
+异步 reward 计算完成后，取出结果：
+
+```python
+# train_flux_fast.py:696-701
+rewards, reward_metadata = sample["rewards"].result()
+sample["rewards"] = {
+    key: torch.as_tensor(value, device=accelerator.device).float()
+    for key, value in rewards.items()
+}
+```
+
+Reward 函数（`flow_grpo/rewards.py`）返回一个 dict：
+```python
+{
+    "avg": [0.45, 0.78, ...],       # 平均 reward
+    "strict_accuracy": [0, 1, ...],  # 严格准确率
+    ...
+}
+```
+
+每条图片对应一个 reward 标量。
+
+---
+
+## 第 4 步：跨 GPU 同步 + Advantage 计算 (`train_flux_fast.py:747-796`)
+
+### 4.1 all_gather
+
+```python
+# train_flux_fast.py:747
+gathered_rewards = {key: accelerator.gather(value) for key, value in samples["rewards"].items()}
+```
+所有 GPU 的 reward 被收集到一起，形成 `[total_GPU × batch_per_GPU]` 长度的数组。
+
+### 4.2 PerPromptStatTracker (`stat_tracking.py:50-116`)
+
+```python
+# train_flux_fast.py:766
+advantages = stat_tracker.update(prompts, gathered_rewards['avg'])
+```
+
+**核心逻辑** (`stat_tracking.py:64-92`):
+
+```python
+prompts = np.array(prompts)       # [样本1所属prompt, 样本2所属prompt, ...]
+rewards = np.array(rewards)       # [样本1的reward, 样本2的reward, ...]
+
+for prompt in unique:
+    # 收集该 prompt 的所有历史 reward
+    self.stats[prompt].extend(prompt_rewards)    # 追加到历史 buffer
+```
+
+对于 GRPO 模式（`type='grpo'`，`stat_tracking.py:82-92`）：
+
+```python
+for prompt in unique:
+    mean = np.mean(self.stats[prompt], axis=0)      # μ: 该 prompt 的历史均值
+    std = np.std(self.stats[prompt], axis=0) + 1e-4  # σ: 该 prompt 的历史标准差
+    advantages[prompts == prompt] = (prompt_rewards - mean) / std
+```
+
+**公式：** $A_i = \frac{r_i - \mu_{history}}{\sigma_{history}}$
+
+**设计动机：**
+- 同一个 prompt 的不同图片之间做比较（而不是跨 prompt）
+- 等于问：**针对这个 prompt，这张图比平均水平好多少？**
+- 好（A>0）→ 提高这条路径概率；差（A<0）→ 降低
+
+### 4.3 为什么不直接用 group 内统计？
+
+理论上 GRPO 是在一个 group（同一组采样）内做归一化。但在分布式训练中，同一 prompt 的不同采样可能分布在多张 GPU 上。PerPromptStatTracker 用**跨越多个训练步的历史 reward**来近似 group 统计，既解决了分布式同步问题，又让估计更稳定。
+
+### 4.4 Advantage 裁剪
+
+```python
+# train_flux_fast.py:842-846
+advantages = torch.clamp(
+    sample["advantages"][:, j],
+    -config.train.adv_clip_max,     # 默认 2.0
+    config.train.adv_clip_max,
+)
+```
+防止个别 outlier advantage 主导训练。
+
+---
+
+## 第 5 步：训练阶段——计算图如何构造？梯度如何流动？(核心!)
+
+这是整个文章最重要的部分。训练阶段的代码在 `train_flux_fast.py:803-917`。
+
+### 5.1 总体结构
+
+```python
+# train_flux_fast.py:803-917
+#################### TRAINING ####################
+for inner_epoch in range(config.train.num_inner_epochs):
+    pipeline.transformer.train()        # 切到 train 模式
+    for i, sample in enumerate(samples_batched):
+        for j in train_timesteps:       # j = 0,1,2,3,4  (window_size 步)
+            with accelerator.accumulate(transformer):
+                # 5.2 计算 log_prob_new (关键!)
+                prev_sample, log_prob, prev_sample_mean, std_dev_t = compute_log_prob(
+                    transformer, pipeline, sample, j, config
+                )
+                # 5.3 计算 loss
+                ...
+                # 5.4 反向传播
+                accelerator.backward(loss)
+                optimizer.step()
+```
+
+### 5.2 compute_log_prob：计算图在这里构造
+
+```python
+# train_flux_fast.py:186-218
+def compute_log_prob(transformer, pipeline, sample, j, config):
+    # 取出第 j 步的 latent（采样阶段存储的）
+    packed_noisy_model_input = sample["latents"][:, j]        # (B, 16, 96, 96)
+    
+    # ===== DiT 前向传播（这是计算图的根节点）=====
+    model_pred = transformer(                                  # ← 这是 requires_grad=True 的
+        hidden_states=packed_noisy_model_input,
+        timestep=sample["timesteps"][:, j] / 1000,
+        guidance=guidance,
+        pooled_projections=sample["pooled_prompt_embeds"],
+        encoder_hidden_states=sample["prompt_embeds"],
+        ...
+    )[0]                                                       # shape (B, 16*96*96, 1)
+    
+    # ===== SDE 步进 + log_prob 计算 =====
+    prev_sample, log_prob, prev_sample_mean, std_dev_t = sde_step_with_logprob(
+        pipeline.scheduler,
+        model_pred.float(),
+        sample["timesteps"][:, j],
+        sample["latents"][:, j].float(),
+        prev_sample=sample["next_latents"][:, j].float(),      # ← 传入旧轨迹的 next_latent!
+        noise_level=config.sample.noise_level,
+        sde_type=config.sample.sde_type,
+    )
+    return prev_sample, log_prob, prev_sample_mean, std_dev_t
+```
+
+**和采样阶段的关键区别：**
+
+| | 采样阶段 | 训练阶段 |
+|--|---------|---------|
+| `requires_grad` | ❌ 全部 no_grad | ✅ 开启 |
+| `prev_sample` 参数 | `None`（自己随机采） | 传入旧轨迹的 `next_latents` |
+| `prev_sample.detach()` | 有效（反正不记梯度） | 有效（防止梯度流到 prev_sample） |
+
+### 5.3 训练阶段的计算图——用图形理解
+
+训练阶段执行 `compute_log_prob` 时，PyTorch 自动构造了如下计算图：
+
+```
+sample["latents"][:, j] (detached, from sampling phase)
+                         │
+                         ▼
+              ┌──────────────────┐
+              │   transformer    │  ← LoRA 参数是 leaf node（requires_grad=True）
+              │  (DiT forward)   │
+              └────────┬─────────┘
+                       │ model_pred (shape: B×C×H×W)
+                       ▼
+              ┌──────────────────┐
+              │ sde_step_with    │  ← 数学公式：mean = f(sample, model_pred, dt)
+              │ _logprob         │     log_prob = -||prev_sample - mean||² / (2σ²) - log(√(2πσ²))
+              └────────┬─────────┘
+                       │ log_prob (shape: B,) —— 标量 per sample
+                       ▼
+              ┌──────────────────┐
+              │ PPO Loss         │  ← loss = -min(ratio×A, clip(ratio)×A)
+              │                   │     ratio = exp(log_prob - log_prob_old)
+              └────────┬─────────┘
+                       │ loss (shape: scalar)
+                       ▼
+              ┌──────────────────┐
+              │ loss.backward()  │  ← 链式法则：∂loss/∂θ = ∂loss/∂log_prob × ∂log_prob/∂model_pred × ∂model_pred/∂θ
+              └──────────────────┘
+```
+
+**梯度流动路径（链式法则）：**
+
+```
+∂loss/∂θ = 
+    ∂loss/∂log_prob          (从 PPO loss 到 log_prob)
+  × ∂log_prob/∂model_pred   (从 log_prob 公式到 model_pred——高斯 log_prob 对 mean 求导)
+  × ∂model_pred/∂θ           (从 DiT 前向到 LoRA 参数——autograd 自动完成)
+```
+
+展开第二项：
+
+```python
+# sd3_sde_with_logprob.py:109,121-133
+log_prob = -((prev_sample.detach() - prev_sample_mean)²) / (2 * var) - log(√(var * 2π))
+
+# 其中 prev_sample_mean = g(model_pred, sample, dt, noise_level)
+#     var = (std_dev_t * √(-dt))²
+
+# ∂log_prob/∂model_pred = -(prev_sample - prev_sample_mean) / var * ∂prev_sample_mean/∂model_pred
+```
+
+因为 `prev_sample.detach()` 了，梯度不会流到 `prev_sample`，只会通过 `prev_sample_mean` 流到 `model_pred`。
+
+**重要：计算图只包含当前第 j 步！**
+- `sample["latents"][:, j]` 是 detached 的（采样阶段产生，不参与计算图）
+- 所以梯度只从第 j 步的 model_pred 反向传播到 LoRA 参数
+- **为什么这可行？** SDE 的马尔可夫性质：第 j 步的 latent 只由第 j-1 步决定。虽然每一步的梯度只包含一步的信息，但经过 window_size=5 步的累积（循环 5 次 `compute_log_prob` + `backward`），梯度实际上包含了从窗口起点到终点的完整信息。
+
+### 5.4 Loss 在训练循环中的位置
+
+```python
+# train_flux_fast.py:825-901
+train_timesteps = [step_index for step_index in range(num_train_timesteps)]  # [0,1,2,3,4]
+
+for j in train_timesteps:                # 遍历窗口内的每一步
+    with accelerator.accumulate(transformer):
+        # 5.4.1 前向 → 得到 log_prob_new (line 835)
+        prev_sample, log_prob, prev_sample_mean, std_dev_t = compute_log_prob(...)
+        
+        # 5.4.2 PPO ratio (line 847)
+        ratio = torch.exp(log_prob - sample["log_probs"][:, j])
+        
+        # 5.4.3 无裁剪和有裁剪的 loss (line 849-854)
+        unclipped_loss = -advantages * ratio
+        clipped_loss = -advantages * torch.clamp(
+            ratio, 1.0 - config.train.clip_range, 1.0 + config.train.clip_range
+        )
+        
+        # 5.4.4 PPO loss: 取最大值（最悲观）（line 855）
+        policy_loss = torch.mean(torch.maximum(unclipped_loss, clipped_loss))
+        
+        # 5.4.5 KL 惩罚（可选）（line 856-861）
+        if config.train.beta > 0:
+            # 计算 reference model（禁用 LoRA adapter）的预测均值
+            with torch.no_grad():
+                _, _, prev_sample_mean_ref, _ = compute_log_prob(transformer, pipeline, sample, j, config)
+            kl_loss = ((prev_sample_mean - prev_sample_mean_ref)²).mean(dim=(1,2)) / (2 * std_dev_t²)
+            loss = policy_loss + config.train.beta * kl_loss
         else:
-            mean = np.mean(prompt_stats)
-            std = np.std(prompt_stats) + 1e-8
-            advantages.append((reward - mean) / std)
-    
-    return advantages
+            loss = policy_loss
+        
+        # 5.4.6 backward (line 895)
+        accelerator.backward(loss)      # ← 梯度累积 + 反向传播
+        if accelerator.sync_gradients:
+            accelerator.clip_grad_norm_(transformer.parameters(), config.train.max_grad_norm)
+        optimizer.step()
+        optimizer.zero_grad()
 ```
-
-### 4.3 核心公式
-
-$$ A_i = \frac{r_i - \mu_{history}}{\sigma_{history}} $$
-
-**为什么用历史统计而非 group 内统计？**
-
-理论上 GRPO 用同一组（同一步的多个采样）做归一化。但在分布式训练中，一个 prompt 可能只在一张 GPU 上出现一次。PerPromptStatTracker 的 buffer 机制实现了**跨时间步的组内归一化**——用历史 reward 的均值和标准差来近似当前 group 的均值和标准差。
-
-### 4.4 Advantage 计算示意图
-
-![GRPO Advantage 计算](/images/flowgrpo/flowgrpo_grpo_advantage.svg)
 
 ---
 
-## 5 | Flow-GRPO-Fast：SDE 滑动窗口技术
+## 第 6 步：Loss 设计详解
 
-这是 Flow-GRPO 训练加速的关键创新。
+### 6.1 PPO Loss 数学形式
 
-### 5.1 问题：计算图太大
+$$ L^{PPO} = \mathbb{E}\left[ \max\left( -\frac{\pi_\theta}{\pi_{\theta_{old}}} \cdot A,\; -\text{clip}\left(\frac{\pi_\theta}{\pi_{\theta_{old}}}, 1-\epsilon, 1+\epsilon\right) \cdot A \right) \right] $$
 
-标准的 SDE 采样需要依次执行 10 步推理：
+在代码中：
 
-```
-x_0 → x_1 → x_2 → ... → x_10 (final image)
-```
+| 符号 | 代码变量 | 位置 |
+|------|---------|------|
+| $\frac{\pi_\theta}{\pi_{\theta_{old}}}$ | `ratio = torch.exp(log_prob - sample['log_probs'][:, j])` | line 847 |
+| $A$ | `advantages`（已裁剪到 [-adv_clip_max, adv_clip_max]） | line 842-846 |
+| $\epsilon$ | `config.train.clip_range`（默认 0.2） | line 852 |
+| $-\text{ratio} \cdot A$ | `unclipped_loss = -advantages * ratio` | line 849 |
+| $-\text{clip}(\text{ratio}) \cdot A$ | `clipped_loss = -advantages * torch.clamp(...)` | line 850-854 |
+| $\max$ | `policy_loss = torch.mean(torch.maximum(...))` | line 855 |
 
-如果每一步都用 `torch.no_grad()`，那就无法计算 loss（因为没有计算图）。如果每一步都开启 `requires_grad`，计算图会包含所有 10 步 DiT（Diffusion Transformer），Flux.1-dev 约 12B 参数，10 步的激活值 → 100B+ 激活 → GPU 显存爆炸。
+**为什么这样设计？**
 
-### 5.2 解决方案：Window
+- 当 `A > 0`（这张图比平均好）：我们希望提高它的概率，但不想提高太猛
+  - ratio > 1.2 → clip 到 1.2 → clipped_loss 更大 → loss 取 max → 惩罚过度更新
+- 当 `A < 0`（这张图比平均差）：我们希望降低它的概率，但同样不想降太猛
+  - ratio < 0.8 → clip 到 0.8 → clipped_loss 更大 → loss 取 max → 惩罚过度更新
 
-观察：SDE 的马尔可夫性质意味着**后几步的梯度足以更新所有参数**。因此：
+### 6.2 KL 惩罚项
 
-1. **前 N 步**：`torch.no_grad()`，不记录计算图，只存储 latent 状态
-2. **后 window_size 步**：开启 `requires_grad`，构造计算图
-
-这样计算图只包含 `window_size` 步，显存占用减少约 `(10-window_size)/10`。
-
-### 5.3 可视化
-
-![Flow-GRPO-Fast SDE 窗口](/images/flowgrpo/flowgrpo_fast_sde.svg)
-
-### 5.4 代码实现
+当 `config.train.beta > 0` 时，额外加一个 KL 惩罚：
 
 ```python
-# !!!!!!!!!!!! 关键函数：训练阶段的 SDE 采样（含梯度窗口）!!!!!!!!!!!!
-def compute_policy_loss(
-    pipe,                        # Flux pipeline
-    noise,                       # 初始噪声
-    prompt_embeds,               # T5 编码后的 prompt
-    num_inference_steps,         # 总步数（默认 10）
-    window_size,                 # 梯度窗口大小（默认 5）
-    log_prob_old,                # 采样阶段记录的旧 log_prob
-    advantage,                   # PerPromptStatTracker 计算的 advantage
-    clip_range=0.2,              # PPO clip 范围
-):
-    x = noise
-    
-    # 阶段 1：no_grad 窗口
-    for i in range(num_inference_steps - window_size):
-        with torch.no_grad():
-            v_pred = pipe.transformer(x, t, prompt_embeds).sample
-            x = euler_step(x, v_pred, dt)  # x_t+1 = x_t + v * dt
-    
-    # 阶段 2：梯度窗口
-    log_prob_new = 0
-    for i in range(window_size):
-        v_pred = pipe.transformer(x, t, prompt_embeds).sample
-        x = euler_step(x, v_pred, dt)
-        log_prob_new += compute_step_log_prob(x_t_plus_1, x_t, v_pred, noise_std, dt)
-    
-    # PPO loss
-    ratio = torch.exp(log_prob_new - log_prob_old)
-    pg_loss = -torch.min(
-        ratio * advantage,
-        torch.clamp(ratio, 1 - clip_range, 1 + clip_range) * advantage,
-    ).mean()
-    
-    return pg_loss
+# train_flux_fast.py:837-838
+with torch.no_grad():
+    with transformer.module.disable_adapter():   # 禁用 LoRA → reference model
+        _, _, prev_sample_mean_ref, _ = compute_log_prob(transformer, pipeline, sample, j, config)
+
+# train_flux_fast.py:857-858
+kl_loss = ((prev_sample_mean - prev_sample_mean_ref) ** 2).mean(dim=(1,2), keepdim=True) / (2 * std_dev_t ** 2)
+kl_loss = torch.mean(kl_loss)
+loss = policy_loss + config.train.beta * kl_loss
 ```
 
-### 5.5 加速效果
+**设计动机：**
+- 通过 `disable_adapter()` 暂时禁用 LoRA 权重，得到 base model（reference）的预测均值
+- 当前模型的预测均值 `prev_sample_mean` 不应偏离 reference 太远
+- KL 惩罚项防止 PPO 过度优化导致模型遗忘原始能力（catastrophic forgetting）
 
-| 配置 | 显存占用 | 每步时间 | 梯度精度 |
-|------|---------|---------|---------|
-| window_size = 10（全梯度） | OOM | - | 完美 |
-| window_size = 5 | ~36GB | 1.0× | 良好 |
-| window_size = 3 | ~25GB | 0.7× | 可接受 |
-| window_size = 1 | ~18GB | 0.5× | 较差（仅最后 1 步） |
+### 6.3 日志指标
 
-默认 `window_size=5` 做到了显存和梯度精度的最佳平衡。
+```python
+# train_flux_fast.py:863-888
+info["approx_kl"].append(0.5 * ((log_prob - sample["log_probs"][:, j]) ** 2).mean())
+    # 近似 KL 散度：log_prob_new 与 log_prob_old 的差异平方均值
+info["clipfrac"].append((|ratio - 1.0| > clip_range).float().mean())
+    # 被 clip 的样本比例
+```
 
 ---
 
-## 6 | Reward 系统
+## 第 7 步：一次完整的训练迭代——按时间线串联
 
-Flow-GRPO 实现了丰富的 reward 函数，所有函数都在 `flow_grpo/rewards.py` 中。每个 reward 函数接收 `images (PIL list)` 和 `prompts (str list)`，返回 `rewards (float list)`。
+现在我们把所有步骤串联起来，看一次完整的迭代：
 
-### 6.1 内置 Reward 函数
+```
+Epoch 42, 第 3 个 batch:
+│
+├── [采样阶段] pipeline.transformer.eval()
+│   ├── 读 prompts = ["a red cat", "blue dog", ...]  (每 GPU batch_size=1)
+│   ├── T5 编码 → prompt_embeds
+│   ├── pipeline_with_logprob (10 步 SDE, window_size=5)
+│   │   ├── 第 0-4 步: no_grad, cur_noise_level=0      (ODE, 不记录)
+│   │   ├── 第 5 步: cur_noise_level=0.7, 记录 latent  (SDE start)
+│   │   ├── 第 6-8 步: cur_noise_level=0.7, 记录 latent (SDE within window)
+│   │   ├── 第 9 步: cur_noise_level=0                 (ODE, 不记录)
+│   │   └── 返回 images (B,3,512,512), log_probs (B,5)
+│   ├── executor.submit(reward_fn, images, prompts)    (异步)
+│   └── 存储 latents, timesteps, prompt_embeds 供训练阶段复用
+│
+├── [等待 reward] 从 Future 中取出 reward 值
+│   └── rewards = {"avg": [0.12, 0.45, ...], "strict_accuracy": [0, 1, ...]}
+│
+├── [跨 GPU 同步] all_gather 所有 GPU 的 reward 和 prompt
+│   └── 32 GPU × 1 batch = 32 个样本
+│
+├── [Advantage 计算] PerPromptStatTracker.update()
+│   └── 对每个 prompt: A_i = (r_i - μ_history) / σ_history
+│       └── A = [-1.37, -0.24, 1.16, ...]
+│
+├── [训练阶段] pipeline.transformer.train()
+│   ├── inner_epoch=0:
+│   │   ├── j=0 (SDE 窗口第 1 步)
+│   │   │   ├── transformer(latents[:,0], ...) → model_pred    ← 前向（梯度开启）
+│   │   │   ├── sde_step_with_logprob(..., prev_sample=next_latents[:,0]) → log_prob
+│   │   │   ├── ratio = exp(log_prob - log_probs_old[:,0])
+│   │   │   ├── policy_loss = max(-A·ratio, -A·clip(ratio))
+│   │   │   ├── (可选) KL_loss = ||mean_new - mean_ref||² / (2·var)
+│   │   │   ├── loss = policy_loss + β·KL_loss
+│   │   │   ├── accelerator.backward(loss)                     ← 梯度累加到 LoRA 参数
+│   │   │   └── optimizer.step()                               ← LoRA 参数更新
+│   │   │
+│   │   ├── j=1 (SDE 窗口第 2 步) → 重复...
+│   │   ├── j=2 (SDE 窗口第 3 步)
+│   │   ├── j=3 (SDE 窗口第 4 步)
+│   │   └── j=4 (SDE 窗口第 5 步)
+│   │
+│   └── inner_epoch=1:
+│       └── 用同一批样本再训练一次 (num_inner_epochs=1 时跳过)
+│
+└── epoch + 1
+```
 
-| 名称 | 类型 | 功能 | 模型 |
-|------|------|------|------|
-| `ocr_reward_fn` | OCR | 检测图片里文字是否匹配 prompt | EasyOCR / PPOCR |
-| `gen_eval_reward_fn` | 视觉语义 | CLIP 图文对齐 + 生成质量 | CLIP + 评估器 |
-| `pick_score_reward_fn` | 美学 | 图片美观度评分 | PickScore |
-| `aesthetic_score_reward_fn` | 美学 | 美学评分 | LAION Aesthetic |
-| `gpt_fine_grained_reward_fn` | 视觉语义 | GPT-4o 做细粒度评分 | GPT-4o API |
-| `grounding_reward_fn` | 布局 | 检测物体是否出现在指定位置 | Grounding DINO |
-| `color_reward_fn` | 颜色 | 主色调是否匹配 prompt | 颜色直方图 |
+---
 
-### 6.2 Reward 的组合使用
+## 第 8 步：推理阶段（和训练完全不同！）
 
-在 `config/grpo.py` 中，reward 可以组合使用：
+推理 (`train_flux_fast.py:220-311`, `eval` 函数) 和训练有本质区别：
 
 ```python
-# OCR 实验：只用 OCR reward
-experiment = dict(
-    model="black-forest-labs/FLUX.1-dev",
-    grpo=dict(
-        reward_fn="ocr",
-        ...
+# train_flux_fast.py:240-254 (eval 函数)
+with torch.no_grad():                               # 不记录任何梯度
+    images, _, _, _, _, _ = pipeline_with_logprob(
+        pipeline,
+        prompt_embeds=prompt_embeds,
+        num_inference_steps=config.sample.eval_num_steps,     # 一般和训练一致
+        guidance_scale=config.sample.eval_guidance_scale,
+        sde_window_size=0,                                     # ← 推理时 window=0！
+        noise_level=0,                                          # ← 推理时 noise_level=0！
+        sde_type=config.sample.sde_type,
     )
-)
-
-# GenEval 实验：多维度 reward
-experiment = dict(
-    grpo=dict(
-        reward_fn="gen_eval",
-        ...
-    )
-)
-
-# 自定义组合
-experiment = dict(
-    grpo=dict(
-        reward_fn="custom",
-        reward_weights={            # 多个 reward 加权
-            "ocr": 0.5,
-            "pick_score": 0.3,
-            "aesthetic": 0.2,
-        },
-        ...
-    )
-)
 ```
 
-### 6.3 Reward 的去中心化计算
+**推理 vs 训练的关键差异：**
 
-在多 GPU 训练中，reward 计算是**去中心化**的。每张 GPU 独立计算自己生成的图片的 reward，然后通过 `all_gather` 同步所有 GPU 上的 reward 值。
+| | 训练采样阶段 | 推理阶段 |
+|--|------------|---------|
+| `sde_window_size` | 5 | **0**（全 ODE） |
+| `noise_level` | 0.7 | **0**（不加噪声） |
+| `requires_grad` | ❌ | ❌ |
+| 返回 `log_probs` | ✅ 需要 | **不返回**（`_` 丢弃） |
+| 返回 `latents` | ✅ 供训练复用 | ❌ |
 
-```python
-# 每张 GPU 计算自己的 reward
-local_rewards = reward_fn(local_images, local_prompts)
-
-# all_gather 同步所有 GPU 的 reward
-all_rewards = all_gather(local_rewards)  # [global_batch_size]
-all_prompts = all_gather(local_prompts)
-
-# PerPromptStatTracker 的 update 接受全部 prompt 和 reward
-advantages = stat_tracker.update(all_prompts, all_rewards)
-
-# 每张 GPU 取自己那部分的 advantage
-local_advantages = advantages[rank * local_batch_size : (rank+1) * local_batch_size]
-```
-
-这种设计的优势是**没有单点瓶颈**——计算 reward 不涉及跨 GPU 通信，只有最终的 all_gather 需要一次同步。
+**为什么推理不用 SDE？**
+- 推理只关心图片质量，不需要计算 log_prob
+- ODE（noise_level=0）生成的图片更清晰、质量更高
+- SDE 在训练时是为了引入随机性 → 多样性 → group 内 reward 出现差异 → advantage 信号
 
 ---
 
-## 7 | 关键超参数详解
-
-来自 `config/base.py` 和 `config/grpo.py` 的完整超参数解读：
-
-### 7.1 训练超参数
-
-```python
-class GRPOConfig:
-    # === 数据 ===
-    dataset_path: str = "train.txt"           # 每行一个 prompt
-    batch_size: int = 1                       # 每张 GPU 的 prompt 数
-    # 实际：batch_size × num_processes × group_size 张图
-    # 例如：1 × 32 × 24 = 768 张图/步
-    
-    # === 采样 ===
-    num_inference_steps: int = 10             # SDE 总步数
-    window_size: int = 5                      # 梯度窗口大小
-    guidance_scale: float = 3.5              # CFG 强度
-    
-    # === GRPO ===
-    group_size: int = 24                      # 每个 prompt 的采样数
-    clip_range: float = 0.2                   # PPO clip 范围
-    
-    # === 优化 ===
-    learning_rate: float = 1e-4               # LoRA 学习率
-    lora_rank: int = 64                       # LoRA 秩
-    lora_alpha: float = 128                   # LoRA alpha
-    
-    # === Reward ===
-    reward_fn: str = "ocr"                    # 奖励函数类型
-    reward_weights: dict = {"ocr": 1.0}       # 多 reward 权重
-    
-    # === 统计 ===
-    buffer_size: int = 30                     # PerPromptStatTracker buffer
-    min_count: int = 5                        # 最小统计数
-```
-
-### 7.2 关键参数的设计动机
-
-**为什么 group_size = 24？**
-- GRPO 的核心是组内比较，group_size 越大，$\mu, \sigma$ 估计越准确
-- 但 group_size 受 GPU 显存限制：每张图需要 VAE decode + reward 模型
-- 24 是一个平衡值：32 GPU × 1 prompt/GPU = 32 个 prompt，每个 group 24 张图
-
-**为什么 num_inference_steps = 10？**
-- Flow Matching 的优势就是步数少
-- 10 步已经能生成高质量图片（DDPM 需要 50-1000 步）
-- 步数越少，计算图越小，显存越可控
-
-**为什么 window_size = 5？**
-- 全梯度（10 步）显存 OOM
-- 窗口越小，梯度信息越少（后几步的噪声影响变大）
-- 5 步是经验上精度-显存的平衡点
-
-**为什么 clip_range = 0.2？**
-- 标准的 PPO 超参数
-- 限制 ratio 范围在 [0.8, 1.2]，防止更新过大导致 collapse
-
-### 7.3 FSDP 配置
-
-Flow-GRPO 使用 PyTorch FSDP（Fully Sharded Data Parallel）来训练 12B 的 Flux：
-
-```python
-# fsdp_utils.py 中的 FSDP 配置
-fsdp_config = dict(
-    sharding_strategy="FULL_SHARD",           # 分片全部参数
-    cpu_offload=False,                         # 不 CPU offload（加速）
-    mixed_precision="bf16",                    # BF16 混合精度
-    limit_all_gathers=True,                    # 限制 all_gather 内存
-)
-```
-
-FSDP 的关键作用：Flux.1-dev 约 12B 参数（≈24GB BF16），如果没有 FSDP 分片，单张 GPU 放不下。
-
----
-
-## 8 | 完整训练实验（OCR 场景为例）
-
-### 8.1 实验目标
-
-提升 Flux.1-dev 生成带有正确文字的图片的能力。Prompt 样例：
-
-```
-"A sign that says 'Hello World'"
-"A book cover with title 'Deep Learning'"
-"A storefront with 'OPEN' sign"
-"A birthday cake with 'Happy Birthday' written on it"
-```
-
-### 8.2 训练过程
-
-```
-Epoch 0: 文字几乎不可读，OCR reward ≈ 0.05
-Epoch 10: 文字开始出现但错误较多，reward ≈ 0.20
-Epoch 50: 文字基本清晰，少量拼写错误，reward ≈ 0.55
-Epoch 100: 文字正确率 > 90%，reward ≈ 0.85
-Epoch 200: 文字高度准确，reward ≈ 0.95
-```
-
-### 8.3 可视化结果
-
-（训练前后的图片对比：左边是初始 Flux 生成的文字（无法辨识的乱码），右边是 200 步 GRPO 训练后的文字（清晰可读））
-
-### 8.4 训练的 KL 变化
-
-在整个训练过程中，`ratio = exp(log_prob_new - log_prob_old)` 的均值始终保持在 1.0 附近（因为采样和训练用的是同一组模型参数），标准差从 0.05 逐步上升到 0.2 左右——说明模型在不断适应 reward 信号，但更新幅度被 clip_range 控制了。
-
----
-
-## 9 | 代码架构全图
+## 第 9 步：完整代码架构
 
 ![Flow-GRPO 代码架构](/images/flowgrpo/flowgrpo_code_arch.svg)
 
-### 9.1 文件映射
+### 文件命中表（每个文件的精确业务）
 
-| 文件 | 职责 |
-|------|------|
-| `scripts/train_flux_fast.py` | 主训练脚本：采样 → reward → loss → backward |
-| `config/grpo.py` | 实验配方：OCR / GenEval / PickScore 等预设 |
-| `config/base.py` | 默认超参数：learning_rate, group_size, window_size 等 |
-| `flow_grpo/rewards.py` | 所有 reward 函数的实现 |
-| `flow_grpo/stat_tracking.py` | PerPromptStatTracker：reward → advantage |
-| `flow_grpo/ema.py` | EMA（指数移动平均）模型参数 |
-| `flow_grpo/fsdp_utils.py` | FSDP 分布式训练工具 |
-| `flow_grpo/diffusers_patch/*` | 改造后的 Flux pipeline（SDE 采样 + log_prob） |
-
-### 9.2 训练流程的完整代码（精简标注版）
-
-```python
-# ==== train_flux_fast.py ====
-
-# 1. 加载配置
-from config.grpo import ocr_experiment, gen_eval_experiment
-config = ocr_experiment["grpo"]
-
-# 2. 初始化模型
-model = FluxTransformer.from_pretrained("black-forest-labs/FLUX.1-dev")
-model = wrap_fsdp(model)  # FSDP 分片
-optimizer = AdamW(model.parameters(), lr=config.learning_rate)
-
-# 3. 加载 prompt 数据
-prompts = load_prompts(config.dataset_path)
-
-# 4. 主训练循环
-for epoch in range(config.num_epochs):
-    for batch_prompts in dataloader(prompts, batch_size=config.batch_size):
-        
-        # --- 4.1 采样阶段（no_grad）---
-        # 每个 prompt → group_size 张不同噪声的图片
-        batch_prompts_repeated = repeat(batch_prompts, config.group_size)
-        noises = torch.randn(len(batch_prompts_repeated), ...)
-        
-        with torch.no_grad():
-            images, log_probs_old = sde_sampling(
-                model, noises, batch_prompts_repeated,
-                num_steps=config.num_inference_steps,
-                window_size=config.window_size,
-            )
-        
-        # --- 4.2 Reward 阶段 ---
-        rewards = reward_fn(images, batch_prompts_repeated)
-        
-        # --- 4.3 同步 + Advantage 计算 ---
-        all_rewards = all_gather(rewards)
-        all_prompts = all_gather(batch_prompts_repeated)
-        advantages = stat_tracker.update(all_prompts, all_rewards)
-        
-        # 取本 GPU 对应的 advantage
-        local_advantages = get_local_advantages(advantages)
-        
-        # --- 4.4 训练阶段（梯度开启）---
-        _, log_probs_new = sde_sampling(  # 再次采样，但保持输入一致
-            model, noises, batch_prompts_repeated,
-            num_steps=config.num_inference_steps,
-            window_size=config.window_size,
-            compute_grad=True,
-        )
-        
-        # --- 4.5 PPO Loss ---
-        ratio = torch.exp(log_probs_new - log_probs_old)
-        pg_loss = -torch.min(
-            ratio * local_advantages,
-            torch.clamp(ratio, 1 - config.clip_range, 1 + config.clip_range) * local_advantages,
-        ).mean()
-        
-        # KL 惩罚（可选）
-        kl_loss = (ratio - 1 - torch.log(ratio)).mean()
-        loss = pg_loss + config.kl_coef * kl_loss
-        
-        loss.backward()
-        optimizer.step()
-        optimizer.zero_grad()
-        
-        # --- 4.6 日志 ---
-        wandb.log({
-            "reward/mean": rewards.mean(),
-            "reward/std": rewards.std(),
-            "loss/pg": pg_loss.item(),
-            "loss/kl": kl_loss.item(),
-            "ratio/mean": ratio.mean().item(),
-        })
-```
+| 文件 | 行数 | 核心函数/类 | 精确职责 |
+|------|------|------------|---------|
+| `scripts/train_flux_fast.py` | 925 | `main()`, `compute_log_prob()`, `eval()` | 主循环编排、采样/训练两阶段切换、loss 计算与 backward |
+| `config/base.py` | - | `GRPOConfig` | 所有超参数的默认值（lr, group_size, window_size...） |
+| `config/grpo.py` | - | `ocr_experiment`, `gen_eval_experiment`, ... | 实验预设配方 |
+| `flow_grpo/diffusers_patch/flux_pipeline_with_logprob_fast.py` | 213 | `pipeline_with_logprob()` | SDE 采样循环、窗口控制、latent 轨迹记录 |
+| `flow_grpo/diffusers_patch/sd3_sde_with_logprob.py` | 171 | `sde_step_with_logprob()` | **单步 SDE 前向 + log_prob 解析计算**（梯度流的数学核心） |
+| `flow_grpo/stat_tracking.py` | 139 | `PerPromptStatTracker.update()` | reward → advantage 的组内归一化（GRPO 核心） |
+| `flow_grpo/rewards.py` | 567 | `multi_score()`, `ocr_reward_fn`, ... | 各种 reward 函数的实现 |
+| `flow_grpo/ema.py` | - | `EMAModuleWrapper` | 指数移动平均（保存最优参数快照） |
+| `flow_grpo/fsdp_utils.py` | - | FSDP 配置 | 12B 模型的分片策略 |
 
 ---
 
-## 10 | 总结与思考
+## 第 10 步：核心公式一览
 
-### 10.1 Flow-GRPO 的核心贡献
+### 10.1 GRPO Advantage
 
-1. **首次将 GRPO 引入扩散模型训练**：证明了在线 RL 可以显著提升扩散模型的下游任务性能
-2. **SDE 窗口技术**：解决了 SDE 采样计算图过大的工程难题
-3. **丰富的 reward 系统**：OCR / GenEval / PickScore / 美学 / 布局等，覆盖多种任务
-4. **去中心化 reward 计算**：避免了单点瓶颈，支持大规模分布式训练
+$$ A_i = \frac{r_i - \mu_{prompt}}{\sigma_{prompt}} $$
 
-### 10.2 局限与挑战
+`stat_tracking.py:76-92`
 
-1. **显存仍然是瓶颈**：即使有 window_size=5，Flux.1-dev 的训练仍需要 8×80GB GPU
-2. **reward 设计依赖人工**：OCR 一类的 reward 很好定义，但"生成质量"很难用单个数值衡量
-3. **多样性可能下降**：RL 训练倾向于收敛到少数高 reward 模式，需要 careful prompt 设计
-4. **ON-POLICY 采样开销大**：每一步都需要重新采样，训练成本是离线方法的数倍
+### 10.2 SDE Step (sde_type='sde')
 
-### 10.3 可能的应用方向
+$$ \text{mean} = x_t \cdot \left(1 + \frac{\sigma_{noise}^2}{2\sigma}\Delta t\right) + v_\theta \cdot \left(1 + \frac{\sigma_{noise}^2(1-\sigma)}{2\sigma}\right)\Delta t $$
 
-- **广告图文生成**：通过 OCR reward 确保文字准确
-- **产品图生成**：通过 grounding reward 确保物体在指定位置
-- **艺术风格生成**：通过 aesthetic reward 提升美学质量
-- **医学影像生成**：通过 domain-specific reward 确保解剖正确性
-- **与 VLM 结合**：用 GPT-4o/VLM 做 reward 模型，实现开放式质量的自动评估
+$$ x_{t+1} \sim \mathcal{N}(\text{mean}, \sigma_{noise}^2 \cdot (-\Delta t) \cdot I) $$
+
+`sd3_sde_with_logprob.py:106-109`
+
+### 10.3 Log Prob
+
+$$ \log p(x_{t+1}|x_t) = -\frac{\|x_{t+1} - \text{mean}\|^2}{2\sigma_{noise}^2(-\Delta t)} - \log(\sigma_{noise}\sqrt{-\Delta t}) - \log\sqrt{2\pi} $$
+
+`sd3_sde_with_logprob.py:121-133`
+
+### 10.4 PPO Ratio
+
+$$ r_t(\theta) = \exp(\log \pi_\theta - \log \pi_{\theta_{old}}) $$
+
+`train_flux_fast.py:847`
+
+### 10.5 PPO Policy Loss
+
+$$ L^{PG} = \mathbb{E}\left[\max\left(-r_t(\theta)A_t,\; -\text{clip}(r_t(\theta), 1-\epsilon, 1+\epsilon)A_t\right)\right] $$
+
+`train_flux_fast.py:849-855`
+
+### 10.6 KL Penalty
+
+$$ L^{KL} = \frac{\|\mu_\theta - \mu_{ref}\|^2}{2\sigma_t^2} $$
+
+`train_flux_fast.py:857-858`
+
+### 10.7 Total Loss
+
+$$ L = L^{PG} + \beta L^{KL} $$
+
+`train_flux_fast.py:859`
+
+---
+
+## 附：关键流程图
+
+![GRPO Advantage 计算](/images/flowgrpo/flowgrpo_grpo_advantage.svg)
+
+![Flow Matching 去噪过程](/images/flowgrpo/flowgrpo_flow_matching.svg)
+
+![Flow-GRPO-Fast SDE 窗口](/images/flowgrpo/flowgrpo_fast_sde.svg)
 
 ---
 
 ## 参考
 
-- Flow-GRPO 代码库：[https://github.com/your-org/Flow-GRPO](https://github.com)
+- 代码库：`/root/workspace_qyl/Flow-GRPO/flow_grpo/`
 - GRPO 论文：DeepSeekMath (arXiv:2402.03300)
-- Flow Matching 论文：Flow Matching for Generative Modeling (arXiv:2210.02747)
-- Flux 模型：black-forest-labs/FLUX.1-dev
-- PPO 论文：Proximal Policy Optimization Algorithms (arXiv:1707.06347)
+- Flow Matching：Flow Matching for Generative Modeling (arXiv:2210.02747)
+- PPO：Proximal Policy Optimization Algorithms (arXiv:1707.06347)
+- DDPO：Denoising Diffusion Policy Optimization (arXiv:2307.09439)
