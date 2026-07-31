@@ -1,0 +1,106 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 700" font-family="'Noto Sans SC','Microsoft YaHei',Arial,sans-serif">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M0,0 L10,5 L0,10 Z" fill="#4A5568"/>
+    </marker>
+    <linearGradient id="g-blue" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#EBF8FF"/>
+      <stop offset="100%" stop-color="#BEE3F8"/>
+    </linearGradient>
+    <linearGradient id="g-green" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#F0FFF4"/>
+      <stop offset="100%" stop-color="#C6F6D5"/>
+    </linearGradient>
+    <linearGradient id="g-orange" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#FFFAF0"/>
+      <stop offset="100%" stop-color="#FEEBC8"/>
+    </linearGradient>
+    <linearGradient id="g-purple" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#FAF5FF"/>
+      <stop offset="100%" stop-color="#E9D8FD"/>
+    </linearGradient>
+    <linearGradient id="g-red" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#FFF5F5"/>
+      <stop offset="100%" stop-color="#FED7D7"/>
+    </linearGradient>
+    <filter id="shadow" x="-5%" y="-5%" width="110%" height="110%">
+      <feDropShadow dx="2" dy="2" stdDeviation="3" flood-opacity="0.15"/>
+    </filter>
+  </defs>
+
+  <!-- Title -->
+  <text x="500" y="38" text-anchor="middle" font-size="20" font-weight="bold" fill="#2D3748">GRPO：组内竞争 —— 同一 prompt 生成一组图，让它们互相比较</text>
+  <text x="500" y="60" text-anchor="middle" font-size="12" fill="#718096">不需要「全局标准」，只需要回答：这组图里，哪张比平均更好？</text>
+
+  <!-- Prompt -->
+  <rect x="350" y="85" width="300" height="55" rx="10" fill="url(#g-blue)" stroke="#3182CE" stroke-width="2" filter="url(#shadow)"/>
+  <text x="500" y="107" text-anchor="middle" font-size="14" font-weight="bold" fill="#2B6CB0">同一个 prompt</text>
+  <text x="500" y="128" text-anchor="middle" font-size="12" fill="#4A5568">「一只戴红色帽子的狗」</text>
+
+  <line x1="500" y1="140" x2="500" y2="160" stroke="#4A5568" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- Group of images -->
+  <rect x="65" y="165" width="130" height="95" rx="8" fill="#EDF2F7" stroke="#A0AEC0" stroke-width="1.5"/>
+  <rect x="80" y="175" width="100" height="50" rx="6" fill="#CBD5E0"/>
+  <text x="130" y="203" text-anchor="middle" font-size="12" fill="#2D3748">图 1</text>
+  <text x="130" y="245" text-anchor="middle" font-size="12" font-weight="bold" fill="#C05621">r = 0.70</text>
+
+  <rect x="216" y="165" width="130" height="95" rx="8" fill="#EDF2F7" stroke="#A0AEC0" stroke-width="1.5"/>
+  <rect x="231" y="175" width="100" height="50" rx="6" fill="#BEE3F8"/>
+  <text x="281" y="203" text-anchor="middle" font-size="12" fill="#2D3748">图 2</text>
+  <text x="281" y="245" text-anchor="middle" font-size="12" font-weight="bold" fill="#38A169">r = 0.88 ↑</text>
+
+  <rect x="367" y="165" width="130" height="95" rx="8" fill="#EDF2F7" stroke="#A0AEC0" stroke-width="1.5"/>
+  <rect x="382" y="175" width="100" height="50" rx="6" fill="#FED7D7"/>
+  <text x="432" y="203" text-anchor="middle" font-size="12" fill="#2D3748">图 3</text>
+  <text x="432" y="245" text-anchor="middle" font-size="12" font-weight="bold" fill="#E53E3E">r = 0.55 ↓</text>
+
+  <rect x="518" y="165" width="130" height="95" rx="8" fill="#EDF2F7" stroke="#A0AEC0" stroke-width="1.5"/>
+  <rect x="533" y="175" width="100" height="50" rx="6" fill="#C6F6D5"/>
+  <text x="583" y="203" text-anchor="middle" font-size="12" fill="#2D3748">图 4</text>
+  <text x="583" y="245" text-anchor="middle" font-size="12" font-weight="bold" fill="#38A169">r = 0.92 ↑↑</text>
+
+  <rect x="669" y="165" width="130" height="95" rx="8" fill="#EDF2F7" stroke="#A0AEC0" stroke-width="1.5"/>
+  <rect x="684" y="175" width="100" height="50" rx="6" fill="#CBD5E0"/>
+  <text x="734" y="203" text-anchor="middle" font-size="12" fill="#2D3748">图 5</text>
+  <text x="734" y="245" text-anchor="middle" font-size="12" font-weight="bold" fill="#C05621">r = 0.61</text>
+
+  <rect x="820" y="165" width="130" height="95" rx="8" fill="#EDF2F7" stroke="#A0AEC0" stroke-width="1.5"/>
+  <rect x="835" y="175" width="100" height="50" rx="6" fill="#FEEBC8"/>
+  <text x="885" y="203" text-anchor="middle" font-size="12" fill="#2D3748">图 6</text>
+  <text x="885" y="245" text-anchor="middle" font-size="12" font-weight="bold" fill="#C05621">r = 0.79</text>
+
+  <text x="500" y="278" text-anchor="middle" font-size="11.5" fill="#718096">group_size = 24（这里只示意 6 张）；分数来自奖励模型：OCR / GenEval / PickScore</text>
+
+  <line x1="500" y1="286" x2="500" y2="312" stroke="#4A5568" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- Advantage box -->
+  <rect x="300" y="320" width="400" height="90" rx="10" fill="url(#g-purple)" stroke="#805AD5" stroke-width="2" filter="url(#shadow)"/>
+  <text x="500" y="346" text-anchor="middle" font-size="13.5" font-weight="bold" fill="#6B46C1">advantageᵢ = ( rᵢ − mean ) / std 　组内归一化</text>
+  <text x="500" y="369" text-anchor="middle" font-size="12" fill="#4A5568">比组内平均好 → advantage &gt; 0（鼓励）；比平均差 → advantage &lt; 0（抑制）</text>
+  <text x="500" y="391" text-anchor="middle" font-size="11.5" fill="#718096">只看「相对好坏」，奖励模型的尺度 / 分布变化都不怕</text>
+
+  <line x1="500" y1="410" x2="500" y2="432" stroke="#4A5568" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- PPO update box -->
+  <rect x="300" y="440" width="400" height="85" rx="10" fill="url(#g-red)" stroke="#E53E3E" stroke-width="2" filter="url(#shadow)"/>
+  <text x="500" y="467" text-anchor="middle" font-size="13.5" font-weight="bold" fill="#C53030">更新策略：L = max( ratio × A, clip(ratio, 1±ε) × A )</text>
+  <text x="500" y="490" text-anchor="middle" font-size="12" fill="#4A5568">A &gt; 0 → 提高「高分开法」的概率；A &lt; 0 → 降低低分开法概率</text>
+  <text x="500" y="512" text-anchor="middle" font-size="11.5" fill="#718096">clip 防止一次更新太猛，保证训练稳定</text>
+
+  <line x1="500" y1="525" x2="500" y2="548" stroke="#4A5568" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- Key points -->
+  <rect x="150" y="560" width="700" height="100" rx="10" fill="url(#g-green)" stroke="#38A169" stroke-width="2" filter="url(#shadow)"/>
+  <text x="500" y="582" text-anchor="middle" font-size="12.5" font-weight="bold" fill="#276749">关键点</text>
+  <text x="500" y="603" text-anchor="middle" font-size="11.5" fill="#4A5568">① GRPO 不学「绝对分数」，只学「组内相对排名」→ 奖励尺度、分布变化都不怕</text>
+  <text x="500" y="623" text-anchor="middle" font-size="11.5" fill="#4A5568">② 每组都来自同一个 prompt → 好坏差异 ≈ 采样随机性 ≈ 模型「走法」差异，模型学得动</text>
+  <text x="500" y="643" text-anchor="middle" font-size="11.5" fill="#4A5568">③ 在线 RL（on-policy）：模型边生成边学自己刚刚的行为</text>
+
+  <!-- Reward model note -->
+  <rect x="815" y="335" width="175" height="85" rx="8" fill="url(#g-orange)" stroke="#DD6B20" stroke-width="1.5"/>
+  <text x="902" y="357" text-anchor="middle" font-size="11.5" font-weight="bold" fill="#C05621">分数怎么来的？</text>
+  <text x="902" y="377" text-anchor="middle" font-size="11" fill="#4A5568">奖励模型打分</text>
+  <text x="902" y="397" text-anchor="middle" font-size="11" fill="#4A5568">OCR / GenEval</text>
+  <text x="902" y="413" text-anchor="middle" font-size="11" fill="#4A5568">/ PickScore</text>
+</svg>

@@ -1,0 +1,90 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 800" font-family="'Noto Sans SC','Microsoft YaHei',Arial,sans-serif">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M0,0 L10,5 L0,10 Z" fill="#4A5568"/>
+    </marker>
+    <linearGradient id="g-blue" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#EBF8FF"/>
+      <stop offset="100%" stop-color="#BEE3F8"/>
+    </linearGradient>
+    <linearGradient id="g-green" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#F0FFF4"/>
+      <stop offset="100%" stop-color="#C6F6D5"/>
+    </linearGradient>
+    <linearGradient id="g-orange" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#FFFAF0"/>
+      <stop offset="100%" stop-color="#FEEBC8"/>
+    </linearGradient>
+    <linearGradient id="g-purple" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#FAF5FF"/>
+      <stop offset="100%" stop-color="#E9D8FD"/>
+    </linearGradient>
+    <linearGradient id="g-red" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#FFF5F5"/>
+      <stop offset="100%" stop-color="#FED7D7"/>
+    </linearGradient>
+    <filter id="shadow" x="-5%" y="-5%" width="110%" height="110%">
+      <feDropShadow dx="2" dy="2" stdDeviation="3" flood-opacity="0.15"/>
+    </filter>
+  </defs>
+
+  <!-- Title -->
+  <text x="500" y="38" text-anchor="middle" font-size="20" font-weight="bold" fill="#2D3748">Flow-GRPO 思维导图：30 秒建立全局概念</text>
+  <text x="500" y="60" text-anchor="middle" font-size="12" fill="#718096">中心一个词，向外五个分支：是什么、为什么、怎么生成、怎么改进、宏观流程</text>
+
+  <!-- Center node -->
+  <rect x="390" y="355" width="220" height="90" rx="14" fill="url(#g-purple)" stroke="#805AD5" stroke-width="2.5" filter="url(#shadow)"/>
+  <text x="500" y="394" text-anchor="middle" font-size="22" font-weight="bold" fill="#6B46C1">Flow-GRPO</text>
+  <text x="500" y="420" text-anchor="middle" font-size="13" fill="#4A5568">强化学习 × 图像生成</text>
+
+  <!-- Lines center -> branches -->
+  <line x1="500" y1="355" x2="500" y2="208" stroke="#4A5568" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="390" y1="400" x2="350" y2="400" stroke="#4A5568" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="610" y1="400" x2="760" y2="400" stroke="#4A5568" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="412" y1="445" x2="245" y2="610" stroke="#4A5568" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="588" y1="445" x2="755" y2="610" stroke="#4A5568" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- Branch ① 是什么 (top, blue) -->
+  <rect x="300" y="88" width="400" height="120" rx="10" fill="url(#g-blue)" stroke="#3182CE" stroke-width="2" filter="url(#shadow)"/>
+  <text x="500" y="112" text-anchor="middle" font-size="14" font-weight="bold" fill="#2B6CB0">① 是什么：一个「图像生成模型」的训练算法</text>
+  <text x="330" y="134" font-size="11.5" fill="#4A5568">• 输入：文字 prompt</text>
+  <text x="330" y="152" font-size="11.5" fill="#4A5568">• 输出：更符合要求的图片</text>
+  <text x="330" y="170" font-size="11.5" fill="#4A5568">• 打分：自动奖励模型（OCR / PickScore / GenEval）</text>
+  <text x="330" y="188" font-size="11.5" fill="#4A5568">• 模型：SD3.5-M、FLUX.1-dev 等开源生图模型</text>
+
+  <!-- Branch ② 为什么 (left, orange) -->
+  <rect x="30" y="300" width="320" height="200" rx="10" fill="url(#g-orange)" stroke="#DD6B20" stroke-width="2" filter="url(#shadow)"/>
+  <text x="190" y="324" text-anchor="middle" font-size="14" font-weight="bold" fill="#C05621">② 为什么要强化学习</text>
+  <text x="55" y="346" font-size="11.5" fill="#4A5568">• 模仿学习（SFT）只会照抄训练集</text>
+  <text x="55" y="364" font-size="11.5" fill="#4A5568">• 不会主动追求「字写对 / 人喜欢」</text>
+  <text x="55" y="382" font-size="11.5" fill="#4A5568">• 在线 RL：边采样边改进自己</text>
+  <text x="55" y="400" font-size="11.5" fill="#4A5568">• 评测指标可以直接当奖励来优化</text>
+  <text x="55" y="418" font-size="11.5" fill="#4A5568">• 突破：绕开大量人工标注</text>
+  <text x="55" y="436" font-size="11.5" fill="#4A5568">• 类比：AlphaGo 靠「赢棋」训练</text>
+
+  <!-- Branch ⑤ 宏观流程 (right, blue) -->
+  <rect x="760" y="300" width="210" height="200" rx="10" fill="url(#g-blue)" stroke="#3182CE" stroke-width="2" filter="url(#shadow)"/>
+  <text x="865" y="324" text-anchor="middle" font-size="14" font-weight="bold" fill="#2B6CB0">⑤ 宏观流程</text>
+  <text x="778" y="348" font-size="11.5" fill="#4A5568">① 采样（生成图片）</text>
+  <text x="778" y="370" font-size="11.5" fill="#4A5568">② 奖励模型打分</text>
+  <text x="778" y="392" font-size="11.5" fill="#4A5568">③ 组内比较</text>
+  <text x="778" y="414" font-size="11.5" fill="#4A5568">④ 算 advantage</text>
+  <text x="778" y="436" font-size="11.5" fill="#4A5568">⑤ 更新参数</text>
+  <text x="778" y="466" font-size="11.5" font-weight="bold" fill="#C05621">⑥ 回到 ①，循环直到变好</text>
+
+  <!-- Branch ③ Flow Matching (bottom-left, green) -->
+  <rect x="60" y="610" width="370" height="150" rx="10" fill="url(#g-green)" stroke="#38A169" stroke-width="2" filter="url(#shadow)"/>
+  <text x="245" y="634" text-anchor="middle" font-size="14" font-weight="bold" fill="#276749">③ 怎么生成：Flow Matching</text>
+  <text x="85" y="658" font-size="11.5" fill="#4A5568">• 扩散模型：噪声多步去噪 → 图片</text>
+  <text x="85" y="678" font-size="11.5" fill="#4A5568">• Flow Matching：噪声一步「直连」图片</text>
+  <text x="85" y="698" font-size="11.5" fill="#4A5568">• 学一个「速度场」vθ，给出每步方向</text>
+  <text x="85" y="718" font-size="11.5" fill="#4A5568">• 生成 = 沿速度场从噪声滑向图片</text>
+
+  <!-- Branch ④ GRPO (bottom-right, red) -->
+  <rect x="570" y="610" width="370" height="150" rx="10" fill="url(#g-red)" stroke="#E53E3E" stroke-width="2" filter="url(#shadow)"/>
+  <text x="755" y="634" text-anchor="middle" font-size="14" font-weight="bold" fill="#C53030">④ 怎么改进：GRPO</text>
+  <text x="595" y="658" font-size="11.5" fill="#4A5568">• 同一个 prompt 生成一组图（N 张）</text>
+  <text x="595" y="678" font-size="11.5" fill="#4A5568">• 奖励模型逐张打分</text>
+  <text x="595" y="698" font-size="11.5" fill="#4A5568">• 组内比较 → advantage（归一化）</text>
+  <text x="595" y="718" font-size="11.5" fill="#4A5568">• 比平均好 → 提概率；差 → 降概率</text>
+</svg>

@@ -1,0 +1,101 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 640" font-family="'Noto Sans SC','Microsoft YaHei',Arial,sans-serif">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M0,0 L10,5 L0,10 Z" fill="#4A5568"/>
+    </marker>
+    <marker id="arrow-green" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M0,0 L10,5 L0,10 Z" fill="#38A169"/>
+    </marker>
+    <linearGradient id="g-blue" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#EBF8FF"/>
+      <stop offset="100%" stop-color="#BEE3F8"/>
+    </linearGradient>
+    <linearGradient id="g-green" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#F0FFF4"/>
+      <stop offset="100%" stop-color="#C6F6D5"/>
+    </linearGradient>
+    <filter id="shadow" x="-5%" y="-5%" width="110%" height="110%">
+      <feDropShadow dx="2" dy="2" stdDeviation="3" flood-opacity="0.15"/>
+    </filter>
+  </defs>
+
+  <!-- Title -->
+  <text x="500" y="38" text-anchor="middle" font-size="20" font-weight="bold" fill="#2D3748">扩散模型 vs Flow Matching：都从噪声变图片，走法不同</text>
+  <text x="500" y="60" text-anchor="middle" font-size="12" fill="#718096">左边：一点一点擦马赛克；右边：直飞航线，方向由「速度场」给出</text>
+
+  <!-- Left panel: Diffusion -->
+  <rect x="40" y="85" width="450" height="46" rx="8" fill="url(#g-blue)" stroke="#3182CE" stroke-width="2" filter="url(#shadow)"/>
+  <text x="265" y="104" text-anchor="middle" font-size="15" font-weight="bold" fill="#2B6CB0">扩散模型 Diffusion</text>
+  <text x="265" y="122" text-anchor="middle" font-size="11" fill="#4A5568">学「噪声预测器」εθ，每步从当前图里去掉一点噪声</text>
+
+  <!-- Diffusion steps -->
+  <rect x="40" y="170" width="86" height="64" rx="8" fill="#EDF2F7" stroke="#A0AEC0" stroke-width="1.5"/>
+  <text x="83" y="199" text-anchor="middle" font-size="12" font-weight="bold" fill="#4A5568">纯噪声</text>
+  <text x="83" y="217" text-anchor="middle" font-size="11" fill="#718096">x_T</text>
+
+  <rect x="144" y="170" width="86" height="64" rx="8" fill="#EDF2F7" stroke="#A0AEC0" stroke-width="1.5"/>
+  <text x="187" y="199" text-anchor="middle" font-size="12" font-weight="bold" fill="#4A5568">去噪①</text>
+  <text x="187" y="217" text-anchor="middle" font-size="11" fill="#718096">x_{T-1}</text>
+
+  <rect x="248" y="170" width="86" height="64" rx="8" fill="#EDF2F7" stroke="#A0AEC0" stroke-width="1.5"/>
+  <text x="291" y="199" text-anchor="middle" font-size="12" font-weight="bold" fill="#4A5568">去噪②</text>
+  <text x="291" y="217" text-anchor="middle" font-size="11" fill="#718096">x_{T-2}</text>
+
+  <rect x="352" y="170" width="86" height="64" rx="8" fill="#EDF2F7" stroke="#A0AEC0" stroke-width="1.5"/>
+  <text x="395" y="199" text-anchor="middle" font-size="12" font-weight="bold" fill="#4A5568">…</text>
+  <text x="395" y="217" text-anchor="middle" font-size="11" fill="#718096">20~50 步</text>
+
+  <rect x="456" y="170" width="86" height="64" rx="8" fill="url(#g-green)" stroke="#38A169" stroke-width="2"/>
+  <text x="499" y="199" text-anchor="middle" font-size="12" font-weight="bold" fill="#276749">图片</text>
+  <text x="499" y="217" text-anchor="middle" font-size="11" fill="#718096">x_0</text>
+
+  <line x1="126" y1="202" x2="142" y2="202" stroke="#4A5568" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="230" y1="202" x2="246" y2="202" stroke="#4A5568" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="334" y1="202" x2="350" y2="202" stroke="#4A5568" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="438" y1="202" x2="454" y2="202" stroke="#4A5568" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- Diffusion notes -->
+  <rect x="40" y="280" width="450" height="130" rx="8" fill="#F7FAFC" stroke="#CBD5E0" stroke-width="1.5"/>
+  <text x="60" y="302" font-size="13" font-weight="bold" fill="#2B6CB0">特点</text>
+  <text x="60" y="324" font-size="12" fill="#4A5568">• 每步学一个「预测噪声」的小网络</text>
+  <text x="60" y="344" font-size="12" fill="#4A5568">• 生成 = 从纯噪声 x_T 逐步减噪，走 20~50 步</text>
+  <text x="60" y="364" font-size="12" fill="#4A5568">• 路径弯曲、步数多、计算量大</text>
+  <text x="60" y="384" font-size="12" fill="#4A5568">• 训练时反过来：给真图逐步「加噪」</text>
+  <text x="60" y="398" font-size="11.5" fill="#718096">比喻：一点一点擦掉马赛克</text>
+
+  <!-- Right panel: Flow Matching -->
+  <rect x="510" y="85" width="450" height="46" rx="8" fill="url(#g-green)" stroke="#38A169" stroke-width="2" filter="url(#shadow)"/>
+  <text x="735" y="104" text-anchor="middle" font-size="15" font-weight="bold" fill="#276749">Flow Matching</text>
+  <text x="735" y="122" text-anchor="middle" font-size="11" fill="#4A5568">学「速度场」vθ，噪声和图片之间拉一条直线，沿着线滑过去</text>
+
+  <!-- Flow matching interpolation -->
+  <rect x="510" y="170" width="100" height="64" rx="8" fill="#EDF2F7" stroke="#A0AEC0" stroke-width="1.5"/>
+  <text x="560" y="199" text-anchor="middle" font-size="12" font-weight="bold" fill="#4A5568">纯噪声</text>
+  <text x="560" y="217" text-anchor="middle" font-size="11" fill="#718096">x_0</text>
+
+  <rect x="860" y="170" width="100" height="64" rx="8" fill="url(#g-green)" stroke="#38A169" stroke-width="2"/>
+  <text x="910" y="199" text-anchor="middle" font-size="12" font-weight="bold" fill="#276749">图片</text>
+  <text x="910" y="217" text-anchor="middle" font-size="11" fill="#718096">x_1</text>
+
+  <line x1="610" y1="202" x2="856" y2="202" stroke="#38A169" stroke-width="2.5" marker-end="url(#arrow-green)"/>
+  <circle cx="735" cy="202" r="6" fill="#38A169"/>
+  <text x="735" y="190" text-anchor="middle" font-size="11.5" font-weight="bold" fill="#276749">中间任意时刻 x_t，都在直线上</text>
+
+  <rect x="560" y="245" width="350" height="60" rx="8" fill="#F0FFF4" stroke="#68D391" stroke-width="1.5"/>
+  <text x="735" y="268" text-anchor="middle" font-size="13" font-weight="bold" fill="#276749">x_t = (1−t) × 噪声 + t × 图片</text>
+  <text x="735" y="290" text-anchor="middle" font-size="11.5" fill="#4A5568">t=0 是纯噪声，t=1 是图片；x_t 是两者的加权平均</text>
+
+  <!-- Flow matching notes -->
+  <rect x="510" y="340" width="450" height="130" rx="8" fill="#F7FAFC" stroke="#CBD5E0" stroke-width="1.5"/>
+  <text x="530" y="362" font-size="13" font-weight="bold" fill="#276749">特点</text>
+  <text x="530" y="384" font-size="12" fill="#4A5568">• 学一个「速度场」vθ(x_t)：预测下一步该往图片走多少</text>
+  <text x="530" y="404" font-size="12" fill="#4A5568">• 生成 = 从 t=0 沿速度场走到 t=1，步数任意（10~40 步）</text>
+  <text x="530" y="424" font-size="12" fill="#4A5568">• 大步走也能出好图 → 适合强化学习反复采样</text>
+  <text x="530" y="438" font-size="11.5" fill="#718096">比喻：直飞航线——方向由速度场给出</text>
+
+  <!-- Bottom band -->
+  <rect x="40" y="520" width="920" height="90" rx="10" fill="#FAF5FF" stroke="#805AD5" stroke-width="1.5"/>
+  <text x="500" y="545" text-anchor="middle" font-size="13.5" font-weight="bold" fill="#6B46C1">🎯 Flow-GRPO 用的是哪边？→ 右边：Flow Matching（FLUX 是 rectified-flow）</text>
+  <text x="500" y="568" text-anchor="middle" font-size="12" fill="#4A5568">训练：对中间某时刻 x_t 做一次「SDE 小步」（走 dt，方向 = 模型预测的速度场），并算出 log_prob</text>
+  <text x="500" y="590" text-anchor="middle" font-size="12" fill="#4A5568">采样：沿速度场从噪声一步步滑向图片 → 得到 reward → 让模型把「高分走法」的概率调高</text>
+</svg>
