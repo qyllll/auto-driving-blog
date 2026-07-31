@@ -43,7 +43,7 @@
   <text x="140" y="107" text-anchor="middle" font-size="13" font-weight="bold" fill="#2B6CB0">① 数据集 / Prompt</text>
   <text x="140" y="127" text-anchor="middle" font-size="10" fill="#4A5568">train.txt 中的文本 prompt</text>
 
-  <!-- Arrow 1
+  <!-- Arrow 1 -->
   <line x1="230" y1="112" x2="290" y2="112" stroke="#4A5568" stroke-width="2" marker-end="url(#arrow)"/>
 
   <!-- Step 2: Text Embedding -->

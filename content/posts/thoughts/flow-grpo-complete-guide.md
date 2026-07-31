@@ -9,6 +9,44 @@ math: true
 weight: 99
 ---
 
+## 先回答：Flow-GRPO 是什么？train_flux_fast.py 是什么？
+
+### 这是一份可运行的代码仓库
+
+Flow-GRPO **不是一篇只能读的论文，而是一份完整的开源代码仓库**，代码就在 `flow_grpo/` 目录下：
+
+```
+flow_grpo/
+|-- scripts/                     # 可执行脚本（从这里启动训练）
+|   |-- train_flux_fast.py       # 主训练脚本：GRPO 训练 Flux.1-dev
+|   |-- train_flux.py            # 基础版训练脚本
+|   |-- train_sd3_fast.py        # 用 SD3 模型的版本
+|   |-- train_qwen_image_fast.py # 用 Qwen-Image 模型的版本
+|-- config/                      # 配置文件
+|   |-- base.py                  # 所有默认超参数
+|   |-- grpo.py                  # 各种实验配方（OCR / GenEval / PickScore...）
+|-- flow_grpo/                   # 核心库
+|   |-- rewards.py               # reward 函数库
+|   |-- stat_tracking.py         # advantage 计算
+|   |-- ema.py / fsdp_utils.py   # EMA 快照 / 分布式分片
+|   |-- diffusers_patch/         # 改写的采样器（带 log_prob 的 SDE）
+|       |-- flux_pipeline_with_logprob_fast.py
+|       |-- sd3_sde_with_logprob.py
+```
+
+### 为什么从 train_flux_fast.py 开始？
+
+**`train_flux_fast.py` 是整个框架的入口（main 函数所在），相当于一辆车的发动机舱。** 其它文件都是"零件"：
+
+- `config/*.py` 是"仪表盘"——设定怎么跑（超参数）
+- `flow_grpo/rewards.py` 是"油门刹车"——告诉模型好不好
+- `flow_grpo/stat_tracking.py` 是"大脑"——把 reward 变成学习信号 advantage
+- `diffusers_patch/*.py` 是"变速箱"——模型内部怎么一步步生成图片
+
+而 `train_flux_fast.py` 负责把所有这些零件组装起来，按正确的顺序调用。**读懂了它，就抓住了整个框架的主线**；其它文件都是被它调用、服务于它的。
+
+具体来说，这份 Python 文件（925 行）只干一件事：**循环执行「采样 → 打 reward → 算 advantage → 算 loss → 反向传播」这五个动作，直到模型变好。** 本文接下来就顺着这个循环，一行一行拆开看。
+
 ## 本文的讲解方式
 
 **不从概念讲起，而是从代码的入口出发，沿着执行路径一步一步深入。**
@@ -16,7 +54,7 @@ weight: 99
 我们追踪一辆"数据快车"：
 
 ```
-train_flux_fast.py:1 → 初始化 → 采样阶段 → reward → advantage → 训练阶段 → loss → backward → optimizer
+train_flux_fast.py → 初始化 → 采样阶段 → reward → advantage → 训练阶段 → loss → backward → optimizer → 回到采样
 ```
 
 每到一个关键节点，我都会：
@@ -359,39 +397,14 @@ def compute_log_prob(transformer, pipeline, sample, j, config):
 
 ### 5.3 训练阶段的计算图——用图形理解
 
-训练阶段执行 `compute_log_prob` 时，PyTorch 自动构造了如下计算图：
+训练阶段执行 `compute_log_prob` 时，PyTorch 自动构造了如下计算图（蓝色 = 前向构造计算图，红色 = 反向传播）：
 
-```
-sample["latents"][:, j] (detached, from sampling phase)
-                         │
-                         ▼
-              ┌──────────────────┐
-              │   transformer    │  ← LoRA 参数是 leaf node（requires_grad=True）
-              │  (DiT forward)   │
-              └────────┬─────────┘
-                       │ model_pred (shape: B×C×H×W)
-                       ▼
-              ┌──────────────────┐
-              │ sde_step_with    │  ← 数学公式：mean = f(sample, model_pred, dt)
-              │ _logprob         │     log_prob = -||prev_sample - mean||² / (2σ²) - log(√(2πσ²))
-              └────────┬─────────┘
-                       │ log_prob (shape: B,) —— 标量 per sample
-                       ▼
-              ┌──────────────────┐
-              │ PPO Loss         │  ← loss = -min(ratio×A, clip(ratio)×A)
-              │                   │     ratio = exp(log_prob - log_prob_old)
-              └────────┬─────────┘
-                       │ loss (shape: scalar)
-                       ▼
-              ┌──────────────────┐
-              │ loss.backward()  │  ← 链式法则：∂loss/∂θ = ∂loss/∂log_prob × ∂log_prob/∂model_pred × ∂model_pred/∂θ
-              └──────────────────┘
-```
+![训练阶段计算图与梯度流](/images/flowgrpo/flowgrpo_compute_graph.svg)
 
 **梯度流动路径（链式法则）：**
 
 ```
-∂loss/∂θ = 
+∂loss/∂θ =
     ∂loss/∂log_prob          (从 PPO loss 到 log_prob)
   × ∂log_prob/∂model_pred   (从 log_prob 公式到 model_pred——高斯 log_prob 对 mean 求导)
   × ∂model_pred/∂θ           (从 DiT 前向到 LoRA 参数——autograd 自动完成)
@@ -520,53 +533,40 @@ info["clipfrac"].append((|ratio - 1.0| > clip_range).float().mean())
 
 现在我们把所有步骤串联起来，看一次完整的迭代：
 
-```
-Epoch 42, 第 3 个 batch:
-│
-├── [采样阶段] pipeline.transformer.eval()
-│   ├── 读 prompts = ["a red cat", "blue dog", ...]  (每 GPU batch_size=1)
-│   ├── T5 编码 → prompt_embeds
-│   ├── pipeline_with_logprob (10 步 SDE, window_size=5)
-│   │   ├── 第 0-4 步: no_grad, cur_noise_level=0      (ODE, 不记录)
-│   │   ├── 第 5 步: cur_noise_level=0.7, 记录 latent  (SDE start)
-│   │   ├── 第 6-8 步: cur_noise_level=0.7, 记录 latent (SDE within window)
-│   │   ├── 第 9 步: cur_noise_level=0                 (ODE, 不记录)
-│   │   └── 返回 images (B,3,512,512), log_probs (B,5)
-│   ├── executor.submit(reward_fn, images, prompts)    (异步)
-│   └── 存储 latents, timesteps, prompt_embeds 供训练阶段复用
-│
-├── [等待 reward] 从 Future 中取出 reward 值
-│   └── rewards = {"avg": [0.12, 0.45, ...], "strict_accuracy": [0, 1, ...]}
-│
-├── [跨 GPU 同步] all_gather 所有 GPU 的 reward 和 prompt
-│   └── 32 GPU × 1 batch = 32 个样本
-│
-├── [Advantage 计算] PerPromptStatTracker.update()
-│   └── 对每个 prompt: A_i = (r_i - μ_history) / σ_history
-│       └── A = [-1.37, -0.24, 1.16, ...]
-│
-├── [训练阶段] pipeline.transformer.train()
-│   ├── inner_epoch=0:
-│   │   ├── j=0 (SDE 窗口第 1 步)
-│   │   │   ├── transformer(latents[:,0], ...) → model_pred    ← 前向（梯度开启）
-│   │   │   ├── sde_step_with_logprob(..., prev_sample=next_latents[:,0]) → log_prob
-│   │   │   ├── ratio = exp(log_prob - log_probs_old[:,0])
-│   │   │   ├── policy_loss = max(-A·ratio, -A·clip(ratio))
-│   │   │   ├── (可选) KL_loss = ||mean_new - mean_ref||² / (2·var)
-│   │   │   ├── loss = policy_loss + β·KL_loss
-│   │   │   ├── accelerator.backward(loss)                     ← 梯度累加到 LoRA 参数
-│   │   │   └── optimizer.step()                               ← LoRA 参数更新
-│   │   │
-│   │   ├── j=1 (SDE 窗口第 2 步) → 重复...
-│   │   ├── j=2 (SDE 窗口第 3 步)
-│   │   ├── j=3 (SDE 窗口第 4 步)
-│   │   └── j=4 (SDE 窗口第 5 步)
-│   │
-│   └── inner_epoch=1:
-│       └── 用同一批样本再训练一次 (num_inner_epochs=1 时跳过)
-│
-└── epoch + 1
-```
+![一次完整的训练迭代](/images/flowgrpo/flowgrpo_training_iteration.svg)
+
+上面这幅图对应下面的完整时间线：
+
+**① 采样阶段** (`pipeline.transformer.eval()`，no_grad)
+1. 读 prompts = `["a red cat", "blue dog", ...]`（每 GPU 1 个）
+2. T5 编码 → prompt_embeds
+3. `pipeline_with_logprob`（10 步 SDE，window_size=5）
+   - 第 0-4 步：ODE，noise=0，不记录
+   - 第 5-8 步：SDE，noise=0.7，记录 latent + log_prob_old
+   - 第 9 步：ODE，noise=0，不记录
+   - 返回 images (B,3,512,512) 和 log_probs_old (B,5)
+4. `executor.submit(reward_fn, ...)` 异步提交 reward 计算
+5. 存储 latents / timesteps / prompt_embeds 供训练阶段复用
+
+**② 异步 Reward 计算**（等 Future 结果）
+- rewards = `{"avg": [0.12, 0.45, ...], "strict_accuracy": [0, 1, ...]}`
+
+**③ 跨 GPU 同步 + Advantage**
+1. `all_gather`：32 GPU × 1 batch = 32 个样本汇总
+2. `PerPromptStatTracker.update()`：对每个 prompt 算 `A = (r - μ_history) / σ_history`
+3. A 裁剪到 [-2.0, 2.0]
+
+**④ 训练阶段** (`pipeline.transformer.train()`，梯度开启)
+- inner_epoch=0 里，j 从 0 到 4（window_size=5 步），每步：
+  1. `transformer(latents[:,j], ...) → model_pred`（前向，梯度开启）
+  2. `sde_step_with_logprob(..., prev_sample=next_latents[:,j]) → log_prob_new`
+  3. `ratio = exp(log_prob_new - log_probs_old[:,j])`
+  4. `policy_loss = max(-A·ratio, -A·clip(ratio))`
+  5. （可选）KL_loss = `||mean_new - mean_ref||² / (2·var)`
+  6. `loss = policy_loss + β·KL_loss`
+  7. `accelerator.backward(loss)` → 梯度累加到 LoRA 参数
+  8. `optimizer.step()` → LoRA 参数更新
+- 全部 5 步完成后：epoch + 1，回到采样阶段
 
 ---
 

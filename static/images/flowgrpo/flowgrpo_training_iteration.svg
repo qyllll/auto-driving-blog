@@ -1,0 +1,130 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 860" font-family="'Noto Sans SC','Microsoft YaHei',Arial,sans-serif">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M0,0 L10,5 L0,10 Z" fill="#4A5568"/>
+    </marker>
+    <marker id="arrow-down" viewBox="0 0 10 10" refX="5" refY="9" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M0,0 L5,10 L10,0 Z" fill="#4A5568"/>
+    </marker>
+    <filter id="shadow" x="-5%" y="-5%" width="110%" height="110%">
+      <feDropShadow dx="2" dy="2" stdDeviation="3" flood-opacity="0.12"/>
+    </filter>
+  </defs>
+
+  <text x="480" y="35" text-anchor="middle" font-size="20" font-weight="bold" fill="#2D3748">一次完整的训练迭代</text>
+  <text x="480" y="55" text-anchor="middle" font-size="12" fill="#718096">Epoch 42 第 3 个 batch：数据如何在采样→reward→advantage→训练中流转</text>
+
+  <!-- Phase 1: Sampling -->
+  <rect x="30" y="80" width="900" height="210" rx="10" fill="#F0FFF4" stroke="#68D391" stroke-width="2"/>
+  <text x="60" y="105" font-size="14" font-weight="bold" fill="#276749">① 采样阶段（train_flux_fast.py:610-712 · eval 模式 · no_grad）</text>
+
+  <rect x="50" y="120" width="260" height="50" rx="8" fill="#FFF" stroke="#38A169" stroke-width="1.5"/>
+  <text x="180" y="142" text-anchor="middle" font-size="12" font-weight="bold" fill="#2D3748">读 prompts</text>
+  <text x="180" y="160" text-anchor="middle" font-size="10" fill="#718096">["a red cat", "blue dog", ...] 每 GPU 1 个</text>
+
+  <line x1="310" y1="145" x2="340" y2="145" stroke="#4A5568" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <rect x="350" y="120" width="260" height="50" rx="8" fill="#FFF" stroke="#38A169" stroke-width="1.5"/>
+  <text x="480" y="142" text-anchor="middle" font-size="12" font-weight="bold" fill="#2D3748">T5 文本编码</text>
+  <text x="480" y="160" text-anchor="middle" font-size="10" fill="#718096">prompt → prompt_embeds (128 tokens)</text>
+
+  <line x1="610" y1="145" x2="640" y2="145" stroke="#4A5568" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <rect x="650" y="120" width="260" height="50" rx="8" fill="#FFF" stroke="#38A169" stroke-width="1.5"/>
+  <text x="780" y="142" text-anchor="middle" font-size="12" font-weight="bold" fill="#2D3748">pipeline_with_logprob</text>
+  <text x="780" y="160" text-anchor="middle" font-size="10" fill="#718096">10 步 SDE · window_size=5</text>
+
+  <!-- SDE window details -->
+  <rect x="90" y="185" width="820" height="90" rx="8" fill="#E6FFFA" stroke="#319795" stroke-width="1.5"/>
+  <text x="110" y="207" font-size="11" font-weight="bold" fill="#2C7A7B">SDE 窗口内部（flux_pipeline_with_logprob_fast.py:158-199）</text>
+  <rect x="110" y="218" width="110" height="45" rx="6" fill="#FFF" stroke="#A0AEC0" stroke-width="1"/>
+  <text x="165" y="237" text-anchor="middle" font-size="10" font-weight="bold" fill="#4A5568">第 0-4 步</text>
+  <text x="165" y="253" text-anchor="middle" font-size="9" fill="#A0AEC0">ODE · noise=0</text>
+  <text x="165" y="263" text-anchor="middle" font-size="9" fill="#A0AEC0">不记录</text>
+  <line x1="225" y1="240" x2="245" y2="240" stroke="#A0AEC0" stroke-width="1.5"/>
+  <rect x="250" y="218" width="110" height="45" rx="6" fill="#FFF" stroke="#38A169" stroke-width="1.5"/>
+  <text x="305" y="237" text-anchor="middle" font-size="10" font-weight="bold" fill="#276749">第 5 步</text>
+  <text x="305" y="253" text-anchor="middle" font-size="9" fill="#4A5568">SDE start · noise=0.7</text>
+  <text x="305" y="263" text-anchor="middle" font-size="9" fill="#276749">记录 latent</text>
+  <line x1="365" y1="240" x2="385" y2="240" stroke="#4A5568" stroke-width="1.5"/>
+  <rect x="390" y="218" width="130" height="45" rx="6" fill="#FFF" stroke="#38A169" stroke-width="1.5"/>
+  <text x="455" y="237" text-anchor="middle" font-size="10" font-weight="bold" fill="#276749">第 6-8 步</text>
+  <text x="455" y="253" text-anchor="middle" font-size="9" fill="#4A5568">SDE · noise=0.7</text>
+  <text x="455" y="263" text-anchor="middle" font-size="9" fill="#276749">记录 latent</text>
+  <line x1="525" y1="240" x2="545" y2="240" stroke="#4A5568" stroke-width="1.5"/>
+  <rect x="550" y="218" width="110" height="45" rx="6" fill="#FFF" stroke="#A0AEC0" stroke-width="1"/>
+  <text x="605" y="237" text-anchor="middle" font-size="10" font-weight="bold" fill="#4A5568">第 9 步</text>
+  <text x="605" y="253" text-anchor="middle" font-size="9" fill="#A0AEC0">ODE · noise=0</text>
+  <text x="605" y="263" text-anchor="middle" font-size="9" fill="#A0AEC0">不记录</text>
+  <rect x="700" y="218" width="190" height="45" rx="6" fill="#FFF5F5" stroke="#FC8181" stroke-width="1.5"/>
+  <text x="795" y="237" text-anchor="middle" font-size="10" font-weight="bold" fill="#C53030">输出</text>
+  <text x="795" y="253" text-anchor="middle" font-size="9" fill="#4A5568">images (B,3,512,512)</text>
+  <text x="795" y="263" text-anchor="middle" font-size="9" fill="#4A5568">log_probs_old (B,5)</text>
+
+  <!-- Arrow to phase 2 -->
+  <line x1="480" y1="290" x2="480" y2="320" stroke="#4A5568" stroke-width="2" marker-end="url(#arrow-down)"/>
+
+  <!-- Phase 2: Reward -->
+  <rect x="30" y="325" width="900" height="75" rx="10" fill="#FFFAF0" stroke="#F6AD55" stroke-width="2"/>
+  <text x="60" y="350" font-size="14" font-weight="bold" fill="#C05621">② 异步 Reward 计算（train_flux_fast.py:667,696-701 · ThreadPoolExecutor）</text>
+  <rect x="60" y="360" width="420" height="30" rx="6" fill="#FFF" stroke="#DD6B20" stroke-width="1.5"/>
+  <text x="270" y="380" text-anchor="middle" font-size="11" fill="#4A5568">executor.submit(reward_fn, images, prompts) → Future</text>
+  <rect x="500" y="360" width="420" height="30" rx="6" fill="#FFF" stroke="#DD6B20" stroke-width="1.5"/>
+  <text x="710" y="380" text-anchor="middle" font-size="11" fill="#4A5568">rewards = {"avg": [0.12, 0.45, ...], "strict_accuracy": [0,1,...]}</text>
+
+  <!-- Arrow to phase 3 -->
+  <line x1="480" y1="400" x2="480" y2="425" stroke="#4A5568" stroke-width="2" marker-end="url(#arrow-down)"/>
+
+  <!-- Phase 3: Sync + Advantage -->
+  <rect x="30" y="430" width="900" height="90" rx="10" fill="#FAF5FF" stroke="#B794F4" stroke-width="2"/>
+  <text x="60" y="455" font-size="14" font-weight="bold" fill="#6B46C1">③ 跨 GPU 同步 + Advantage（train_flux_fast.py:747-766）</text>
+  <rect x="60" y="465" width="250" height="45" rx="6" fill="#FFF" stroke="#805AD5" stroke-width="1.5"/>
+  <text x="185" y="485" text-anchor="middle" font-size="11" font-weight="bold" fill="#4A5568">all_gather</text>
+  <text x="185" y="502" text-anchor="middle" font-size="10" fill="#718096">32 GPU × 1 batch = 32 样本</text>
+  <line x1="310" y1="487" x2="340" y2="487" stroke="#4A5568" stroke-width="2" marker-end="url(#arrow)"/>
+  <rect x="350" y="465" width="280" height="45" rx="6" fill="#FFF" stroke="#805AD5" stroke-width="1.5"/>
+  <text x="490" y="485" text-anchor="middle" font-size="11" font-weight="bold" fill="#4A5568">PerPromptStatTracker.update()</text>
+  <text x="490" y="502" text-anchor="middle" font-size="10" fill="#718096">A = (r - μ_history) / σ_history</text>
+  <line x1="630" y1="487" x2="660" y2="487" stroke="#4A5568" stroke-width="2" marker-end="url(#arrow)"/>
+  <rect x="670" y="465" width="250" height="45" rx="6" fill="#FFF" stroke="#805AD5" stroke-width="1.5"/>
+  <text x="795" y="485" text-anchor="middle" font-size="11" font-weight="bold" fill="#4A5568">A = [-1.37, -0.24, 1.16, ...]</text>
+  <text x="795" y="502" text-anchor="middle" font-size="10" fill="#718096">随后 clip 到 [-2.0, 2.0]</text>
+
+  <!-- Arrow to phase 4 -->
+  <line x1="480" y1="520" x2="480" y2="550" stroke="#4A5568" stroke-width="2" marker-end="url(#arrow-down)"/>
+
+  <!-- Phase 4: Training -->
+  <rect x="30" y="555" width="900" height="280" rx="10" fill="#FFF5F5" stroke="#FC8181" stroke-width="2"/>
+  <text x="60" y="580" font-size="14" font-weight="bold" fill="#C53030">④ 训练阶段（train_flux_fast.py:803-917 · train 模式 · 梯度开启）</text>
+
+  <rect x="50" y="595" width="420" height="225" rx="8" fill="#FFF" stroke="#E53E3E" stroke-width="1.5"/>
+  <text x="260" y="615" text-anchor="middle" font-size="12" font-weight="bold" fill="#C53030">inner_epoch = 0</text>
+  <rect x="65" y="628" width="160" height="28" rx="6" fill="#FFF5F5" stroke="#FC8181" stroke-width="1"/>
+  <text x="145" y="647" text-anchor="middle" font-size="10" font-weight="bold" fill="#C53030">j=0 (第 1 步)</text>
+  <rect x="235" y="628" width="160" height="28" rx="6" fill="#FFF5F5" stroke="#FC8181" stroke-width="1"/>
+  <text x="315" y="647" text-anchor="middle" font-size="10" font-weight="bold" fill="#C53030">j=1 (第 2 步)</text>
+  <rect x="65" y="662" width="160" height="28" rx="6" fill="#FFF5F5" stroke="#FC8181" stroke-width="1"/>
+  <text x="145" y="681" text-anchor="middle" font-size="10" font-weight="bold" fill="#C53030">j=2 (第 3 步)</text>
+  <rect x="235" y="662" width="160" height="28" rx="6" fill="#FFF5F5" stroke="#FC8181" stroke-width="1"/>
+  <text x="315" y="681" text-anchor="middle" font-size="10" font-weight="bold" fill="#C53030">j=3 (第 4 步)</text>
+  <rect x="65" y="696" width="160" height="28" rx="6" fill="#FFF5F5" stroke="#FC8181" stroke-width="1"/>
+  <text x="145" y="715" text-anchor="middle" font-size="10" font-weight="bold" fill="#C53030">j=4 (第 5 步)</text>
+  <rect x="235" y="696" width="160" height="28" rx="6" fill="#FFF" stroke="#CBD5E0" stroke-width="1"/>
+  <text x="315" y="715" text-anchor="middle" font-size="10" fill="#718096">(无更多步)</text>
+
+  <rect x="70" y="740" width="380" height="70" rx="6" fill="#FAF5FF" stroke="#B794F4" stroke-width="1"/>
+  <text x="260" y="760" text-anchor="middle" font-size="10" font-weight="bold" fill="#6B46C1">每一步 j 内部（train_flux_fast.py:833-901）</text>
+  <text x="260" y="778" text-anchor="middle" font-size="10" fill="#4A5568">compute_log_prob → ratio → policy_loss</text>
+  <text x="260" y="794" text-anchor="middle" font-size="10" fill="#4A5568">→ backward → optimizer.step()</text>
+
+  <rect x="490" y="595" width="420" height="225" rx="8" fill="#FFF" stroke="#CBD5E0" stroke-width="1.5"/>
+  <text x="700" y="615" text-anchor="middle" font-size="12" font-weight="bold" fill="#718096">inner_epoch = 1（可选）</text>
+  <rect x="510" y="628" width="380" height="55" rx="6" fill="#F7FAFC" stroke="#CBD5E0" stroke-width="1"/>
+  <text x="700" y="648" text-anchor="middle" font-size="10" fill="#4A5568">用同一批样本再训练一遍</text>
+  <text x="700" y="668" text-anchor="middle" font-size="10" fill="#A0AEC0">num_inner_epochs=1 时跳过</text>
+  <text x="700" y="740" text-anchor="middle" font-size="11" fill="#A0AEC0">所有 j 完成后：epoch + 1</text>
+
+  <!-- Arrow loop -->
+  <path d="M945,620 Q990,620 990,120 Q990,110 935,110" fill="none" stroke="#3182CE" stroke-width="2" stroke-dasharray="6,3" marker-end="url(#arrow)"/>
+  <text x="1000" y="380" font-size="11" fill="#3182CE" font-weight="bold" transform="rotate(90,1000,380)">回到采样阶段 · 下一个 epoch</text>
+</svg>

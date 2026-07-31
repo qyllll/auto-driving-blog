@@ -1,0 +1,99 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 760" font-family="'Noto Sans SC','Microsoft YaHei',Arial,sans-serif">
+  <defs>
+    <marker id="arrow-down" viewBox="0 0 10 10" refX="5" refY="9" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M0,0 L5,10 L10,0 Z" fill="#4A5568"/>
+    </marker>
+    <marker id="arrow-up" viewBox="0 0 10 10" refX="5" refY="1" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M0,10 L5,0 L10,10 Z" fill="#E53E3E"/>
+    </marker>
+    <filter id="shadow" x="-5%" y="-5%" width="110%" height="110%">
+      <feDropShadow dx="2" dy="2" stdDeviation="3" flood-opacity="0.12"/>
+    </filter>
+  </defs>
+
+  <!-- Title -->
+  <text x="360" y="35" text-anchor="middle" font-size="20" font-weight="bold" fill="#2D3748">训练阶段计算图与梯度流</text>
+  <text x="360" y="55" text-anchor="middle" font-size="12" fill="#718096">蓝色箭头 = 前向传播（构造计算图）· 红色箭头 = 反向传播（链式法则）</text>
+
+  <!-- Input: latents (detached) -->
+  <rect x="180" y="75" width="360" height="55" rx="10" fill="#EDF2F7" stroke="#A0AEC0" stroke-width="2" filter="url(#shadow)"/>
+  <text x="360" y="98" text-anchor="middle" font-size="12" font-weight="bold" fill="#4A5568">latents[:, j]（采样阶段存储，detached）</text>
+  <text x="360" y="118" text-anchor="middle" font-size="10" fill="#718096">shape (B, 16, 96, 96) · 不参与梯度</text>
+
+  <!-- Down arrow -->
+  <line x1="360" y1="130" x2="360" y2="160" stroke="#4A5568" stroke-width="2" marker-end="url(#arrow-down)"/>
+
+  <!-- Transformer -->
+  <rect x="130" y="165" width="460" height="80" rx="10" fill="#EBF8FF" stroke="#3182CE" stroke-width="2.5" filter="url(#shadow)"/>
+  <text x="360" y="192" text-anchor="middle" font-size="14" font-weight="bold" fill="#2B6CB0">Transformer (DiT) 前向</text>
+  <text x="360" y="212" text-anchor="middle" font-size="10" fill="#4A5568">Flux.1-dev · 只有 LoRA 参数 requires_grad=True</text>
+  <text x="360" y="230" text-anchor="middle" font-size="10" fill="#4A5568">train_flux_fast.py:197-206</text>
+
+  <!-- LoRA leaf -->
+  <rect x="590" y="180" width="120" height="50" rx="8" fill="#FFF5F5" stroke="#E53E3E" stroke-width="2"/>
+  <text x="650" y="202" text-anchor="middle" font-size="11" font-weight="bold" fill="#C53030">LoRA 参数 θ</text>
+  <text x="650" y="220" text-anchor="middle" font-size="9" fill="#718096">叶子节点</text>
+  <line x1="590" y1="205" x2="470" y2="205" stroke="#E53E3E" stroke-width="1.5" stroke-dasharray="4,2" marker-end="url(#arrow-up)"/>
+
+  <!-- model_pred -->
+  <line x1="360" y1="245" x2="360" y2="270" stroke="#4A5568" stroke-width="2" marker-end="url(#arrow-down)"/>
+  <text x="400" y="262" font-size="11" fill="#4A5568">model_pred = v_θ(x_t, t)</text>
+
+  <!-- sde_step_with_logprob -->
+  <rect x="130" y="275" width="460" height="90" rx="10" fill="#FAF5FF" stroke="#805AD5" stroke-width="2.5" filter="url(#shadow)"/>
+  <text x="360" y="300" text-anchor="middle" font-size="14" font-weight="bold" fill="#6B46C1">sde_step_with_logprob</text>
+  <text x="360" y="320" text-anchor="middle" font-size="10" fill="#4A5568">prev_sample_mean = f(sample, model_pred, dt)</text>
+  <text x="360" y="338" text-anchor="middle" font-size="10" fill="#4A5568">log_prob = -||prev_sample.detach() - mean||² / (2σ²) - log(√(2πσ²))</text>
+  <text x="360" y="354" text-anchor="middle" font-size="10" fill="#718096">sd3_sde_with_logprob.py:109,121-133</text>
+
+  <!-- prev_sample detached note -->
+  <rect x="590" y="300" width="120" height="40" rx="8" fill="#EDF2F7" stroke="#A0AEC0" stroke-width="1.5"/>
+  <text x="650" y="318" text-anchor="middle" font-size="9" font-weight="bold" fill="#4A5568">prev_sample</text>
+  <text x="650" y="332" text-anchor="middle" font-size="9" fill="#718096">detached</text>
+  <line x1="590" y1="320" x2="540" y2="320" stroke="#A0AEC0" stroke-width="1.5" stroke-dasharray="3,2"/>
+
+  <!-- log_prob -->
+  <line x1="360" y1="365" x2="360" y2="390" stroke="#4A5568" stroke-width="2" marker-end="url(#arrow-down)"/>
+  <text x="400" y="382" font-size="11" fill="#4A5568">log_prob_new（标量 per sample）</text>
+
+  <!-- PPO Loss -->
+  <rect x="130" y="395" width="460" height="85" rx="10" fill="#FFF5F5" stroke="#E53E3E" stroke-width="2.5" filter="url(#shadow)"/>
+  <text x="360" y="420" text-anchor="middle" font-size="14" font-weight="bold" fill="#C53030">PPO Loss</text>
+  <text x="360" y="440" text-anchor="middle" font-size="10" fill="#4A5568">ratio = exp(log_prob_new - log_prob_old)</text>
+  <text x="360" y="458" text-anchor="middle" font-size="10" fill="#4A5568">loss = max(-ratio·A, -clip(ratio)·A)</text>
+  <text x="360" y="472" text-anchor="middle" font-size="10" fill="#718096">train_flux_fast.py:847-855</text>
+
+  <!-- advantage + log_prob_old inputs -->
+  <line x1="120" y1="437" x2="128" y2="437" stroke="#4A5568" stroke-width="1.5"/>
+  <text x="30" y="432" font-size="10" fill="#4A5568">advantage A</text>
+  <text x="30" y="446" font-size="9" fill="#A0AEC0">detached（常数值）</text>
+  <text x="700" y="432" font-size="10" fill="#4A5568">log_prob_old</text>
+  <text x="700" y="446" font-size="9" fill="#A0AEC0">detached（采样阶段）</text>
+  <line x1="592" y1="437" x2="598" y2="437" stroke="#4A5568" stroke-width="1.5"/>
+
+  <!-- loss -->
+  <line x1="360" y1="480" x2="360" y2="505" stroke="#4A5568" stroke-width="2" marker-end="url(#arrow-down)"/>
+  <text x="400" y="497" font-size="11" fill="#4A5568">loss（标量）</text>
+
+  <!-- backward -->
+  <rect x="180" y="510" width="360" height="55" rx="10" fill="#FFF5F5" stroke="#E53E3E" stroke-width="2.5" filter="url(#shadow)"/>
+  <text x="360" y="535" text-anchor="middle" font-size="13" font-weight="bold" fill="#C53030">loss.backward()</text>
+  <text x="360" y="553" text-anchor="middle" font-size="10" fill="#4A5568">train_flux_fast.py:895</text>
+
+  <!-- backward red arrow up through log_prob -->
+  <line x1="250" y1="510" x2="250" y2="395" stroke="#E53E3E" stroke-width="2" marker-end="url(#arrow-up)"/>
+  <line x1="250" y1="395" x2="250" y2="275" stroke="#E53E3E" stroke-width="2" marker-end="url(#arrow-up)"/>
+  <line x1="250" y1="275" x2="250" y2="165" stroke="#E53E3E" stroke-width="2" marker-end="url(#arrow-up)"/>
+
+  <!-- Chain rule annotation -->
+  <rect x="90" y="585" width="540" height="70" rx="10" fill="#FAF5FF" stroke="#B794F4" stroke-width="1.5"/>
+  <text x="360" y="608" text-anchor="middle" font-size="12" font-weight="bold" fill="#6B46C1">链式法则：梯度只通过这条路径回流</text>
+  <text x="360" y="628" text-anchor="middle" font-size="11" fill="#4A5568">∂loss/∂θ = ∂loss/∂log_prob × ∂log_prob/∂model_pred × ∂model_pred/∂θ</text>
+  <text x="360" y="646" text-anchor="middle" font-size="10" fill="#718096">latents 和 prev_sample 都 detached → 梯度不会流入旧轨迹</text>
+
+  <!-- key insight -->
+  <rect x="90" y="675" width="540" height="70" rx="10" fill="#EBF8FF" stroke="#63B3ED" stroke-width="1.5"/>
+  <text x="360" y="697" text-anchor="middle" font-size="12" font-weight="bold" fill="#2B6CB0">为什么只有单步计算图也够用？</text>
+  <text x="360" y="717" text-anchor="middle" font-size="10" fill="#4A5568">SDE 的马尔可夫性：第 j 步 latent 只由第 j-1 步决定</text>
+  <text x="360" y="735" text-anchor="middle" font-size="10" fill="#4A5568">循环 5 次（window_size=5）累积后，梯度含窗口内全部信息</text>
+</svg>
