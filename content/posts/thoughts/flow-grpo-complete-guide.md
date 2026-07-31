@@ -15,24 +15,7 @@ weight: 99
 
 Flow-GRPO **不是一篇只能读的论文，而是一份完整的开源代码仓库**，代码就在 `flow_grpo/` 目录下：
 
-```
-flow_grpo/
-|-- scripts/                     # 可执行脚本（从这里启动训练）
-|   |-- train_flux_fast.py       # 主训练脚本：GRPO 训练 Flux.1-dev
-|   |-- train_flux.py            # 基础版训练脚本
-|   |-- train_sd3_fast.py        # 用 SD3 模型的版本
-|   |-- train_qwen_image_fast.py # 用 Qwen-Image 模型的版本
-|-- config/                      # 配置文件
-|   |-- base.py                  # 所有默认超参数
-|   |-- grpo.py                  # 各种实验配方（OCR / GenEval / PickScore...）
-|-- flow_grpo/                   # 核心库
-|   |-- rewards.py               # reward 函数库
-|   |-- stat_tracking.py         # advantage 计算
-|   |-- ema.py / fsdp_utils.py   # EMA 快照 / 分布式分片
-|   |-- diffusers_patch/         # 改写的采样器（带 log_prob 的 SDE）
-|       |-- flux_pipeline_with_logprob_fast.py
-|       |-- sd3_sde_with_logprob.py
-```
+![flow_grpo 代码仓库结构](/images/flowgrpo/flowgrpo_repo_structure.svg)
 
 ### 为什么从 train_flux_fast.py 开始？
 
