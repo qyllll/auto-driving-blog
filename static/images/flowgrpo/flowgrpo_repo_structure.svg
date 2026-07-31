@@ -1,85 +1,168 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 520" font-family="'Noto Sans SC','Microsoft YaHei','Fira Code',monospace">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 1410" font-family="'Noto Sans SC','Microsoft YaHei','Cascadia Code',monospace">
   <defs>
-    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
-      <path d="M0,0 L10,5 L0,10 Z" fill="#4A5568"/>
-    </marker>
-    <filter id="shadow" x="-5%" y="-5%" width="110%" height="110%">
-      <feDropShadow dx="2" dy="2" stdDeviation="3" flood-opacity="0.12"/>
-    </filter>
+    <filter id="shadow" x="-2%" y="-5%" width="104%" height="110%"><feDropShadow dx="1.5" dy="1.5" stdDeviation="2" flood-opacity="0.10"/></filter>
   </defs>
-
-  <text x="440" y="35" text-anchor="middle" font-size="18" font-weight="bold" fill="#2D3748">flow_grpo/ 代码仓库结构</text>
-
-  <!-- Root -->
-  <rect x="20" y="60" width="200" height="40" rx="8" fill="#2D3748" stroke="#1A202C" stroke-width="2" filter="url(#shadow)"/>
-  <text x="120" y="85" text-anchor="middle" font-size="13" font-weight="bold" fill="#FFF">flow_grpo/</text>
-
-  <line x1="120" y1="100" x2="120" y2="130" stroke="#4A5568" stroke-width="2" marker-end="url(#arrow)"/>
-  <line x1="120" y1="118" x2="330" y2="118" stroke="#4A5568" stroke-width="2"/>
-  <line x1="120" y1="118" x2="480" y2="118" stroke="#4A5568" stroke-width="2"/>
-  <line x1="120" y1="118" x2="650" y2="118" stroke="#4A5568" stroke-width="2"/>
-
-  <!-- scripts/ -->
-  <rect x="230" y="140" width="200" height="40" rx="8" fill="#EBF8FF" stroke="#63B3ED" stroke-width="2" filter="url(#shadow)"/>
-  <text x="330" y="158" text-anchor="middle" font-size="12" font-weight="bold" fill="#2B6CB0">scripts/</text>
-  <text x="330" y="174" text-anchor="middle" font-size="9" fill="#718096">可执行脚本 · 从这里启动训练</text>
-
-  <line x1="330" y1="180" x2="330" y2="205" stroke="#4A5568" stroke-width="1.5" marker-end="url(#arrow)"/>
-  <rect x="190" y="210" width="280" height="150" rx="8" fill="#F7FAFC" stroke="#CBD5E0" stroke-width="1"/>
-  <rect x="205" y="222" width="250" height="26" rx="5" fill="#FFF" stroke="#63B3ED" stroke-width="1.5"/>
-  <text x="215" y="240" font-size="10" font-weight="bold" fill="#2B6CB0">train_flux_fast.py</text>
-  <text x="440" y="240" font-size="10" fill="#718096">主训练脚本</text>
-  <rect x="205" y="254" width="250" height="26" rx="5" fill="#FFF" stroke="#E2E8F0" stroke-width="1"/>
-  <text x="215" y="272" font-size="10" fill="#4A5568">train_flux.py</text>
-  <text x="440" y="272" font-size="10" fill="#A0AEC0">基础版训练</text>
-  <rect x="205" y="286" width="250" height="26" rx="5" fill="#FFF" stroke="#E2E8F0" stroke-width="1"/>
-  <text x="215" y="304" font-size="10" fill="#4A5568">train_sd3_fast.py</text>
-  <text x="440" y="304" font-size="10" fill="#A0AEC0">SD3 模型版本</text>
-  <rect x="205" y="318" width="250" height="26" rx="5" fill="#FFF" stroke="#E2E8F0" stroke-width="1"/>
-  <text x="215" y="336" font-size="10" fill="#4A5568">train_qwen_image_fast.py</text>
-  <text x="440" y="336" font-size="10" fill="#A0AEC0">Qwen-Image 版本</text>
-
-  <!-- config/ -->
-  <rect x="380" y="140" width="200" height="40" rx="8" fill="#FFFAF0" stroke="#F6AD55" stroke-width="2" filter="url(#shadow)"/>
-  <text x="480" y="158" text-anchor="middle" font-size="12" font-weight="bold" fill="#C05621">config/</text>
-  <text x="480" y="174" text-anchor="middle" font-size="9" fill="#718096">配置文件</text>
-
-  <line x1="480" y1="180" x2="480" y2="205" stroke="#4A5568" stroke-width="1.5" marker-end="url(#arrow)"/>
-  <rect x="395" y="210" width="170" height="80" rx="8" fill="#F7FAFC" stroke="#CBD5E0" stroke-width="1"/>
-  <rect x="410" y="222" width="140" height="26" rx="5" fill="#FFF" stroke="#F6AD55" stroke-width="1.5"/>
-  <text x="420" y="240" font-size="10" font-weight="bold" fill="#C05621">base.py</text>
-  <text x="545" y="240" font-size="10" fill="#A0AEC0">默认超参数</text>
-  <rect x="410" y="254" width="140" height="26" rx="5" fill="#FFF" stroke="#E2E8F0" stroke-width="1"/>
-  <text x="420" y="272" font-size="10" fill="#4A5568">grpo.py</text>
-  <text x="545" y="272" font-size="10" fill="#A0AEC0">实验配方</text>
-
-  <!-- flow_grpo/ core -->
-  <rect x="550" y="140" width="310" height="40" rx="8" fill="#FAF5FF" stroke="#B794F4" stroke-width="2" filter="url(#shadow)"/>
-  <text x="705" y="158" text-anchor="middle" font-size="12" font-weight="bold" fill="#6B46C1">flow_grpo/（核心库）</text>
-  <text x="705" y="174" text-anchor="middle" font-size="9" fill="#718096">被 scripts 调用的全部逻辑</text>
-
-  <line x1="705" y1="180" x2="705" y2="205" stroke="#4A5568" stroke-width="1.5" marker-end="url(#arrow)"/>
-  <rect x="560" y="210" width="290" height="200" rx="8" fill="#F7FAFC" stroke="#CBD5E0" stroke-width="1"/>
-  <rect x="575" y="222" width="260" height="26" rx="5" fill="#FFF" stroke="#B794F4" stroke-width="1.5"/>
-  <text x="585" y="240" font-size="10" font-weight="bold" fill="#6B46C1">rewards.py</text>
-  <text x="815" y="240" font-size="10" fill="#718096">reward 函数库</text>
-  <rect x="575" y="254" width="260" height="26" rx="5" fill="#FFF" stroke="#B794F4" stroke-width="1.5"/>
-  <text x="585" y="272" font-size="10" font-weight="bold" fill="#6B46C1">stat_tracking.py</text>
-  <text x="815" y="272" font-size="10" fill="#718096">advantage 计算</text>
-  <rect x="575" y="286" width="260" height="26" rx="5" fill="#FFF" stroke="#E2E8F0" stroke-width="1"/>
-  <text x="585" y="304" font-size="10" fill="#4A5568">ema.py / fsdp_utils.py</text>
-  <text x="815" y="304" font-size="10" fill="#A0AEC0">EMA / 分布式分片</text>
-  <rect x="575" y="318" width="260" height="26" rx="5" fill="#FFF" stroke="#B794F4" stroke-width="1.5"/>
-  <text x="585" y="336" font-size="10" font-weight="bold" fill="#6B46C1">diffusers_patch/</text>
-  <text x="815" y="336" font-size="10" fill="#718096">SDE 采样 + log_prob</text>
-  <line x1="620" y1="344" x2="620" y2="360" stroke="#4A5568" stroke-width="1"/>
-  <rect x="590" y="362" width="230" height="22" rx="5" fill="#FFF" stroke="#E2E8F0" stroke-width="1"/>
-  <text x="600" y="377" font-size="9" fill="#4A5568">flux_pipeline_with_logprob_fast.py</text>
-  <rect x="590" y="388" width="230" height="22" rx="5" fill="#FFF" stroke="#E2E8F0" stroke-width="1"/>
-  <text x="600" y="403" font-size="9" fill="#4A5568">sd3_sde_with_logprob.py</text>
-
-  <!-- Bottom legend -->
-  <rect x="20" y="440" width="840" height="60" rx="8" fill="#EBF8FF" stroke="#63B3ED" stroke-width="1.5"/>
-  <text x="40" y="462" font-size="11" font-weight="bold" fill="#2B6CB0">读代码的顺序建议：</text>
-  <text x="40" y="482" font-size="10" fill="#4A5568">1. 先看 scripts/train_flux_fast.py（主线）→ 2. 遇到调用的模块再跳到 flow_grpo/ 对应文件 → 3. 用 config/ 里的参数验证理解</text>
+  <rect x="0" y="0" width="1080" height="1410" fill="#FDFDFD"/>
+  <text x="540.0" y="38" text-anchor="middle" font-size="20" font-weight="bold" fill="#2D3748">flow_grpo/ 代码仓库结构（详细版）</text>
+  <line x1="76" y1="62" x2="76" y2="247" stroke="#E2E8F0" stroke-width="1.5"/>
+  <line x1="76" y1="228" x2="92" y2="228" stroke="#A0AEC0" stroke-width="1.8"/>
+  <circle cx="76" cy="228" r="2.5" fill="#A0AEC0"/>
+  <line x1="76" y1="62" x2="76" y2="284" stroke="#E2E8F0" stroke-width="1.5"/>
+  <line x1="76" y1="265" x2="92" y2="265" stroke="#A0AEC0" stroke-width="1.8"/>
+  <circle cx="76" cy="265" r="2.5" fill="#A0AEC0"/>
+  <line x1="76" y1="62" x2="76" y2="321" stroke="#E2E8F0" stroke-width="1.5"/>
+  <line x1="76" y1="302" x2="92" y2="302" stroke="#A0AEC0" stroke-width="1.8"/>
+  <circle cx="76" cy="302" r="2.5" fill="#A0AEC0"/>
+  <line x1="76" y1="62" x2="76" y2="358" stroke="#E2E8F0" stroke-width="1.5"/>
+  <line x1="76" y1="339" x2="92" y2="339" stroke="#A0AEC0" stroke-width="1.8"/>
+  <circle cx="76" cy="339" r="2.5" fill="#A0AEC0"/>
+  <line x1="76" y1="62" x2="76" y2="395" stroke="#E2E8F0" stroke-width="1.5"/>
+  <line x1="76" y1="376" x2="92" y2="376" stroke="#A0AEC0" stroke-width="1.8"/>
+  <circle cx="76" cy="376" r="2.5" fill="#A0AEC0"/>
+  <line x1="76" y1="62" x2="76" y2="432" stroke="#E2E8F0" stroke-width="1.5"/>
+  <line x1="76" y1="413" x2="92" y2="413" stroke="#A0AEC0" stroke-width="1.8"/>
+  <circle cx="76" cy="413" r="2.5" fill="#A0AEC0"/>
+  <line x1="76" y1="62" x2="76" y2="469" stroke="#E2E8F0" stroke-width="1.5"/>
+  <line x1="76" y1="450" x2="92" y2="450" stroke="#A0AEC0" stroke-width="1.8"/>
+  <circle cx="76" cy="450" r="2.5" fill="#A0AEC0"/>
+  <line x1="76" y1="62" x2="76" y2="506" stroke="#E2E8F0" stroke-width="1.5"/>
+  <line x1="76" y1="487" x2="92" y2="487" stroke="#A0AEC0" stroke-width="1.8"/>
+  <circle cx="76" cy="487" r="2.5" fill="#A0AEC0"/>
+  <line x1="76" y1="62" x2="76" y2="580" stroke="#E2E8F0" stroke-width="1.5"/>
+  <line x1="76" y1="561" x2="92" y2="561" stroke="#A0AEC0" stroke-width="1.8"/>
+  <circle cx="76" cy="561" r="2.5" fill="#A0AEC0"/>
+  <line x1="76" y1="62" x2="76" y2="617" stroke="#E2E8F0" stroke-width="1.5"/>
+  <line x1="76" y1="598" x2="92" y2="598" stroke="#A0AEC0" stroke-width="1.8"/>
+  <circle cx="76" cy="598" r="2.5" fill="#A0AEC0"/>
+  <line x1="76" y1="62" x2="76" y2="654" stroke="#E2E8F0" stroke-width="1.5"/>
+  <line x1="76" y1="635" x2="92" y2="635" stroke="#A0AEC0" stroke-width="1.8"/>
+  <circle cx="76" cy="635" r="2.5" fill="#A0AEC0"/>
+  <line x1="76" y1="62" x2="76" y2="728" stroke="#E2E8F0" stroke-width="1.5"/>
+  <line x1="76" y1="709" x2="92" y2="709" stroke="#A0AEC0" stroke-width="1.8"/>
+  <circle cx="76" cy="709" r="2.5" fill="#A0AEC0"/>
+  <line x1="76" y1="62" x2="76" y2="765" stroke="#E2E8F0" stroke-width="1.5"/>
+  <line x1="76" y1="746" x2="92" y2="746" stroke="#A0AEC0" stroke-width="1.8"/>
+  <circle cx="76" cy="746" r="2.5" fill="#A0AEC0"/>
+  <line x1="76" y1="62" x2="76" y2="802" stroke="#E2E8F0" stroke-width="1.5"/>
+  <line x1="76" y1="783" x2="92" y2="783" stroke="#A0AEC0" stroke-width="1.8"/>
+  <circle cx="76" cy="783" r="2.5" fill="#A0AEC0"/>
+  <line x1="76" y1="62" x2="76" y2="876" stroke="#E2E8F0" stroke-width="1.5"/>
+  <line x1="76" y1="857" x2="92" y2="857" stroke="#A0AEC0" stroke-width="1.8"/>
+  <circle cx="76" cy="857" r="2.5" fill="#A0AEC0"/>
+  <line x1="76" y1="62" x2="76" y2="913" stroke="#E2E8F0" stroke-width="1.5"/>
+  <line x1="76" y1="894" x2="92" y2="894" stroke="#A0AEC0" stroke-width="1.8"/>
+  <circle cx="76" cy="894" r="2.5" fill="#A0AEC0"/>
+  <line x1="76" y1="62" x2="76" y2="950" stroke="#E2E8F0" stroke-width="1.5"/>
+  <line x1="76" y1="931" x2="92" y2="931" stroke="#A0AEC0" stroke-width="1.8"/>
+  <circle cx="76" cy="931" r="2.5" fill="#A0AEC0"/>
+  <line x1="76" y1="62" x2="76" y2="987" stroke="#E2E8F0" stroke-width="1.5"/>
+  <line x1="76" y1="968" x2="92" y2="968" stroke="#A0AEC0" stroke-width="1.8"/>
+  <circle cx="76" cy="968" r="2.5" fill="#A0AEC0"/>
+  <line x1="76" y1="62" x2="76" y2="1024" stroke="#E2E8F0" stroke-width="1.5"/>
+  <line x1="76" y1="1005" x2="92" y2="1005" stroke="#A0AEC0" stroke-width="1.8"/>
+  <circle cx="76" cy="1005" r="2.5" fill="#A0AEC0"/>
+  <line x1="76" y1="62" x2="76" y2="1061" stroke="#E2E8F0" stroke-width="1.5"/>
+  <line x1="76" y1="1042" x2="92" y2="1042" stroke="#A0AEC0" stroke-width="1.8"/>
+  <circle cx="76" cy="1042" r="2.5" fill="#A0AEC0"/>
+  <line x1="76" y1="62" x2="76" y2="1098" stroke="#E2E8F0" stroke-width="1.5"/>
+  <line x1="76" y1="1079" x2="92" y2="1079" stroke="#A0AEC0" stroke-width="1.8"/>
+  <circle cx="76" cy="1079" r="2.5" fill="#A0AEC0"/>
+  <line x1="76" y1="62" x2="76" y2="1135" stroke="#E2E8F0" stroke-width="1.5"/>
+  <line x1="106" y1="62" x2="106" y2="1135" stroke="#E2E8F0" stroke-width="1.5"/>
+  <line x1="106" y1="1116" x2="122" y2="1116" stroke="#A0AEC0" stroke-width="1.8"/>
+  <circle cx="106" cy="1116" r="2.5" fill="#A0AEC0"/>
+  <line x1="76" y1="62" x2="76" y2="1172" stroke="#E2E8F0" stroke-width="1.5"/>
+  <line x1="106" y1="62" x2="106" y2="1172" stroke="#E2E8F0" stroke-width="1.5"/>
+  <line x1="106" y1="1153" x2="122" y2="1153" stroke="#A0AEC0" stroke-width="1.8"/>
+  <circle cx="106" cy="1153" r="2.5" fill="#A0AEC0"/>
+  <line x1="76" y1="62" x2="76" y2="1209" stroke="#E2E8F0" stroke-width="1.5"/>
+  <line x1="106" y1="62" x2="106" y2="1209" stroke="#E2E8F0" stroke-width="1.5"/>
+  <line x1="106" y1="1190" x2="122" y2="1190" stroke="#A0AEC0" stroke-width="1.8"/>
+  <circle cx="106" cy="1190" r="2.5" fill="#A0AEC0"/>
+  <line x1="76" y1="62" x2="76" y2="1246" stroke="#E2E8F0" stroke-width="1.5"/>
+  <line x1="106" y1="62" x2="106" y2="1246" stroke="#E2E8F0" stroke-width="1.5"/>
+  <line x1="106" y1="1227" x2="122" y2="1227" stroke="#A0AEC0" stroke-width="1.8"/>
+  <circle cx="106" cy="1227" r="2.5" fill="#A0AEC0"/>
+  <line x1="76" y1="62" x2="76" y2="1283" stroke="#E2E8F0" stroke-width="1.5"/>
+  <line x1="106" y1="62" x2="106" y2="1283" stroke="#E2E8F0" stroke-width="1.5"/>
+  <line x1="106" y1="1264" x2="122" y2="1264" stroke="#A0AEC0" stroke-width="1.8"/>
+  <circle cx="106" cy="1264" r="2.5" fill="#A0AEC0"/>
+  <line x1="76" y1="62" x2="76" y2="1320" stroke="#E2E8F0" stroke-width="1.5"/>
+  <line x1="106" y1="62" x2="106" y2="1320" stroke="#E2E8F0" stroke-width="1.5"/>
+  <line x1="106" y1="1301" x2="122" y2="1301" stroke="#A0AEC0" stroke-width="1.8"/>
+  <circle cx="106" cy="1301" r="2.5" fill="#A0AEC0"/>
+  <rect x="50" y="68" width="250" height="25" rx="8" fill="#2D3748" filter="url(#shadow)"/>
+  <text x="66" y="92" font-size="15" font-weight="bold" fill="#FFF">flow_grpo/</text>
+  <text x="320" y="83" font-size="12" fill="#718096">仓库根目录（6 大目录 + 说明文件）</text>
+  <text x="70" y="118" font-size="12.5" font-weight="normal" fill="#A0AEC0">  README.md</text>
+  <text x="560" y="118" font-size="12" fill="#718096">使用说明与各模型配置指南</text>
+  <text x="70" y="155" font-size="12.5" font-weight="normal" fill="#A0AEC0">  LICENSE · setup.py</text>
+  <text x="560" y="155" font-size="12" fill="#718096">开源许可 · 包安装配置</text>
+  <text x="70" y="192" font-size="13" font-weight="bold" fill="#3182CE">scripts/</text>
+  <text x="560" y="192" font-size="12" fill="#718096">★ 可执行训练脚本（启动入口）</text>
+  <text x="100" y="229" font-size="13" font-weight="bold" fill="#E53E3E">train_flux_fast.py</text>
+  <text x="560" y="229" font-size="12" fill="#718096">★ 主训练：GRPO + SDE 窗口加速</text>
+  <text x="100" y="266" font-size="13" font-weight="bold" fill="#4A5568">train_flux.py</text>
+  <text x="560" y="266" font-size="12" fill="#718096">基础版：全部 timestep 参与训练</text>
+  <text x="100" y="303" font-size="12.5" font-weight="normal" fill="#4A5568">train_sd3_fast.py · train_sd3.py</text>
+  <text x="560" y="303" font-size="12" fill="#718096">SD3 的 fast / 基础版</text>
+  <text x="100" y="340" font-size="12.5" font-weight="normal" fill="#4A5568">train_qwenimage.py · train_qwenimage_edit.py</text>
+  <text x="560" y="340" font-size="12" fill="#718096">Qwen-Image 版本</text>
+  <text x="100" y="377" font-size="12.5" font-weight="normal" fill="#4A5568">train_bagel.py · train_wan2_1.py</text>
+  <text x="560" y="377" font-size="12" fill="#718096">Bagel / Wan2.1 版本</text>
+  <text x="100" y="414" font-size="12.5" font-weight="normal" fill="#4A5568">train_sd3_dpo.py · train_sd3_sft.py</text>
+  <text x="560" y="414" font-size="12" fill="#718096">DPO / SFT 训练变体</text>
+  <text x="100" y="451" font-size="12.5" font-weight="normal" fill="#4A5568">train_sd3_GRPO_Guard.py</text>
+  <text x="560" y="451" font-size="12" fill="#718096">GRPO-Guard 安全微调</text>
+  <text x="100" y="488" font-size="12.5" font-weight="normal" fill="#718096">multi_node/ · single_node/ · accelerate_configs/</text>
+  <text x="560" y="488" font-size="12" fill="#718096">分布式启动配置</text>
+  <text x="70" y="525" font-size="13" font-weight="bold" fill="#DD6B20">config/</text>
+  <text x="560" y="525" font-size="12" fill="#718096">配置文件</text>
+  <text x="100" y="562" font-size="13" font-weight="bold" fill="#C05621">base.py</text>
+  <text x="560" y="562" font-size="12" fill="#718096">全部默认超参数（num_steps=40 等）</text>
+  <text x="100" y="599" font-size="13" font-weight="bold" fill="#C05621">grpo.py</text>
+  <text x="560" y="599" font-size="12" fill="#718096">GRPO 实验配方：OCR / GenEval / PickScore…</text>
+  <text x="100" y="636" font-size="12.5" font-weight="normal" fill="#C05621">dpo.py · sft.py · grpo_guard.py</text>
+  <text x="560" y="636" font-size="12" fill="#718096">DPO / SFT / Guard 配方</text>
+  <text x="70" y="673" font-size="13" font-weight="bold" fill="#38A169">dataset/</text>
+  <text x="560" y="673" font-size="12" fill="#718096">Prompt 数据集</text>
+  <text x="100" y="710" font-size="12.5" font-weight="normal" fill="#276749">ocr/ · drawbench/</text>
+  <text x="560" y="710" font-size="12" fill="#718096">txt 格式（每行一个 prompt）</text>
+  <text x="100" y="747" font-size="12.5" font-weight="normal" fill="#276749">geneval/ · geneval_unseen_objects/</text>
+  <text x="560" y="747" font-size="12" fill="#718096">jsonl 元数据格式</text>
+  <text x="100" y="784" font-size="12.5" font-weight="normal" fill="#276749">pickscore/ · pickscore_sfw/ · counting_edit/</text>
+  <text x="560" y="784" font-size="12" fill="#718096">PickScore / 计数编辑数据</text>
+  <rect x="50" y="808" width="250" height="25" rx="8" fill="#2D3748" filter="url(#shadow)"/>
+  <text x="66" y="832" font-size="15" font-weight="bold" fill="#FFF">flow_grpo/</text>
+  <text x="320" y="823" font-size="12" fill="#718096">★ 核心库（被 scripts 调用）</text>
+  <text x="100" y="858" font-size="13" font-weight="bold" fill="#6B46C1">rewards.py</text>
+  <text x="560" y="858" font-size="12" fill="#718096">★ reward 函数库（多 reward 组合）</text>
+  <text x="100" y="895" font-size="13" font-weight="bold" fill="#6B46C1">stat_tracking.py</text>
+  <text x="560" y="895" font-size="12" fill="#718096">★ PerPromptStatTracker → advantage</text>
+  <text x="100" y="932" font-size="12.5" font-weight="normal" fill="#6B46C1">ema.py · fsdp_utils.py</text>
+  <text x="560" y="932" font-size="12" fill="#718096">EMA 参数快照 · FSDP 分片</text>
+  <text x="100" y="969" font-size="12.5" font-weight="normal" fill="#6B46C1">prompts.py · ocr.py</text>
+  <text x="560" y="969" font-size="12" fill="#718096">prompt 模板 · OCR 识别器</text>
+  <text x="100" y="1006" font-size="12.5" font-weight="normal" fill="#6B46C1">clip_scorer · pickscore_scorer · aesthetic_scorer</text>
+  <text x="560" y="1006" font-size="12" fill="#718096">CLIP / PickScore / 美学评分器</text>
+  <text x="100" y="1043" font-size="12.5" font-weight="normal" fill="#6B46C1">imagereward_scorer · qwenvl</text>
+  <text x="560" y="1043" font-size="12" fill="#718096">ImageReward / Qwen-VL 评分器</text>
+  <text x="100" y="1080" font-size="13" font-weight="bold" fill="#6B46C1">diffusers_patch/</text>
+  <text x="560" y="1080" font-size="12" fill="#718096">★ 改写采样器：带 log_prob 的 SDE</text>
+  <text x="130" y="1117" font-size="13" font-weight="bold" fill="#E53E3E">flux_pipeline_with_logprob_fast.py</text>
+  <text x="660" y="1117" font-size="12" fill="#718096">★ fast 版：SDE 窗口采样</text>
+  <text x="130" y="1154" font-size="12.5" font-weight="normal" fill="#4A5568">flux_pipeline_with_logprob.py</text>
+  <text x="660" y="1154" font-size="12" fill="#718096">基础版：全步 SDE 采样</text>
+  <text x="130" y="1191" font-size="13" font-weight="bold" fill="#E53E3E">sd3_sde_with_logprob.py</text>
+  <text x="660" y="1191" font-size="12" fill="#718096">★ 单步 SDE + log_prob 计算</text>
+  <text x="130" y="1228" font-size="12.5" font-weight="normal" fill="#718096">sd3_pipeline_with_logprob(_fast).py</text>
+  <text x="660" y="1228" font-size="12" fill="#718096">SD3 版本采样器</text>
+  <text x="130" y="1265" font-size="12.5" font-weight="normal" fill="#718096">qwenimage_*.py · wan_pipeline_with_logprob.py</text>
+  <text x="660" y="1265" font-size="12" fill="#718096">Qwen-Image / Wan 版本</text>
+  <text x="130" y="1302" font-size="12.5" font-weight="normal" fill="#718096">train_dreambooth_lora_*.py</text>
+  <text x="660" y="1302" font-size="12" fill="#718096">LoRA 微调工具</text>
+  <rect x="40" y="1328" width="1000" height="68" rx="8" fill="#EBF8FF" stroke="#63B3ED" stroke-width="1.5"/>
+  <text x="60" y="1352" font-size="12.5" font-weight="bold" fill="#2B6CB0">fast 与基础版（train_flux_fast.py vs train_flux.py）的本质区别：</text>
+  <text x="60" y="1374" font-size="11" fill="#4A5568">基础版 flux_pipeline_with_logprob.py：全部 40 个 timestep 都记录梯度 → 计算图大、显存高、慢。</text>
+  <text x="60" y="1388" font-size="11" fill="#4A5568">fast 版 flux_pipeline_with_logprob_fast.py：只对 SDE 窗口内 sde_window_size 个 timestep 记录梯度，其余走确定性 ODE → 显存小、更快。</text>
 </svg>

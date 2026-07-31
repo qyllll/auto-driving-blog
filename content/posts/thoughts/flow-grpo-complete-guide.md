@@ -17,6 +17,48 @@ Flow-GRPO **不是一篇只能读的论文，而是一份完整的开源代码�
 
 ![flow_grpo 代码仓库结构](/images/flowgrpo/flowgrpo_repo_structure.svg)
 
+### train_flux_fast.py 和 train_flux.py 有什么区别？
+
+很多文件名带 `_fast` 后缀（`train_flux_fast.py`、`flux_pipeline_with_logprob_fast.py`）。它们和基础版**训练逻辑完全一样，只有一处关键区别——采样时记录梯度的 timestep 数量**：
+
+| | 基础版 `train_flux.py` | fast 版 `train_flux_fast.py` |
+|--|----------------------|-----------------------------|
+| 导入的采样器 | `flux_pipeline_with_logprob.py` | `flux_pipeline_with_logprob_fast.py` |
+| 参与梯度计算的步数 | **全部** `num_steps`（默认 40 步） | **只有** `sde_window_size` 步（默认 2，随机窗口） |
+| 训练步数 `num_train_timesteps` | `int(num_steps × timestep_fraction)` = 40 | `sde_window_size` = 2（`main()` 里 `config.sample.sde_window_size`） |
+| 窗口外如何采样 | 每一步都是 SDE | 窗口外用**确定性 ODE**（`noise_level=0`，不记梯度） |
+| 计算图大小 | 40 步全部展开 → **显存爆炸** | 只展开 2 步 → **显存小、速度快** |
+| log_prob 记录 | 每一步都记录 | 只在窗口内记录 |
+| 采样返回 | `image, latents, image_ids, text_ids, log_probs` | 额外多返回 `timesteps` |
+
+核心代码对比（`diffusers_patch/` 下的两个文件）：
+
+```python
+# flux_pipeline_with_logprob.py（基础版）：每个 timestep 都记录
+for i, t in enumerate(timesteps):               # 40 步全走 SDE
+    latents, log_prob, _, _ = sde_step_with_logprob(
+        scheduler, noise_pred, t, latents, noise_level=noise_level, ...)
+    all_latents.append(latents)                 # 每一步都进计算图
+    all_log_probs.append(log_prob)
+```
+
+```python
+# flux_pipeline_with_logprob_fast.py（fast 版）：只在窗口内记录
+sde_window = (start, start + sde_window_size)   # 随机选 2 步窗口
+for i, t in enumerate(timesteps):
+    cur_noise_level = noise_level if (窗口起点 <= i < 窗口终点) else 0
+    latents, log_prob, _, _ = sde_step_with_logprob(..., noise_level=cur_noise_level)
+    if 窗口起点 <= i < 窗口终点:                  # 只有窗口内的步
+        all_latents.append(latents)             # 进计算图
+        all_log_probs.append(log_prob)
+```
+
+**为什么这样省显存？** 因为训练时 `loss.backward()` 要沿着计算图回传，计算图里每多一个 timestep 就要多存一份 DiT 的中间激活值（Flux 有 12B 参数，一份激活就有几十 GB）。基础版把 40 步全部展开，直接 OOM；fast 版只展开 2 步，显存可控。
+
+**为什么只用 2 步也够用？** 因为 SDE 是马尔可夫的：第 j 步的 latent 只由第 j-1 步决定。虽然每次 backward 只回传窗口内的梯度，但模型参数是共享的——只要窗口随机滑过各个位置，长期看每个 timestep 都会被训练到（`sde_window_range` 控制窗口滑动的范围）。
+
+> 一句话总结：**fast 版 = 基础版 + SDE 窗口，牺牲一点点梯度完整性，换来 10~20 倍显存节省。** 代码里 `_fast` 的后缀就是这个意思。
+
 ### 为什么从 train_flux_fast.py 开始？
 
 **`train_flux_fast.py` 是整个框架的入口（main 函数所在），相当于一辆车的发动机舱。** 其它文件都是"零件"：
