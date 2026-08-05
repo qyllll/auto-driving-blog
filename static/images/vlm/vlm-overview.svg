@@ -1,0 +1,83 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 620">
+  <style>
+    text { font-family: -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif; font-size: 13px; fill: #333; }
+    .title { font-size: 18px; font-weight: bold; fill: #1a1a2e; }
+    .sub { font-size: 12px; fill: #888; }
+    .box-title { font-size: 13px; font-weight: bold; fill: #fff; }
+    .note { font-size: 11px; fill: #555; }
+    .tiny { font-size: 10px; fill: #888; }
+  </style>
+
+  <text x="450" y="30" text-anchor="middle" class="title">VLM 总体架构：视觉与语言如何在一个模型里汇合</text>
+  <text x="450" y="52" text-anchor="middle" class="sub">图像 → 视觉编码 → 投影桥接 → LLM（自回归）→ 文本输出</text>
+
+  <!-- Image input -->
+  <rect x="40" y="90" width="170" height="60" rx="8" fill="#EBF5FB" stroke="#2980B9" stroke-width="1.5"/>
+  <text x="125" y="118" text-anchor="middle" class="box-title" fill="#2980B9">🖼 图像输入</text>
+  <text x="125" y="137" text-anchor="middle" class="tiny">像素 H×W×3</text>
+
+  <!-- Text input -->
+  <rect x="40" y="300" width="170" height="60" rx="8" fill="#FEF9E7" stroke="#F39C12" stroke-width="1.5"/>
+  <text x="125" y="328" text-anchor="middle" class="box-title" fill="#E67E22">📝 文本输入</text>
+  <text x="125" y="347" text-anchor="middle" class="tiny">token 序列 (L,)</text>
+
+  <!-- ViT encoder -->
+  <rect x="270" y="80" width="190" height="80" rx="8" fill="#2980B9"/>
+  <text x="365" y="108" text-anchor="middle" class="box-title">视觉编码器（ViT）</text>
+  <text x="365" y="130" text-anchor="middle" class="tiny" fill="#D6EAF8">切 patch → 24~36 层 Transformer</text>
+  <text x="365" y="146" text-anchor="middle" class="tiny" fill="#D6EAF8">输出图像 token 序列 (N, d)</text>
+
+  <!-- Text embedding -->
+  <rect x="270" y="290" width="190" height="80" rx="8" fill="#E67E22"/>
+  <text x="365" y="318" text-anchor="middle" class="box-title">文本嵌入（Tokenizer）</text>
+  <text x="365" y="340" text-anchor="middle" class="tiny" fill="#FDEBD0">分词 → 查词表 → 嵌入</text>
+  <text x="365" y="356" text-anchor="middle" class="tiny" fill="#FDEBD0">文本 token 序列 (L, d)</text>
+
+  <!-- Projector -->
+  <rect x="530" y="160" width="160" height="130" rx="8" fill="#8E44AD"/>
+  <text x="610" y="190" text-anchor="middle" class="box-title">投影桥接层</text>
+  <text x="610" y="212" text-anchor="middle" class="tiny" fill="#E8DAEF">MLP / Q-Former</text>
+  <text x="610" y="228" text-anchor="middle" class="tiny" fill="#E8DAEF">把视觉特征翻译成</text>
+  <text x="610" y="244" text-anchor="middle" class="tiny" fill="#E8DAEF">LLM 能理解的格式</text>
+  <text x="610" y="268" text-anchor="middle" class="tiny" fill="#D2B4DE">（对齐维度 d）</text>
+
+  <!-- LLM -->
+  <rect x="720" y="150" width="150" height="230" rx="10" fill="#1F618D"/>
+  <text x="795" y="200" text-anchor="middle" class="box-title">大语言模型</text>
+  <text x="795" y="224" text-anchor="middle" class="tiny" fill="#D6EAF8">Transformer Decoder</text>
+  <text x="795" y="244" text-anchor="middle" class="tiny" fill="#D6EAF8">把两类 token 拼在一起</text>
+  <text x="795" y="260" text-anchor="middle" class="tiny" fill="#D6EAF8">做自回归生成</text>
+  <text x="795" y="284" text-anchor="middle" class="tiny" fill="#AED6F1">P(下个词 | 图 + 上文)</text>
+
+  <!-- Output -->
+  <rect x="720" y="420" width="150" height="55" rx="8" fill="#27AE60"/>
+  <text x="795" y="448" text-anchor="middle" class="box-title">💬 文本输出</text>
+  <text x="795" y="464" text-anchor="middle" class="tiny" fill="#E8F8E8">回答 / 描述 / 推理</text>
+
+  <!-- Arrows -->
+  <defs>
+    <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0,0 L10,5 L0,10 Z" fill="#555"/>
+    </marker>
+  </defs>
+
+  <line x1="210" y1="120" x2="266" y2="120" stroke="#555" stroke-width="2" marker-end="url(#arr)"/>
+  <line x1="210" y1="330" x2="266" y2="330" stroke="#555" stroke-width="2" marker-end="url(#arr)"/>
+  <line x1="365" y1="160" x2="620" y2="195" stroke="#8E44AD" stroke-width="2" marker-end="url(#arr)"/>
+  <line x1="620" y1="195" x2="716" y2="195" stroke="#8E44AD" stroke-width="2" marker-end="url(#arr)"/>
+  <line x1="610" y1="290" x2="760" y2="300" stroke="#1F618D" stroke-width="2" marker-end="url(#arr)"/>
+  <line x1="795" y1="380" x2="795" y2="416" stroke="#27AE60" stroke-width="2" marker-end="url(#arr)"/>
+
+  <!-- Labels -->
+  <text x="490" y="140" text-anchor="middle" class="tiny" fill="#8E44AD">视觉特征 (N,d)</text>
+  <text x="660" y="180" text-anchor="middle" class="tiny" fill="#1F618D">视觉 token</text>
+  <text x="870" y="160" text-anchor="middle" class="tiny" fill="#1F618D">拼接</text>
+
+  <!-- Bottom note -->
+  <text x="450" y="520" text-anchor="middle" class="note">关键：视觉信息最终都以“token 序列”的身份进入 LLM，与文本 token 一起做自回归——这就是“多模态”统一的本质。</text>
+
+  <!-- data flow legend -->
+  <rect x="120" y="550" width="660" height="45" rx="8" fill="#F7F9FB" stroke="#D5D8DC"/>
+  <text x="450" y="570" text-anchor="middle" class="tiny" fill="#555">维度流：图像像素 (H×W×3) → patch (N, d) → 投影后仍 (N, d) → LLM 词表维度 (N, V)</text>
+  <text x="450" y="586" text-anchor="middle" class="tiny" fill="#555">自回归目标：P(y_t | y_&lt;t, x_img) —— 只看文本输出，视觉通过 token 注入</text>
+</svg>

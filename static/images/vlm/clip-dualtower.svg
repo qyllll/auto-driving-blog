@@ -1,0 +1,87 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 620">
+  <style>
+    text { font-family: -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif; font-size: 13px; fill: #333; }
+    .title { font-size: 18px; font-weight: bold; fill: #1a1a2e; }
+    .sub { font-size: 12px; fill: #888; }
+    .box-title { font-size: 13px; font-weight: bold; fill: #fff; }
+    .note { font-size: 11px; fill: #555; }
+    .tiny { font-size: 10px; fill: #666; }
+  </style>
+
+  <text x="450" y="30" text-anchor="middle" class="title">第一代：CLIP 双塔对比 —— 用对比学习对齐图像与文本</text>
+  <text x="450" y="52" text-anchor="middle" class="sub">两个编码器各走各的，最后在同一个特征空间里比相似度（不生成、只对齐）</text>
+
+  <!-- Image tower -->
+  <rect x="50" y="90" width="350" height="230" rx="10" fill="#FDF2E9" stroke="#E67E22" stroke-width="1.5"/>
+  <text x="225" y="115" text-anchor="middle" class="box-title" fill="#D35400">图像塔（Image Encoder）</text>
+  <text x="225" y="140" text-anchor="middle" class="tiny">图片 (H×W×3)</text>
+  <rect x="90" y="155" width="270" height="45" rx="6" fill="#E67E22"/>
+  <text x="225" y="175" text-anchor="middle" class="box-title" fill="#fff">ViT / ResNet 编码器</text>
+  <text x="225" y="192" text-anchor="middle" class="tiny" fill="#FDEBD0">↓ 全局特征</text>
+  <rect x="90" y="210" width="270" height="40" rx="6" fill="#FAD7A0"/>
+  <text x="225" y="228" text-anchor="middle" class="note" fill="#7E5109">投影层 + L2 归一化</text>
+  <text x="225" y="246" text-anchor="middle" class="note" fill="#7E5109">图像特征 î（单位向量）</text>
+  <text x="225" y="285" text-anchor="middle" class="tiny">每个 batch：N 张图 → N 个图像特征</text>
+
+  <!-- Text tower -->
+  <rect x="500" y="90" width="350" height="230" rx="10" fill="#EBF5FB" stroke="#2980B9" stroke-width="1.5"/>
+  <text x="675" y="115" text-anchor="middle" class="box-title" fill="#2471A3">文本塔（Text Encoder）</text>
+  <text x="675" y="140" text-anchor="middle" class="tiny">N 个文本描述</text>
+  <rect x="540" y="155" width="270" height="45" rx="6" fill="#2980B9"/>
+  <text x="675" y="175" text-anchor="middle" class="box-title" fill="#fff">Transformer 编码器</text>
+  <text x="675" y="192" text-anchor="middle" class="tiny" fill="#D6EAF8">↓ 全局特征</text>
+  <rect x="540" y="210" width="270" height="40" rx="6" fill="#AED6F1"/>
+  <text x="675" y="228" text-anchor="middle" class="note" fill="#1A5276">投影层 + L2 归一化</text>
+  <text x="675" y="246" text-anchor="middle" class="note" fill="#1A5276">文本特征 t̂（单位向量）</text>
+  <text x="675" y="285" text-anchor="middle" class="tiny">每个 batch：N 句 → N 个文本特征</text>
+
+  <!-- Similarity matrix -->
+  <rect x="50" y="350" width="800" height="170" rx="10" fill="#F7F9FB" stroke="#D5D8DC" stroke-width="1.5"/>
+  <text x="450" y="375" text-anchor="middle" class="box-title" fill="#2C3E50">对比学习：拉近正对、推远负对（InfoNCE / 对称交叉熵）</text>
+
+  <!-- matrix cells -->
+  <g>
+    <rect x="150" y="392" width="60" height="28" fill="#27AE60"/>
+    <rect x="220" y="392" width="60" height="28" fill="#E74C3C" opacity="0.35"/>
+    <rect x="290" y="392" width="60" height="28" fill="#E74C3C" opacity="0.35"/>
+    <rect x="360" y="392" width="60" height="28" fill="#E74C3C" opacity="0.35"/>
+
+    <rect x="150" y="428" width="60" height="28" fill="#E74C3C" opacity="0.35"/>
+    <rect x="220" y="428" width="60" height="28" fill="#27AE60"/>
+    <rect x="290" y="428" width="60" height="28" fill="#E74C3C" opacity="0.35"/>
+    <rect x="360" y="428" width="60" height="28" fill="#E74C3C" opacity="0.35"/>
+
+    <rect x="150" y="464" width="60" height="28" fill="#E74C3C" opacity="0.35"/>
+    <rect x="220" y="464" width="60" height="28" fill="#E74C3C" opacity="0.35"/>
+    <rect x="290" y="464" width="60" height="28" fill="#27AE60"/>
+    <rect x="360" y="464" width="60" height="28" fill="#E74C3C" opacity="0.35"/>
+
+    <text x="180" y="410" text-anchor="middle" class="tiny" fill="#fff">s11</text>
+    <text x="250" y="410" text-anchor="middle" class="tiny" fill="#fff">s12</text>
+    <text x="320" y="410" text-anchor="middle" class="tiny" fill="#fff">s13</text>
+    <text x="390" y="410" text-anchor="middle" class="tiny" fill="#fff">s14</text>
+    <text x="180" y="446" text-anchor="middle" class="tiny" fill="#fff">s21</text>
+    <text x="250" y="446" text-anchor="middle" class="tiny" fill="#fff">s22</text>
+    <text x="320" y="446" text-anchor="middle" class="tiny" fill="#fff">s23</text>
+    <text x="390" y="446" text-anchor="middle" class="tiny" fill="#fff">s24</text>
+    <text x="180" y="482" text-anchor="middle" class="tiny" fill="#fff">s31</text>
+    <text x="250" y="482" text-anchor="middle" class="tiny" fill="#fff">s32</text>
+    <text x="320" y="482" text-anchor="middle" class="tiny" fill="#fff">s33</text>
+    <text x="390" y="482" text-anchor="middle" class="tiny" fill="#fff">s34</text>
+  </g>
+
+  <text x="120" y="410" text-anchor="middle" class="tiny" fill="#2471A3">i1</text>
+  <text x="120" y="446" text-anchor="middle" class="tiny" fill="#2471A3">i2</text>
+  <text x="120" y="482" text-anchor="middle" class="tiny" fill="#2471A3">i3</text>
+  <text x="210" y="500" text-anchor="middle" class="tiny" fill="#fff">t1 t2 t3 t4</text>
+  <text x="280" y="500" text-anchor="middle" class="tiny" fill="#fff">文本</text>
+
+  <text x="460" y="410" text-anchor="middle" class="tiny" fill="#27AE60">对角线（图 i ↔ 对应文本 i）是正对 → 拉近</text>
+  <text x="460" y="434" text-anchor="middle" class="tiny" fill="#E74C3C">其余（图 i ↔ 别的文本 j）是负对 → 推远</text>
+  <text x="460" y="458" text-anchor="middle" class="tiny" fill="#555">s_ij = î_i · t̂_j（cosine 相似度）</text>
+
+  <!-- Formula -->
+  <rect x="50" y="540" width="800" height="55" rx="8" fill="#FEF9E7" stroke="#F1C40F"/>
+  <text x="450" y="558" text-anchor="middle" class="tiny" fill="#7D6608">L = −½N Σᵢ [ log( e^sᵢᵢ / Σⱼ e^sᵢⱼ ) + log( e^sᵢᵢ / Σⱼ e^sⱼᵢ ) ]   （图像→文本 与 文本→图像 两个方向对称）</text>
+  <text x="450" y="578" text-anchor="middle" class="tiny" fill="#7D6608">batch 越大、负样本越多，学到的高层语义越强（CLIP 用 batch=32,768，负样本全靠 batch 内配对）</text>
+</svg>

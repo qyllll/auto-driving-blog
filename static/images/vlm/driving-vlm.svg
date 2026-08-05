@@ -1,0 +1,78 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 620">
+  <style>
+    text { font-family: -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif; font-size: 13px; fill: #333; }
+    .title { font-size: 18px; font-weight: bold; fill: #1a1a2e; }
+    .sub { font-size: 12px; fill: #888; }
+    .box-title { font-size: 13px; font-weight: bold; fill: #fff; }
+    .note { font-size: 11px; fill: #555; }
+    .tiny { font-size: 10px; fill: #666; }
+  </style>
+
+  <text x="450" y="30" text-anchor="middle" class="title">通用 VLM → 驾驶 VLM：四条适配路线</text>
+  <text x="450" y="52" text-anchor="middle" class="sub">通用 VLM 缺驾驶知识、分辨率不足、缺时序理解 → 逐条打补丁</text>
+
+  <!-- Center VLM -->
+  <rect x="330" y="130" width="240" height="70" rx="10" fill="#1F618D"/>
+  <text x="450" y="158" text-anchor="middle" class="box-title">驾驶 VLM</text>
+  <text x="450" y="178" text-anchor="middle" class="tiny" fill="#D6EAF8">基于 Qwen-VL / InternVL / Gemini 等底座</text>
+
+  <!-- Four adaptation boxes -->
+  <rect x="40" y="260" width="195" height="130" rx="8" fill="#EAF2F8" stroke="#2980B9" stroke-width="1.5"/>
+  <text x="137" y="283" text-anchor="middle" class="note" fill="#2471A3"><tspan font-weight="bold">① 高分辨率</tspan></text>
+  <text x="137" y="305" text-anchor="middle" class="tiny">把大图切成多个 336/448</text>
+  <text x="137" y="321" text-anchor="middle" class="tiny">patch 独立编码，保留远距</text>
+  <text x="137" y="337" text-anchor="middle" class="tiny">小目标细节（行人、锥桶）</text>
+  <text x="137" y="360" text-anchor="middle" class="tiny" fill="#2980B9">LLaVA-HR / DriveVLM</text>
+
+  <rect x="255" y="260" width="195" height="130" rx="8" fill="#FEF9E7" stroke="#F39C12" stroke-width="1.5"/>
+  <text x="352" y="283" text-anchor="middle" class="note" fill="#B9770E"><tspan font-weight="bold">② 多视角</tspan></text>
+  <text x="352" y="305" text-anchor="middle" class="tiny">前/侧/后 6 路相机独立</text>
+  <text x="352" y="321" text-anchor="middle" class="tiny">编码再拼接，构建 360°</text>
+  <text x="352" y="337" text-anchor="middle" class="tiny">环视场景理解</text>
+  <text x="352" y="360" text-anchor="middle" class="tiny" fill="#B9770E">DriveVLM（6 视角）</text>
+
+  <rect x="470" y="260" width="195" height="130" rx="8" fill="#E8F8E8" stroke="#27AE60" stroke-width="1.5"/>
+  <text x="567" y="283" text-anchor="middle" class="note" fill="#1E8449"><tspan font-weight="bold">③ 时序建模</tspan></text>
+  <text x="567" y="305" text-anchor="middle" class="tiny">连续多帧输入 + 时序</text>
+  <text x="567" y="321" text-anchor="middle" class="tiny">注意力，理解运动与速度</text>
+  <text x="567" y="337" text-anchor="middle" class="tiny">变化（而不是静态猜）</text>
+  <text x="567" y="360" text-anchor="middle" class="tiny" fill="#1E8449">GenAD / Senna</text>
+
+  <rect x="685" y="260" width="175" height="130" rx="8" fill="#FDF2E9" stroke="#E67E22" stroke-width="1.5"/>
+  <text x="772" y="283" text-anchor="middle" class="note" fill="#D35400"><tspan font-weight="bold">④ 驾驶微调</tspan></text>
+  <text x="772" y="305" text-anchor="middle" class="tiny">用驾驶 QA / CoT 标注</text>
+  <text x="772" y="321" text-anchor="middle" class="tiny">数据做指令微调，注入</text>
+  <text x="772" y="337" text-anchor="middle" class="tiny">交规与场景知识</text>
+  <text x="772" y="360" text-anchor="middle" class="tiny" fill="#D35400">LMDrive / DriveGPT4</text>
+
+  <!-- connectors -->
+  <defs>
+    <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0,0 L10,5 L0,10 Z" fill="#555"/>
+    </marker>
+  </defs>
+  <line x1="450" y1="200" x2="137" y2="256" stroke="#888" stroke-width="1.5" marker-end="url(#arr)"/>
+  <line x1="450" y1="200" x2="352" y2="256" stroke="#888" stroke-width="1.5" marker-end="url(#arr)"/>
+  <line x1="450" y1="200" x2="567" y2="256" stroke="#888" stroke-width="1.5" marker-end="url(#arr)"/>
+  <line x1="450" y1="200" x2="772" y2="256" stroke="#888" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <!-- Outputs -->
+  <text x="450" y="430" text-anchor="middle" class="box-title" fill="#2C3E50">驾驶 VLM 的三种输出形态</text>
+
+  <rect x="60" y="450" width="240" height="70" rx="8" fill="#F7F9FB" stroke="#2980B9"/>
+  <text x="180" y="475" text-anchor="middle" class="note" fill="#2471A3"><tspan font-weight="bold">文本问答（感知层）</tspan></text>
+  <text x="180" y="495" text-anchor="middle" class="tiny">“前方有没有横穿行人？”→ 是/否 + 理由</text>
+
+  <rect x="330" y="450" width="240" height="70" rx="8" fill="#F7F9FB" stroke="#27AE60"/>
+  <text x="450" y="475" text-anchor="middle" class="note" fill="#1E8449"><tspan font-weight="bold">CoT 推理（推理层）</tspan></text>
+  <text x="450" y="495" text-anchor="middle" class="tiny">场景→关键物体→分析→结论（DriveVLM）</text>
+
+  <rect x="600" y="450" width="240" height="70" rx="8" fill="#F7F9FB" stroke="#8E44AD"/>
+  <text x="720" y="475" text-anchor="middle" class="note" fill="#6C3483"><tspan font-weight="bold">动作 token（规划层）</tspan></text>
+  <text x="720" y="495" text-anchor="middle" class="tiny">输出转向/加速等动作序列（EMMA）</text>
+
+  <!-- Bottom -->
+  <rect x="60" y="545" width="780" height="50" rx="8" fill="#FDEDEC" stroke="#E74C3C"/>
+  <text x="450" y="565" text-anchor="middle" class="note" fill="#922B21"><tspan font-weight="bold">注意：</tspan>VLM 看单张图/短时序文本 → 是“感知与推理工具”；真正开车（规划/控制）要靠 VLA 在 VLM 之上继续做轨迹生成 + 强化学习</text>
+  <text x="450" y="582" text-anchor="middle" class="tiny" fill="#922B21">这也是本文开头说“VLM 是 VLA 的视觉理解基础”的原因</text>
+</svg>

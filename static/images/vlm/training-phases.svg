@@ -1,0 +1,94 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 620">
+  <style>
+    text { font-family: -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif; font-size: 13px; fill: #333; }
+    .title { font-size: 18px; font-weight: bold; fill: #1a1a2e; }
+    .sub { font-size: 12px; fill: #888; }
+    .box-title { font-size: 13px; font-weight: bold; fill: #fff; }
+    .note { font-size: 11px; fill: #555; }
+    .tiny { font-size: 10px; fill: #666; }
+  </style>
+
+  <text x="450" y="30" text-anchor="middle" class="title">VLM 训练三阶段：从“看得懂”到“会听话”再到“符合偏好”</text>
+  <text x="450" y="52" text-anchor="middle" class="sub">三阶段目标不同、数据不同、损失不同，顺序不可颠倒</text>
+
+  <!-- Phase 1 -->
+  <rect x="40" y="90" width="250" height="240" rx="10" fill="#EAF2F8" stroke="#2980B9" stroke-width="2"/>
+  <rect x="40" y="90" width="250" height="42" rx="10" fill="#2980B9"/>
+  <text x="165" y="117" text-anchor="middle" class="box-title">阶段 1：对齐预训练</text>
+
+  <text x="165" y="160" text-anchor="middle" class="note" fill="#2471A3"><tspan font-weight="bold">目标</tspan></text>
+  <text x="165" y="180" text-anchor="middle" class="tiny">让视觉特征与语言特征</text>
+  <text x="165" y="196" text-anchor="middle" class="tiny">“住进同一个空间”</text>
+
+  <text x="165" y="225" text-anchor="middle" class="note" fill="#2471A3"><tspan font-weight="bold">数据</tspan></text>
+  <text x="165" y="245" text-anchor="middle" class="tiny">海量图文对</text>
+  <text x="165" y="261" text-anchor="middle" class="tiny">（CLIP 4 亿 / LLaVA 59 万）</text>
+
+  <text x="165" y="290" text-anchor="middle" class="note" fill="#2471A3"><tspan font-weight="bold">损失</tspan></text>
+  <text x="165" y="310" text-anchor="middle" class="tiny">对比损失 / ITM /</text>
+  <text x="165" y="326" text-anchor="middle" class="tiny">下一句生成</text>
+
+  <!-- Phase 2 -->
+  <rect x="325" y="90" width="250" height="240" rx="10" fill="#FEF9E7" stroke="#F39C12" stroke-width="2"/>
+  <rect x="325" y="90" width="250" height="42" rx="10" fill="#F39C12"/>
+  <text x="450" y="117" text-anchor="middle" class="box-title">阶段 2：指令微调</text>
+
+  <text x="450" y="160" text-anchor="middle" class="note" fill="#B9770E"><tspan font-weight="bold">目标</tspan></text>
+  <text x="450" y="180" text-anchor="middle" class="tiny">学会“看图 + 听指令 +</text>
+  <text x="450" y="196" text-anchor="middle" class="tiny">给出人类想要格式的回答”</text>
+
+  <text x="450" y="225" text-anchor="middle" class="note" fill="#B9770E"><tspan font-weight="bold">数据</tspan></text>
+  <text x="450" y="245" text-anchor="middle" class="tiny">VQA / 视觉对话 / 指令集</text>
+  <text x="450" y="261" text-anchor="middle" class="tiny">（LLaVA 15.8 万）</text>
+
+  <text x="450" y="290" text-anchor="middle" class="note" fill="#B9770E"><tspan font-weight="bold">损失</tspan></text>
+  <text x="450" y="310" text-anchor="middle" class="tiny">自回归交叉熵</text>
+  <text x="450" y="326" text-anchor="middle" class="tiny">（只对答案 token 计算）</text>
+
+  <!-- Phase 3 -->
+  <rect x="610" y="90" width="250" height="240" rx="10" fill="#E8F8E8" stroke="#27AE60" stroke-width="2"/>
+  <rect x="610" y="90" width="250" height="42" rx="10" fill="#27AE60"/>
+  <text x="735" y="117" text-anchor="middle" class="box-title">阶段 3：RLHF / DPO</text>
+
+  <text x="735" y="160" text-anchor="middle" class="note" fill="#1E8449"><tspan font-weight="bold">目标</tspan></text>
+  <text x="735" y="180" text-anchor="middle" class="tiny">对齐人类偏好，</text>
+  <text x="735" y="196" text-anchor="middle" class="tiny">少说错、少“幻觉”</text>
+
+  <text x="735" y="225" text-anchor="middle" class="note" fill="#1E8449"><tspan font-weight="bold">数据</tspan></text>
+  <text x="735" y="245" text-anchor="middle" class="tiny">人类偏好标注</text>
+  <text x="735" y="261" text-anchor="middle" class="tiny">（同一问题两个回答打分）</text>
+
+  <text x="735" y="290" text-anchor="middle" class="note" fill="#1E8449"><tspan font-weight="bold">损失</tspan></text>
+  <text x="735" y="310" text-anchor="middle" class="tiny">PPO（需奖励模型）</text>
+  <text x="735" y="326" text-anchor="middle" class="tiny">DPO（直接偏好优化）</text>
+
+  <!-- arrows -->
+  <defs>
+    <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto">
+      <path d="M0,0 L10,5 L0,10 Z" fill="#555"/>
+    </marker>
+  </defs>
+  <line x1="290" y1="210" x2="321" y2="210" stroke="#555" stroke-width="2.5" marker-end="url(#arr)"/>
+  <line x1="575" y1="210" x2="606" y2="210" stroke="#555" stroke-width="2.5" marker-end="url(#arr)"/>
+
+  <!-- Loss formula band -->
+  <rect x="40" y="360" width="820" height="110" rx="10" fill="#F7F9FB" stroke="#D5D8DC"/>
+  <text x="450" y="385" text-anchor="middle" class="box-title" fill="#2C3E50">三个阶段对应的核心损失</text>
+
+  <text x="190" y="418" text-anchor="middle" class="tiny" fill="#2471A3">对比（阶段 1）</text>
+  <text x="190" y="438" text-anchor="middle" class="tiny" fill="#2471A3">L = −Σ log e^{sᵢᵢ} / Σⱼ e^{sᵢⱼ}</text>
+
+  <text x="450" y="418" text-anchor="middle" class="tiny" fill="#B9770E">指令微调（阶段 2）</text>
+  <text x="450" y="438" text-anchor="middle" class="tiny" fill="#B9770E">L = −Σₜ log Pθ(yₜ | y&lt;ₜ, x_img)</text>
+
+  <text x="710" y="418" text-anchor="middle" class="tiny" fill="#1E8449">偏好对齐（阶段 3）</text>
+  <text x="710" y="438" text-anchor="middle" class="tiny" fill="#1E8449">DPO: L = −log σ(β·[r(x,y_w) − r(x,y_l)])</text>
+
+  <text x="450" y="460" text-anchor="middle" class="tiny" fill="#888">注意：三阶段数据量递减、但数据“质量/针对性”递增；阶段 3 通常在最精细的任务数据上做</text>
+
+  <!-- driving note -->
+  <rect x="40" y="500" width="820" height="70" rx="8" fill="#FDF2E9" stroke="#E67E22"/>
+  <text x="450" y="523" text-anchor="middle" class="note" fill="#D35400"><tspan font-weight="bold">🚗 对驾驶 VLM 的意义：</tspan></text>
+  <text x="450" y="544" text-anchor="middle" class="tiny" fill="#7E5109">先做阶段 2 的驾驶 QA 微调（数据如 DriveLM），再考虑阶段 3 用“安全/舒适”偏好优化——但驾驶 reward 难以自动打分，</text>
+  <text x="450" y="560" text-anchor="middle" class="tiny" fill="#7E5109">所以多数驾驶 VLM 只做到阶段 2，阶段 3 交给后续的 RL（如 AlphaDrive / Flow-GRPO 系列）</text>
+</svg>

@@ -1,0 +1,80 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 620">
+  <style>
+    text { font-family: -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif; font-size: 13px; fill: #333; }
+    .title { font-size: 18px; font-weight: bold; fill: #1a1a2e; }
+    .sub { font-size: 12px; fill: #888; }
+    .box-title { font-size: 13px; font-weight: bold; fill: #fff; }
+    .note { font-size: 11px; fill: #555; }
+    .tiny { font-size: 10px; fill: #666; }
+  </style>
+
+  <text x="450" y="30" text-anchor="middle" class="title">第三代：LLaVA —— 证明 LLM 只需一个“翻译官”就能看懂图</text>
+  <text x="450" y="52" text-anchor="middle" class="sub">核心洞察：LLM 已经足够强，视觉特征只要翻译成它熟悉的格式即可（MLP 投影）</text>
+
+  <!-- Image -->
+  <rect x="50" y="110" width="150" height="65" rx="8" fill="#EBF5FB" stroke="#2980B9" stroke-width="1.5"/>
+  <text x="125" y="140" text-anchor="middle" class="box-title" fill="#2980B9">🖼 图像</text>
+  <text x="125" y="160" text-anchor="middle" class="tiny">336×336 / 高分辨率</text>
+
+  <!-- ViT -->
+  <rect x="250" y="100" width="170" height="85" rx="8" fill="#2980B9"/>
+  <text x="335" y="127" text-anchor="middle" class="box-title">ViT-L/14</text>
+  <text x="335" y="147" text-anchor="middle" class="tiny" fill="#D6EAF8">patch=14 → 576 个 patch</text>
+  <text x="335" y="163" text-anchor="middle" class="tiny" fill="#D6EAF8">输出 (576, 1024)</text>
+
+  <!-- MLP projector -->
+  <rect x="470" y="100" width="160" height="85" rx="8" fill="#8E44AD"/>
+  <text x="550" y="127" text-anchor="middle" class="box-title">MLP 投影层</text>
+  <text x="550" y="147" text-anchor="middle" class="tiny" fill="#E8DAEF">2 层全连接</text>
+  <text x="550" y="163" text-anchor="middle" class="tiny" fill="#E8DAEF">1024 → 4096（对齐 LLM）</text>
+
+  <!-- LLM -->
+  <rect x="680" y="100" width="170" height="230" rx="10" fill="#1F618D"/>
+  <text x="765" y="160" text-anchor="middle" class="box-title">LLM</text>
+  <text x="765" y="182" text-anchor="middle" class="tiny" fill="#D6EAF8">Vicuna / LLaMA 7B</text>
+  <text x="765" y="202" text-anchor="middle" class="tiny" fill="#D6EAF8">[视觉 token + 文本 token]</text>
+  <text x="765" y="222" text-anchor="middle" class="tiny" fill="#D6EAF8">一起做自回归生成</text>
+  <text x="765" y="246" text-anchor="middle" class="tiny" fill="#AED6F1">输出：文本回答</text>
+
+  <!-- Text path -->
+  <rect x="680" y="370" width="170" height="55" rx="8" fill="#FEF9E7" stroke="#F39C12" stroke-width="1.5"/>
+  <text x="765" y="394" text-anchor="middle" class="box-title" fill="#E67E22">📝 文本</text>
+  <text x="765" y="412" text-anchor="middle" class="tiny">tokenizer → 词嵌入 (L, 4096)</text>
+
+  <defs>
+    <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0,0 L10,5 L0,10 Z" fill="#555"/>
+    </marker>
+  </defs>
+
+  <line x1="200" y1="142" x2="246" y2="142" stroke="#555" stroke-width="2" marker-end="url(#arr)"/>
+  <line x1="420" y1="142" x2="466" y2="142" stroke="#8E44AD" stroke-width="2" marker-end="url(#arr)"/>
+  <line x1="630" y1="142" x2="676" y2="142" stroke="#1F618D" stroke-width="2" marker-end="url(#arr)"/>
+  <line x1="765" y1="369" x2="765" y2="334" stroke="#F39C12" stroke-width="2" marker-end="url(#arr)"/>
+
+  <text x="450" y="172" text-anchor="middle" class="tiny" fill="#8E44AD">投影（唯一可训练）</text>
+
+  <!-- Two stage training -->
+  <text x="450" y="330" text-anchor="middle" class="box-title" fill="#2C3E50">LLaVA 的两阶段训练</text>
+
+  <rect x="90" y="345" width="330" height="90" rx="8" fill="#EAF2F8" stroke="#2980B9"/>
+  <text x="255" y="370" text-anchor="middle" class="note" fill="#2471A3"><tspan font-weight="bold">阶段 1：预训练对齐（feature alignment）</tspan></text>
+  <text x="255" y="390" text-anchor="middle" class="tiny">数据：CC-595K 图文对（约 59.5 万）</text>
+  <text x="255" y="406" text-anchor="middle" class="tiny">只训练 MLP 投影层，LLM 冻结</text>
+  <text x="255" y="422" text-anchor="middle" class="tiny">任务：看图生成一句“这是什么”的描述</text>
+
+  <rect x="470" y="345" width="340" height="90" rx="8" fill="#FEF9E7" stroke="#F39C12"/>
+  <text x="640" y="370" text-anchor="middle" class="note" fill="#B9770E"><tspan font-weight="bold">阶段 2：指令微调（instruction tuning）</tspan></text>
+  <text x="640" y="390" text-anchor="middle" class="tiny">数据：158K 视觉指令（VQA + 对话）</text>
+  <text x="640" y="406" text-anchor="middle" class="tiny">训练 MLP + LLM（LoRA/全参）</text>
+  <text x="640" y="422" text-anchor="middle" class="tiny">任务：遵循“请描述图中危险物体”等指令</text>
+
+  <line x1="420" y1="390" x2="466" y2="390" stroke="#888" stroke-width="2" marker-end="url(#arr)"/>
+
+  <!-- Why mainstream -->
+  <rect x="90" y="470" width="720" height="100" rx="8" fill="#F7F9FB" stroke="#D5D8DC"/>
+  <text x="450" y="495" text-anchor="middle" class="note" fill="#2C3E50"><tspan font-weight="bold">为什么 LLaVA 成为主流框架？</tspan></text>
+  <text x="450" y="516" text-anchor="middle" class="tiny" fill="#555">1. 结构极简：ViT + 一层 MLP + LLM，任何研究者都能复现、改造</text>
+  <text x="450" y="534" text-anchor="middle" class="tiny" fill="#555">2. 训练配方清晰：两阶段、数据量公开，单卡 A100 训练一天可达接近 GPT-4V 的 VQA 性能</text>
+  <text x="450" y="552" text-anchor="middle" class="tiny" fill="#555">3. 生态繁荣：1.5 / NeXT / HR 等后续版本解决高分辨率问题，直接服务驾驶等对细节敏感的场景</text>
+</svg>
