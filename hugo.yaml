@@ -109,6 +109,10 @@ menu:
       name: 🚀 项目
       url: /posts/projects/
       weight: 5
+    - identifier: learnpath
+      name: 🗺️ 学习路径
+      url: /posts/thoughts/auto-driving-learning-path/
+      weight: 7
     - identifier: categories
       name: 📁 分类
       url: /categories/
