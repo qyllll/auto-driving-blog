@@ -631,7 +631,49 @@ $$ L^{PPO} = \mathbb{E}\left[ \max\left( -\frac{\pi_\theta}{\pi_{\theta_{old}}} 
 - 当 `A < 0`（这张图比平均差）：我们希望降低它的概率，但同样不想降太猛
   - ratio < 0.8 → clip 到 0.8 → clipped_loss 更大 → loss 取 max → 惩罚过度更新
 
-### 6.2 KL 惩罚项
+### 6.2 为什么 GRPO 用的是 PPO Loss？(GRPO vs PPO 的关系)
+
+很多人会疑惑：GRPO 和 PPO 到底啥关系？为什么 GRPO 的损失还是长 PPO 的样子？
+
+> **一句话结论：GRPO 的"组相对"只改了 advantage 怎么算；策略更新的损失函数确实延续了 PPO 的 clipped surrogate（带 clip 的 ratio loss）。**
+
+把 GRPO 拆成两件事看就明白了：
+
+```text
+GRPO =  PPO 的损失函数（clip ratio）  +  GRPO 特有的 advantage（组内归一化，不用 critic）
+        └──── 为什么 loss 是 PPO 样子的 ────┘    └────────── "组相对"在这 ──────────┘
+```
+
+**① advantage 怎么算 —— 这才是 GRPO 的创新点**
+
+- PPO 要训练一个 **critic 价值网络**去估计"这个状态有多好"，作为 baseline（基线）；
+- GRPO 把 critic **整个砍掉**，改用同一个 prompt 生成的 `G` 条轨迹的 reward **组内归一化**当 baseline：
+
+$$A_i = \frac{r_i - \mu}{\sigma}$$
+
+- "组相对"就在这里：比组内平均好→正，差→负。**这一步只改变 `A`，不改 loss 的"外壳"。**
+
+**② 策略更新损失 —— 沿用 PPO**
+
+不管 `A` 来自 critic 还是组内归一化，最终要更新的目标都是同一个 PPO 式子（见 6.1）：
+
+$$\text{ratio} = \exp\!\big(\log\pi_\theta - \log\pi_{\theta_{old}}\big), \qquad L = \mathbb{E}\Big[\min\big(\text{ratio}\cdot A,\; \operatorname{clip}(\text{ratio},1\pm\epsilon)\cdot A\big)\Big]$$
+
+GRPO 在损失这里**没有发明新东西**，直接继承 PPO 的 clip 技巧。所以你会看到"**advantage 换成组内算，但 loss 还是 PPO 那个**"。
+
+**为什么 loss 必须参考 PPO / 必须带 clip？**
+
+因为 GRPO 砍掉 critic 之后，如果连 clip 也拿掉，就退化成最朴素的 **REINFORCE**：
+
+- REINFORCE 方差大、一步更新就没谱，很容易"一步更新过猛导致崩溃"；
+- PPO 的 `clip(ratio, 1±ε)` 限制"新策略和旧策略偏离别超过 ε"，保证每步更新温和，**还能安全地同一批样本复用多轮**（提升样本效率）；
+- 文生图/驾驶这类 reward 稀疏又易 hack 的场景，还叠加了 **over-optimization**（reward 越编越高、图却越来越差）风险，`clip` + KL 惩罚正是压住它的。
+
+> **一句话记住：GRPO = 没有 critic（不用价值网络）的 PPO**——把"状态价值基线"换成"组内 reward 的均值/标准差"，其余损失设计（clip ratio + KL 惩罚）照搬 PPO。
+>
+> 补充：DeepSeek-R1 的 GRPO 有时也用**不带 clip 的 REINFORCE + KL**版本（加了 `beta·KL` 后 KL 本身就能"别偏太远"，所以不需要 clip）。但**驾控/文生图这种 reward 易 hack 的场景，clip 版更稳**——本仓库用的就是 clip 版。
+
+### 6.3 KL 惩罚项
 
 当 `config.train.beta > 0` 时，额外加一个 KL 惩罚：
 
@@ -652,7 +694,7 @@ loss = policy_loss + config.train.beta * kl_loss
 - 当前模型的预测均值 `prev_sample_mean` 不应偏离 reference 太远
 - KL 惩罚项防止 PPO 过度优化导致模型遗忘原始能力（catastrophic forgetting）
 
-### 6.3 日志指标
+### 6.4 日志指标
 
 ```python
 # train_flux_fast.py:863-888
