@@ -245,6 +245,12 @@ pipeline.transformer = get_peft_model(pipeline.transformer, transformer_lora_con
 ```
 只有 LoRA 参数可训练，Flux 的原始权重全部冻结。
 
+**对应公式（LoRA 注入）：**
+
+$$ h = W_0 x + \frac{\alpha}{r}\,B A\, x $$
+
+其中 $W_0\in\mathbb{R}^{d\times d}$ 是冻结的原权重，$A\in\mathbb{R}^{r\times d}$、$B\in\mathbb{R}^{d\times r}$ 是两个可训练的低秩矩阵（$r=64\ll d$），缩放系数 $\frac{\alpha}{r}=\frac{128}{64}=2$。所以"全量更新 $d^2$ 个参数"被压缩成"只更新 $2dr$ 个参数"，这就是 `r`、`alpha` 这两个超参数对应的数学。
+
 **Reward 函数工厂** (`train_flux_fast.py:554-558`):
 ```python
 reward_fn = getattr(flow_grpo.rewards, 'multi_score')(accelerator.device, config.reward_fn)
@@ -255,6 +261,12 @@ reward_fn = getattr(flow_grpo.rewards, 'multi_score')(accelerator.device, config
 ```python
 ema = EMAModuleWrapper(transformer_trainable_parameters, decay=0.9, update_step_interval=8)
 ```
+
+**对应公式（EMA 指数移动平均）：**
+
+$$ \theta_{\mathrm{ema}} \leftarrow \text{decay}\cdot\theta_{\mathrm{ema}} + (1-\text{decay})\cdot\theta $$
+
+即每隔 8 步把当前参数 $\theta$ 以 $0.1$ 的比例"混入"历史平均 $\theta_{\mathrm{ema}}$（`decay=0.9`），用滑动平均保留一个更稳的参数快照。
 
 ---
 
@@ -357,6 +369,12 @@ prev_sample_mean = sample * (1 + std_dev_t²/(2*sigma)*dt)
                  + model_output * (1 + std_dev_t²*(1-sigma)/(2*sigma)) * dt
 ```
 
+**对应公式：** 上面三行代码就是下面的均值公式（也就是附录/10.2 那个式子的代码形态）：
+
+$$ \text{mean} = x_t\Big(1+\frac{\sigma_{\mathrm{noise}}^2}{2\sigma}\Delta t\Big) + v_\theta\Big(1+\frac{\sigma_{\mathrm{noise}}^2(1-\sigma)}{2\sigma}\Big)\Delta t $$
+
+其中 `std_dev_t` 就是 $\sigma_{\mathrm{noise}}=\sqrt{\frac{\sigma}{1-\sigma}}\cdot\text{noise\_level}$，`model_output` 是 DiT 预测的速度 $v_\theta$，`dt` 是相邻两个噪声水平的差 $\Delta t=\sigma_{prev}-\sigma$。
+
 **第 2 件事**：从均值 + 噪声得到下一步 latent，并计算它的 log_prob
 ```python
 # sd3_sde_with_logprob.py:111-119
@@ -373,6 +391,14 @@ log_prob = -((prev_sample.detach() - prev_sample_mean)²) / (2 * (std_dev_t * �
 # sd3_sde_with_logprob.py:167: 除 batch 维外全部 mean 掉
 log_prob = log_prob.mean(dim=tuple(range(1, log_prob.ndim)))  # (B,) 每个样本一个标量
 ```
+
+**对应公式：** 上面代码分别是"采样一步"和"算这一步的对数概率"：
+
+$$ x_{t+1} = \text{mean} + \sigma_{\mathrm{noise}}\sqrt{-\Delta t}\;\varepsilon, \qquad \varepsilon\sim\mathcal{N}(0,I) $$
+
+$$ \log p(x_{t+1}\mid x_t) = -\frac{\|x_{t+1}-\text{mean}\|^2}{2\sigma_{\mathrm{noise}}^2(-\Delta t)} - \log\big(\sigma_{\mathrm{noise}}\sqrt{-\Delta t}\big) - \log\sqrt{2\pi} $$
+
+最后一行 `.mean(dim=...)` 是把 latent 的每个维度（`C×H×W`）的 log_prob 平均成一个标量，对应公式里 $\|\cdot\|^2$ 求和后再除以维度数。
 
 **注意这里**：`prev_sample.detach()`——在采样阶段 prev_sample 是刚随机采出来的，detach() 切断梯度。但如果你看训练阶段（稍后），情况会不同！
 
@@ -464,6 +490,12 @@ advantages = torch.clamp(
 ```
 防止个别 outlier advantage 主导训练。
 
+**对应公式：**
+
+$$ A_i^{\text{clip}} = \operatorname{clamp}\big(A_i,\; -c,\; c\big) = \begin{cases} -c & A_i < -c\\ A_i & -c \le A_i \le c\\ c & A_i > c\end{cases}, \qquad c=\texttt{adv\_clip\_max}=2.0 $$
+
+即把 A 超过 $[-2,2]$ 的部分"掐掉"，避免某一张图的极端高分/低分带偏整个梯度。
+
 ---
 
 ## 第 5 步：训练阶段——计算图如何构造？梯度如何流动？(核心!)
@@ -522,6 +554,14 @@ def compute_log_prob(transformer, pipeline, sample, j, config):
     return prev_sample, log_prob, prev_sample_mean, std_dev_t
 ```
 
+**对应公式：** 这一段代码做的事 = 用当前参数 $\theta$ 跑一次 SDE 步，并算这一步的对数概率：
+
+$$ \text{mean}_\theta = x_j\Big(1+\frac{\sigma_{\mathrm{noise}}^2}{2\sigma}\Delta t\Big) + v_\theta(x_j,t_j,c)\Big(1+\frac{\sigma_{\mathrm{noise}}^2(1-\sigma)}{2\sigma}\Big)\Delta t $$
+
+$$ \log p_\theta(x_{j+1}\mid x_j) = -\frac{\|x_{j+1}-\text{mean}_\theta\|^2}{2\sigma_{\mathrm{noise}}^2(-\Delta t)} - \log\big(\sigma_{\mathrm{noise}}\sqrt{-\Delta t}\big) - \log\sqrt{2\pi} $$
+
+注意这里 `prev_sample` 传入的是旧轨迹的 `next_latents[:, j]`（不是重新随机采），所以 $\log p_\theta(x_{j+1}\mid x_j)$ 表示"**旧轨迹那一步，在新参数 $\theta$ 看来有多可能**"——这正是 PPO ratio 需要的 $\log\pi_{\theta_{\text{new}}}$。
+
 **和采样阶段的关键区别：**
 
 | | 采样阶段 | 训练阶段 |
@@ -545,6 +585,12 @@ def compute_log_prob(transformer, pipeline, sample, j, config):
   × ∂model_pred/∂θ           (从 DiT 前向到 LoRA 参数——autograd 自动完成)
 ```
 
+**对应公式（链式法则）：**
+
+$$ \frac{\partial \mathcal{L}}{\partial \theta} = \underbrace{\frac{\partial \mathcal{L}}{\partial \log p}}_{\text{PPO loss 对 log\_prob}} \cdot \underbrace{\frac{\partial \log p}{\partial v_\theta}}_{\text{解析可得，见下}} \cdot \underbrace{\frac{\partial v_\theta}{\partial \theta}}_{\text{autograd 自动}} $$
+
+$\log p$ 只通过 $\text{mean}_\theta$（进而 $v_\theta$）依赖参数 $\theta$，且 $\text{mean}_\theta$ 是 $v_\theta$ 的线性函数，所以中间那项能直接手推出来，剩下两层交给 PyTorch。
+
 展开第二项：
 
 ```python
@@ -556,6 +602,12 @@ log_prob = -((prev_sample.detach() - prev_sample_mean)²) / (2 * var) - log(√(
 
 # ∂log_prob/∂model_pred = -(prev_sample - prev_sample_mean) / var * ∂prev_sample_mean/∂model_pred
 ```
+
+**对应公式（高斯 log_prob 对速度求导）：** 中间那一项可以手推闭式解，关键是 `prev_sample` 被 `.detach()` 了、只有 `prev_sample_mean` 带梯度：
+
+$$ \frac{\partial \log p}{\partial v_\theta} = \frac{x_{j+1}-\text{mean}_\theta}{\sigma_{\mathrm{noise}}^2(-\Delta t)} \cdot \Big(1+\frac{\sigma_{\mathrm{noise}}^2(1-\sigma)}{2\sigma}\Big)\Delta t $$
+
+推导：$\frac{\partial \log p}{\partial \text{mean}} = \frac{x_{j+1}-\text{mean}}{\sigma_{\mathrm{noise}}^2(-\Delta t)}$（对 log_prob 的第一项求导），再乘 $\frac{\partial \text{mean}}{\partial v_\theta} = \big(1+\frac{\sigma_{\mathrm{noise}}^2(1-\sigma)}{2\sigma}\big)\Delta t$（均值公式里 $v_\theta$ 的系数）。梯度只会顺着这条链流到 `model_pred`。
 
 因为 `prev_sample.detach()` 了，梯度不会流到 `prev_sample`，只会通过 `prev_sample_mean` 流到 `model_pred`。
 
@@ -604,6 +656,14 @@ for j in train_timesteps:                # 遍历窗口内的每一步
         optimizer.step()
         optimizer.zero_grad()
 ```
+
+**对应公式（窗口内第 $j$ 步的完整损失）：**
+
+$$ r_j(\theta) = \exp\!\big(\underbrace{\log p_\theta(x_{j+1}\mid x_j)}_{\texttt{log\_prob}} - \underbrace{\log p_{\theta_{old}}(x_{j+1}\mid x_j)}_{\texttt{sample['log\_probs'][:, j]}}\big) $$
+
+$$ L_j = \mathbb{E}\Big[\max\big(-A_j\,r_j(\theta),\; -A_j\,\operatorname{clip}\big(r_j(\theta),\,1-\epsilon,\,1+\epsilon\big)\big)\Big] $$
+
+若开启 KL 惩罚（见 6.3），最终 `loss = policy_loss + beta * kl_loss`（即 $L_j + \beta L^{KL}$）。
 
 ---
 
@@ -689,6 +749,12 @@ kl_loss = torch.mean(kl_loss)
 loss = policy_loss + config.train.beta * kl_loss
 ```
 
+**对应公式：**
+
+$$ L^{KL} = \frac{1}{2\sigma_{\mathrm{noise}}^2}\,\big\|\text{mean}_\theta(x_j) - \text{mean}_{\theta_{\text{ref}}}(x_j)\big\|^2, \qquad L = L^{PG} + \beta\,L^{KL} $$
+
+即"当前模型（开 LoRA）与 reference（禁用 LoRA）在同一个 $x_j$ 上预测的下一步均值不能差太远"，用 $v_\theta$ 一步的方差 $\sigma_{\mathrm{noise}}^2$ 做归一化。
+
 **设计动机：**
 - 通过 `disable_adapter()` 暂时禁用 LoRA 权重，得到 base model（reference）的预测均值
 - 当前模型的预测均值 `prev_sample_mean` 不应偏离 reference 太远
@@ -703,6 +769,14 @@ info["approx_kl"].append(0.5 * ((log_prob - sample["log_probs"][:, j]) ** 2).mea
 info["clipfrac"].append((|ratio - 1.0| > clip_range).float().mean())
     # 被 clip 的样本比例
 ```
+
+**对应公式：**
+
+$$ \text{approx\_kl} = \mathbb{E}\Big[ \tfrac{1}{2}\big(\log p_{\theta_{\text{new}}} - \log p_{\theta_{\text{old}}}\big)^2 \Big] $$
+
+$$ \text{clipfrac} = \mathbb{E}\big[ \mathbb{1}\{\,|r_j(\theta)-1|>\epsilon\,\} \big] $$
+
+两个都是监控指标：`approx_kl` 用"新旧 log_prob 之差的平方均值"近似 KL 散度，衡量策略每次更新偏离多远；`clipfrac` 统计有多少样本的 ratio 超出 $1\pm\epsilon$ 被裁剪（值偏高说明每次步子太大）。
 
 ---
 
