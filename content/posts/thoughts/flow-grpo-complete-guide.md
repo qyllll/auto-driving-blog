@@ -850,13 +850,179 @@ $$ L = L^{PG} + \beta L^{KL} $$
 
 ---
 
-## 附：关键流程图
+## 附：关键流程图 + 完整数学原理
 
-![GRPO Advantage 计算](/images/flowgrpo/flowgrpo_grpo_advantage.svg)
+下面三张流程图的目的是把正文里的公式**图形化**。结合图，我把每张图背后的数学公式完整写出来——尤其是**第二张 Flow Matching 图**，它是整条 `ODE → SDE → log_prob → GRPO` 链条的起点，也是最容易"看着网页代码却不知道在算什么的"地方。
+
+---
+
+### 附 A｜Flow Matching 图：原生 FM + ODE→SDE 的完整数学
 
 ![Flow Matching 去噪过程](/images/flowgrpo/flowgrpo_flow_matching.svg)
 
+上图描述的是**推理（采样）**时如何从纯噪声走到最终图片。要讲清楚它，得先把这几层数学拆开：**构建 → 训练 → 推理（ODE）→ 为什么转 SDE → 离散 SDE 一步 + log_prob**。
+
+**① 构建：线性插值轨迹（Rectified / Conditional Flow）**
+
+设 $x_0$ 是纯噪声（图里 `t=0` 端），$x_1$ 是目标图片（图里 `t=1` 端），$c$ 是 prompt 条件。在每个训练样本之间定义一条直线插值：
+
+$$
+x_t = (1-t)\,x_0 + t\,x_1, \qquad t\in[0,1]
+$$
+
+对 $t$ 求导就得到这条轨迹的**真实速度场**：
+
+$$
+u_t = \frac{dx_t}{dt} = x_1 - x_0
+$$
+
+关键点：$u_t$ 沿同一条插值轨迹是**常数**（正是图里 `x₁ = x₀ + v·Δt`、每步走"速度方向"的由来）。我们训练一个网络 $v_\theta(x_t,t,c)$ 去逼近这个速度。
+
+**② 训练目标：条件流匹配（Conditional Flow Matching, CFM）**
+
+$$
+\mathcal{L}_{\mathrm{CFM}} = \mathbb{E}_{t\sim U[0,1],\; x_0\sim p_0,\; x_1\sim q(\cdot\mid c)}\Big[\big\| v_\theta(x_t,t,c) - u_t \big\|^2\Big]
+= \mathbb{E}\Big[\big\| v_\theta(x_t,t,c) - (x_1-x_0) \big\|^2\Big]
+$$
+
+为什么这么简单一个**回归损失**就够？Flow Matching 的核心定理说：最小化条件流匹配损失，等价于让 $v_\theta$ 逼近能"把 $p_0$ 输运到数据分布 $q$"的**边缘向量场**。也就是说，只要网络学会在每个中间点 $x_t$ 上朝正确的速度方向走，沿时间积分就自然把噪声搬成图片——不需要像 GAN 那样判别器、也不需要 NH 的循环一致性。
+
+**③ 推理（生成）：确定性 ODE**
+
+训练好后，生成就是解一个确定性常微分方程（图里方框 `d x_t / dt = v_θ(x_t, t, prompt)`）：
+
+$$
+\frac{dx}{dt} = v_\theta(x,\;t,\;c), \qquad x_0\sim \mathcal{N}(0,I),\;\; t:0\to 1
+$$
+
+Euler 数值离散（图里 `x_{t+1} = x_t + v·Δt`，共 10 步）：
+
+$$
+x_{t+\Delta t} = x_t + v_\theta(x_t,t,c)\,\Delta t
+$$
+
+**纯 ODE 是确定性映射**：给定同一个 $x_0$ 和 prompt，永远得到同一张图。这是它用于生成时又快又稳的优点，但**恰恰是它不能直接接 GRPO 的原因**——见下一步。
+
+**④ 为什么接 GRPO 必须把 ODE 转成 SDE？**
+
+GRPO/PPO 是策略梯度方法，需要对"采样出当前这条轨迹 $\tau$ 的概率 $\pi_\theta(\tau)$"求梯度：
+
+$$
+\nabla_\theta \mathcal{L} = -\,\mathbb{E}_\tau\Big[\, A(\tau)\; \nabla_\theta \log\pi_\theta(\tau) \Big]
+$$
+
+这里必须满足两个条件，而纯 ODE 两个都不满足：
+
+- **必须要有随机性（可探索）**。ODE 里 $x_0\to x_T$ 是一一对应的确定性映射，策略熵为 0：给定状态没有"多种可能的下一步"，也就没有"往 reward 更好的方向多采样"这回事。没有随机性，策略梯度就无梯可导、无车可开。
+- **必须能算 $\log\pi_\theta(\tau)$**。PPO ratio 是 $\exp(\log\pi_{\theta_{\text{new}}} - \log\pi_{\theta_{\text{old}}})$，需要一个闭合、可微的逐跳概率。确定性 ODE 的单步转移是退化的（方差 0），$\log p$ 无处定义。
+
+所以做法是：**在同一速度场 $v_\theta$ 上注入高斯扩散噪声**，让"下一步"变成从高斯分布里采样，从而既有了随机性，又有了闭合的 $\log p$：
+
+$$
+dx_t = v_\theta(x_t,t,c)\,dt + g(t)\,dW_t
+$$
+
+其中 $W_t$ 是布朗运动，$g(t)$ 是噪声强度（代码里就是 `std_dev_t * sqrt(-dt)`，量级由 `noise_level` 控制）。
+
+**为什么这不算"扔掉学好的生成模型"？** 漂移项仍是训练好的 $v_\theta$——轨迹主体还是沿着学到的图片流形走，只是叠加了一个大小可调的扰动 $\sigma_{\mathrm{noise}}$ 负责探索。$\sigma_{\mathrm{noise}}$=0 就退回纯 ODE；**在整个扩散过程都加噪声**（$\sigma>0$）得到真正随机、可学的策略；只在一段窗口加则对应 Flow-GRPO-Fast（见附 C）。这也解释了图里下方的对比框：**Flow 学的是速度 $v$，DDPM 学的是噪声 $\varepsilon$，Flow 的轨迹是线性插值**——所以它们的 SDE 长得很像，但离散公式的系数完全不同。
+
+**⑤ 离散 SDE 一步：均值 + 高斯采样（对齐正文 10.2）**
+
+`sd3_sde_with_logprob.py` 把上面的连续 SDE 按 Euler–Maruyama 离散成一步，先是噪声强度：
+
+$$
+\sigma_{\mathrm{noise}} = \sqrt{\frac{\sigma}{1-\sigma}}\cdot \text{noise\_level}
+$$
+
+再算下一步均值（模型预测的方向）：
+
+$$
+\text{mean} = x_t\Big(1+\frac{\sigma_{\mathrm{noise}}^2}{2\sigma}\Delta t\Big) + v_\theta\Big(1+\frac{\sigma_{\mathrm{noise}}^2(1-\sigma)}{2\sigma}\Big)\Delta t
+$$
+
+然后从高斯里采样（这就是"随机策略"的落地点）：
+
+$$
+x_{t+1} \sim \mathcal{N}\big(\text{mean},\; \sigma_{\mathrm{noise}}^2(-\Delta t)\,\mathbf{I}\big)
+$$
+
+由于被建模成高斯转移核，它的对数概率是闭合的（对齐正文 10.3），正是训练阶段 ratio 需要的 $\log\pi_\theta(x_{t+1}\mid x_t)$：
+
+$$
+\log p(x_{t+1}\mid x_t)= -\,\frac{\|x_{t+1}-\text{mean}\|^2}{2\,\sigma_{\mathrm{noise}}^2(-\Delta t)} - \log\big(\sigma_{\mathrm{noise}}\sqrt{-\Delta t}\big) - \log\sqrt{2\pi}
+$$
+
+> **一句话串联（附 A）：** 纯 FM 教会 $v_\theta$ 速度（CFM 回归）→ 确定性 ODE 只能采样无梯度 → 给同一 $v_\theta$ 注入 $g(t)dW$ 变成 SDE → 单步是高斯的，$\log p$ 闭合可微 → 于是能算 PPO ratio 和 advantage，GRPO 才"有戏唱"。
+
+---
+
+### 附 B｜GRPO Advantage 图：组内归一化的数学
+
+![GRPO Advantage 计算](/images/flowgrpo/flowgrpo_grpo_advantage.svg)
+
+相位图展示的是 `PerPromptStatTracker`：同一个 prompt 生成 $G$ 张图 $\{img_1,\dots,img_G\}$，分别打分得到 $G$ 个 reward $\{r_1,\dots,r_G\}$。
+
+**① 组内统计（running mean/std）**
+
+$$
+\mu = \frac{1}{G}\sum_{i=1}^{G} r_i, \qquad
+\sigma = \sqrt{\frac{1}{G}\sum_{i=1}^{G}(r_i-\mu)^2 + 10^{-4}}
+$$
+
+代码里 `+1e-4` 是为了防止同组 reward 全相等时 $\sigma=0$ 导致除以零（训练信号消失）。
+
+**② Advantage（优势）**
+
+$$
+A_i = \frac{r_i - \mu}{\sigma}
+$$
+
+这就是"和同组平均水平比**多少个标准差**"。比均值好 → $A_i>0$；比均值差 → $A_i<0$。
+
+**③ 它怎么驱动训练（连接策略梯度）**
+
+把附 A 的 $\log\pi_\theta(\tau_i)$ 乘上 $A_i$，就得到每条轨迹对梯度的贡献：
+
+$$
+\nabla_\theta \mathcal{L} \;\supseteq\; -A_i\,\nabla_\theta \log\pi_\theta(\tau_i)
+$$
+
+- $A_i>0$（这图比同组平均好）→ 梯度方向**提高**该图轨迹的生成概率；
+- $A_i<0$（这图比平均差）→ 梯度方向**降低**该图轨迹的生成概率。
+
+**④ 为什么 GRPO 不需要 Critic？**
+
+PPO 的 advantage 是 $A(s,a)=Q(s,a)-V(s)$，需要再训练一个价值网络 $V$（参数量≈策略网络，显存翻倍）。GRPO 用**组内均值 $\mu$ 当基线**，**组内标准差 $\sigma$ 当尺度**，一句话替代了整个 critic。代价是采样量增大——组内样本 $G$ 必须足够多，$\mu,\sigma$ 才估得准。
+
+---
+
+### 附 C｜SDE 窗口图：滑动窗口 + 马尔可夫链的数学
+
 ![Flow-GRPO-Fast SDE 窗口](/images/flowgrpo/flowgrpo_fast_sde.svg)
+
+上图解决的是显存问题，背后的数学是这样的。
+
+**① 全链是一个离散马尔可夫链**
+
+记去噪轨迹 $x_0,x_1,\dots,x_N$（$N$=10 步），每步只依赖上一步：
+
+$$
+p(x_0,\dots,x_N\mid c) = p(x_0)\prod_{k=1}^{N}p(x_k\mid x_{k-1},\;c)
+$$
+
+单步转移 $p(x_k\mid x_{k-1},c)$ 正是附 A 的高斯核。理论上要想对"整条轨迹"取期望回报，所有 $N$ 步的高斯核都要在计算图里求导——但每步都要过 12B 的 DiT，全部存下来显存直接 OOM。
+
+**② 窗口只保留概率化步骤**
+
+窗口内（后 `window_size` 步）才注入噪声并记录 $\log p$（恢复 `noise_level`，走 SDE）；窗口外前面几步设 `noise_level=0`，退化为**确定性 ODE**——此时转移核退化为方差 0 的退化高斯，$\log p$ 无定义，也无需记录。于是损失只对窗口内的步骤求期望：
+
+$$
+\mathcal{L} \approx -\sum_{k\in\,\text{window}} A\,\log p_\theta(x_k\mid x_{k-1},c)
+$$
+
+**③ 为什么梯度仍能回传？**
+
+损失的 `backward()` 只展开窗口内那几步的计算图（对应 `torch.no_grad()` 前、后段的区别），**显存只存窗口内的 DiT 激活**（如 `window_size=5` → 约 60B 激活 → ~36GB）。窗口内每步都复用同一个权重 $v_\theta$，由链式法则，窗口路径的梯度会正常累积到 $v_\theta$。代价/近似是：窗口外的确定性步骤不贡献梯度（它们的作用仅仅是把 $x_0$ 推进到窗口起点），这是 Flow-GRPO-Fast 在"完整梯度"与"显存可行"之间做的取舍。
 
 ---
 
