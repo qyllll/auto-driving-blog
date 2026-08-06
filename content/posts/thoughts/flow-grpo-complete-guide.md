@@ -127,34 +127,46 @@ Flow-GRPO **不是一篇只能读的论文，而是一份完整的开源代码�
 
 ![flow_grpo 代码仓库结构](/images/flowgrpo/flowgrpo_repo_structure.svg)
 
-### train_flux_fast.py 和 train_flux.py 有什么区别？
+### train_flux_fast.py 和 train_flux.py 有什么区别？先厘清三个"步数"
+
+读代码前先分清三个容易混淆的步数概念，否则后面全是坑：
+
+| 概念 | 含义 | 取值 |
+|------|------|------|
+| `num_steps` | **训练时完整去噪的步数**（每次采样走几步生成一张图） | SD3 系默认 **10**、FLUX 系默认 **6** |
+| `eval_num_steps` | **推理/评测时的步数**（只用于 `eval` 函数） | 通常 40 或 50 |
+| `sde_window_size` | **fast 版参与梯度计算的窗口宽度**（分位数） | 各配置不同：3、2、4 都有，**没有统一默认值** |
+
+> ⚠️ **"40 步"是 `eval_num_steps`（评测步数），不是训练步数。** 下面的 fast vs 基础版对比里，基础版"参与梯度计算的步数 = 40"指的是**评测/长时间步**场景，不要和训练采样（10 步）搞混。
 
 很多文件名带 `_fast` 后缀（`train_flux_fast.py`、`flux_pipeline_with_logprob_fast.py`）。它们和基础版**训练逻辑完全一样，只有一处关键区别——采样时记录梯度的 timestep 数量**：
 
 | | 基础版 `train_flux.py` | fast 版 `train_flux_fast.py` |
-|--|----------------------|-----------------------------|
+|--|----------------------|----------------------|
 | 导入的采样器 | `flux_pipeline_with_logprob.py` | `flux_pipeline_with_logprob_fast.py` |
-| 参与梯度计算的步数 | **全部** `num_steps`（默认 40 步） | **只有** `sde_window_size` 步（默认 2，随机窗口） |
-| 训练步数 `num_train_timesteps` | `int(num_steps × timestep_fraction)` = 40 | `sde_window_size` = 2（`main()` 里 `config.sample.sde_window_size`） |
+| 参与梯度计算的步数 | **全部** `num_steps`（训练采样步） | **只有** `sde_window_size` 步（随机窗口） |
+| 训练步数 `num_train_timesteps` | `int(num_steps × timestep_fraction)` | `config.sample.sde_window_size`（`main()` 里第 340 行） |
 | 窗口外如何采样 | 每一步都是 SDE | 窗口外用**确定性 ODE**（`noise_level=0`，不记梯度） |
-| 计算图大小 | 40 步全部展开 → **显存爆炸** | 只展开 2 步 → **显存小、速度快** |
+| 计算图大小 | 全部步展开 → **显存爆炸** | 只展开 window_size 步 → **显存小、速度快** |
 | log_prob 记录 | 每一步都记录 | 只在窗口内记录 |
 | 采样返回 | `image, latents, image_ids, text_ids, log_probs` | 额外多返回 `timesteps` |
+
+一个具体的数值例子（`geneval_flux_fast` 配置）：`num_steps=6`、`sde_window_size=3`、`sde_window_range=(0, 3)`。每次采样走 **6 步**去噪生成图，但只有随机选的 **3 步**（例如第 2、3、4 步）进计算图参与梯度。
 
 核心代码对比（`diffusers_patch/` 下的两个文件）：
 
 ```python
 # flux_pipeline_with_logprob.py（基础版）：每个 timestep 都记录
-for i, t in enumerate(timesteps):               # 40 步全走 SDE
+for i, t in enumerate(timesteps):               # num_steps 步全走 SDE
     latents, log_prob, _, _ = sde_step_with_logprob(
-        scheduler, noise_pred, t, latents, noise_level=noise_level, ...)
+        scheduler, noise, t, latents, noise_level=noise_level, ...)
     all_latents.append(latents)                 # 每一步都进计算图
     all_log_probs.append(log_prob)
 ```
 
 ```python
 # flux_pipeline_with_logprob_fast.py（fast 版）：只在窗口内记录
-sde_window = (start, start + sde_window_size)   # 随机选 2 步窗口
+sde_window = (start, start + sde_window_size)   # 随机选 window_size 步窗口
 for i, t in enumerate(timesteps):
     cur_noise_level = noise_level if (窗口起点 <= i < 窗口终点) else 0
     latents, log_prob, _, _ = sde_step_with_logprob(..., noise_level=cur_noise_level)
@@ -163,9 +175,9 @@ for i, t in enumerate(timesteps):
         all_log_probs.append(log_prob)
 ```
 
-**为什么这样省显存？** 因为训练时 `loss.backward()` 要沿着计算图回传，计算图里每多一个 timestep 就要多存一份 DiT 的中间激活值（Flux 有 12B 参数，一份激活就有几十 GB）。基础版把 40 步全部展开，直接 OOM；fast 版只展开 2 步，显存可控。
+**为什么这样省显存？** 因为训练时 `loss.backward()` 要沿着计算图回传，计算图里每多一个 timestep 就要多存一份 DiT 的中间激活值（Flux 有 12B 参数，一份激活就有几十 GB）。基础版把全部步展开，直接 OOM；fast 版只展开 window_size 步，显存可控。
 
-**为什么只用 2 步也够用？** 因为 SDE 是马尔可夫的：第 j 步的 latent 只由第 j-1 步决定。虽然每次 backward 只回传窗口内的梯度，但模型参数是共享的——只要窗口随机滑过各个位置，长期看每个 timestep 都会被训练到（`sde_window_range` 控制窗口滑动的范围）。
+**为什么只用几步也够用？** 因为 SDE 是马尔可夫的：第 j 步的 latent 只由第 j-1 步决定。虽然每次 backward 只回传窗口内的梯度，但模型参数是共享的——只要每个 epoch 随机窗口滑过不同位置（`sde_window_range` 控制起点范围），长期看每个 timestep 都会被训练到，是一种"逐步轮流覆盖"的均匀采样。
 
 > 一句话总结：**fast 版 = 基础版 + SDE 窗口，牺牲一点点梯度完整性，换来 10~20 倍显存节省。** 代码里 `_fast` 的后缀就是这个意思。
 
@@ -233,7 +245,7 @@ accelerator = Accelerator(
     gradient_accumulation_steps=config.train.gradient_accumulation_steps * num_train_timesteps,
 )
 ```
-注意 `num_train_timesteps` = `config.sample.sde_window_size`（默认 5）——梯度累积步数乘以 window_size，因为每一步 DiT 前向都算一次梯度累积。
+注意 `num_train_timesteps` = `config.sample.sde_window_size`（`train_flux_fast.py:339-342`，值因配置而异，如 3 / 2 / 4）——梯度累积步数乘以 window_size，因为**窗口内的每一步 DiT 前向都算一次梯度累积**，一个训练微批次（iter）内部每个 timestep 都要累积一次梯度、最后合起来做一次 optimizer 更新。
 
 **LoRA 注入** (`train_flux_fast.py:414-441`):
 ```python
@@ -244,6 +256,25 @@ transformer_lora_config = LoraConfig(
 pipeline.transformer = get_peft_model(pipeline.transformer, transformer_lora_config)
 ```
 只有 LoRA 参数可训练，Flux 的原始权重全部冻结。
+
+**那到底在更新什么？（重要）**
+`train_flux_fast.py:383` 有一个前提：
+```python
+pipeline.transformer.requires_grad_(not config.use_lora)   # use_lora=True → 全冻结
+```
+`use_lora=True` 时整个 transformer 的原始权重 `requires_grad=False`，optimizer（第 466 行）只接收 `transformer_trainable_parameters`（第 444 行过滤出的 `requires_grad` 参数）＝**只有 LoRA 的 A/B 矩阵**。所以 `backward()` 的梯度一路沿速度场网络回传，最终只落在 LoRA 参数上——**Flux 的 12B 原始权重整个训练过程一个数都不变**。
+
+那"生成能力"是怎么被改的？`W = W0 + (α/r)·B·A`：LoRA 的 A/B 微调 → 每层 attention/FFN 输出跟着变 → 同一个 DiT 网络输出的**速度场 v_θ 方向被悄悄改了** → 采样出的图片/轨迹就更符合 reward。**你可以把整个 Flow-GRPO 理解成：通过只动 LoRA，把"去噪轨迹上的每一步速度"往 reward 期望的方向推。**
+
+**EMA 包装器**（`flow_grpo/ema.py`，`train_flux_fast.py:446-446`）：
+```python
+ema = EMAModuleWrapper(transformer_trainable_parameters, decay=0.9, update_step_interval=8, ...)
+```
+EMA = 指数滑动平均（Exponential Moving Average）：给 LoRA 参数额外维护一套"影子参数"，按 `shadow += (1-decay)·(param - shadow)` 缓慢追随实时参数。它的角色：
+- **训练中**：optimizer 更新的是实时参数，EMA 影子每 8 步平均一次，decay=0.9 → 大约把最近 20×8=160 步平均掉（`ema.step` `train_flux_fast.py:917`）；
+- **评测/存盘时**：`copy_ema_to`（eval 第 222 行 / save 第 324 行）把平滑后的影子参数**临时拷回模型**再跑评估/存权重，因为训练中的参数抖，平均后更稳、reward 曲线更光滑；跑完 `copy_temp_to`（第 311 行）还原回实时参数。
+
+> 一句话：**实时参数负责"冲"，EMA 影子负责"记"——评测和存盘用的是记下来的稳定版本。**
 
 **对应公式（LoRA 注入）：**
 
@@ -289,9 +320,9 @@ for i in range(config.sample.num_batches_per_epoch):
         images, latents, image_ids, text_ids, log_probs, timesteps = pipeline_with_logprob(
             pipeline,
             prompt_embeds=prompt_embeds,
-            num_inference_steps=config.sample.num_steps,     # 默认 10
+            num_inference_steps=config.sample.num_steps,     # 训练采样步数（SD3 默认 10 / FLUX 默认 6）
             guidance_scale=config.sample.guidance_scale,
-            sde_window_size=config.sample.sde_window_size,   # 默认 5
+            sde_window_size=config.sample.sde_window_size,   # 窗口宽，各配置不同（如 3/2/4）
             sde_window_range=config.sample.sde_window_range,
             sde_type=config.sample.sde_type,
         )
@@ -306,10 +337,21 @@ for i in range(config.sample.num_batches_per_epoch):
 
 **关键理解：** `pipeline_with_logprob` 返回了 `log_probs`——这是**旧模型**（当前参数）下，生成这张图片的 SDE 轨迹中每一步的 log_prob。它们将作为 `π_θ_old` 的行为，用于后续的 PPO ratio 计算。
 
+**逐步 log_prob vs 整条轨迹的总 log_prob**（这里先厘清，后文 training 会用到）：
+
+假设 `num_steps=10`（然后 fast 版窗口挑了其中 `window_size` 步记录）。每步返回一个 log_prob，对应去噪轨迹上那一步的转移概率：
+```
+x_0 --log p(x_1|x_0)--> x_1 --log p(x_2|x_1)--> ... --log p(x_10|x_9)--> x_10(图)
+```
+整条轨迹的总对数概率（马尔可夫连乘取 log）是**各步之和**：
+$$\log\pi_\theta(\tau) = \sum_k \log p_\theta(x_{k+1}\mid x_k)$$
+
+但 **Flow-GRPO 代码里并不显式打这个总和**——它把 log_prob 保持成**逐 timestep 的向量**（shape `(B, window_size)`），因为 PPO 的 ratio 也是**逐 step 算、逐 step 用同一个 advantage 加权**（见 5.4）。数学上"先求和得总 log，再取 exp 得总 ratio（连乘）"与"每一步单独算 ratio、分别加权"在梯度上等价，所以代码偷懒（也省显存）只保留逐步版本。
+
 ### 2.2 pipeline_with_logprob 内部 (`flux_pipeline_with_logprob_fast.py:23-213`)
 
 ```
-输入: prompt_embeds, num_inference_steps=10, sde_window_size=5, noise_level=0.7
+输入: prompt_embeds, num_inference_steps=10, sde_window_size=3, noise_level=0.7
 输出: images, all_latents, image_ids, text_ids, all_log_probs, all_timesteps
 ```
 
@@ -319,9 +361,9 @@ for i in range(config.sample.num_batches_per_epoch):
 if sde_window_size > 0:
     start = randint(sde_window_range[0], sde_window_range[1] - sde_window_size)
     end = start + sde_window_size
-    sde_window = (start, end)              # 例如 (2, 7)，表示只记录第 3-7 步的 log_prob
+    sde_window = (start, end)              # 例如 (2, 5)，表示只记录第 3-5 步的 log_prob
 else:
-    sde_window = (0, len(timesteps) - 1)   # 全部记录
+    sde_window = (0, len(timesteps) - 1)   # 全部记录（最后一步接近图片，分布很尖，易精度溢出，故 -1）
 ```
 
 **去噪循环** (`flux_pipeline_with_logprob_fast.py:158-202`):
@@ -502,6 +544,10 @@ $$ A_i^{\text{clip}} = \operatorname{clamp}\big(A_i,\; -c,\; c\big) = \begin{cas
 
 这是整个文章最重要的部分。训练阶段的代码在 `train_flux_fast.py:803-917`。
 
+> ⚠️ **先澄清一个最常见的误解**（你可能会一直嘀咕"不是要学速度场吗？"）：
+> **训练阶段不是重新生成一条新轨迹，而是把采样阶段已经走好的"旧轨迹"放回新模型面前，重新给每个已发生步骤打分。**
+> 这里的模型**加载时已经会画画了**（速度场 v_θ 在 SFT/Flow Matching 预训练里就学好了）。Flow-GRPO 的"训练"**不是学 v_θ 本身，而是用 LoRA 把 v_θ 的方向往 reward 期望的方向推一点**。所以你在训练循环里看不到 `v_target` 这种监督——你看到的一堆 latent / log_prob / ratio，正是"旧轨迹在新模型下"的评分。整个训练代码里看不见"学习速度场"的固定 $$\frac{\partial v}{\partial t}$$ 目标，因为**速度场是现成的，改的是它上面插的 LoRA**。
+
 ### 5.1 总体结构
 
 ```python
@@ -510,7 +556,7 @@ $$ A_i^{\text{clip}} = \operatorname{clamp}\big(A_i,\; -c,\; c\big) = \begin{cas
 for inner_epoch in range(config.train.num_inner_epochs):
     pipeline.transformer.train()        # 切到 train 模式
     for i, sample in enumerate(samples_batched):
-        for j in train_timesteps:       # j = 0,1,2,3,4  (window_size 步)
+        for j in train_timesteps:       # j 遍历窗口内 num_train_timesteps 步
             with accelerator.accumulate(transformer):
                 # 5.2 计算 log_prob_new (关键!)
                 prev_sample, log_prob, prev_sample_mean, std_dev_t = compute_log_prob(
@@ -614,7 +660,7 @@ $$ \frac{\partial \log p}{\partial v_\theta} = \frac{x_{j+1}-\text{mean}_\theta}
 **重要：计算图只包含当前第 j 步！**
 - `sample["latents"][:, j]` 是 detached 的（采样阶段产生，不参与计算图）
 - 所以梯度只从第 j 步的 model_pred 反向传播到 LoRA 参数
-- **为什么这可行？** SDE 的马尔可夫性质：第 j 步的 latent 只由第 j-1 步决定。虽然每一步的梯度只包含一步的信息，但经过 window_size=5 步的累积（循环 5 次 `compute_log_prob` + `backward`），梯度实际上包含了从窗口起点到终点的完整信息。
+- **为什么这可行？** SDE 的马尔可夫性质：第 j 步的 latent 只由第 j-1 步决定。虽然每一步的梯度只包含一步的信息，但经过 window_size 步的累积（循环 `num_train_timesteps` 次 `compute_log_prob` + `backward`），梯度实际上包含了从窗口起点到终点的完整信息。
 
 ### 5.4 Loss 在训练循环中的位置
 
@@ -778,6 +824,16 @@ $$ \text{clipfrac} = \mathbb{E}\big[ \mathbb{1}\{\,|r_j(\theta)-1|>\epsilon\,\} 
 
 两个都是监控指标：`approx_kl` 用"新旧 log_prob 之差的平方均值"近似 KL 散度，衡量策略每次更新偏离多远；`clipfrac` 统计有多少样本的 ratio 超出 $1\pm\epsilon$ 被裁剪（值偏高说明每次步子太大）。
 
+### 6.5 ratio 是"每步"还是"总"？——逐步各算，等价于总体连乘
+
+你可能会想：PPO 的 ratio 不是应该用**整条轨迹** $\pi_\theta(\tau)/\pi_{\theta_{old}}(\tau)$ 吗？为什么代码里 `ratio = torch.exp(log_prob - sample["log_probs"][:, j])` 只有第 j 步？
+
+- **每步独立算**：`ratio_j = π_θ(x_{j+1}|x_j) / π_θ_old(x_{j+1}|x_j)`，只用到第 j 步的转移概率；
+- **整条轨迹**：$\text{ratio}_\tau = \frac{\pi_\theta(\tau)}{\pi_{\theta_{old}}(\tau)} = \prod_j \frac{\pi_\theta(x_{j+1}|x_j)}{\pi_{\theta_{old}}(x_{j+1}|x_j)} = \prod_j \text{ratio}_j$（马尔可夫连乘，取 log 就是各步 log_prob 之差的和）；
+- **为什么逐步算没问题**：PPO 损失对每步取 `min(wA, clip(w)A)`，advantage 对每个 timestep 用的是**同一个** $A_j=A$（`train_flux_fast.py:745` 把 `adv` 沿 timestep 维复制了 `num_train_timesteps` 次）。于是"一条轨迹的梯度" = 各步梯度之和，与"先乘出总 ratio 再算"在数学上一致，只差 clip 边界的实现细节——这也是 PPO 的标准做法。
+
+**一句话：你不用在代码里找"总 log_prob 求和"，它被隐式地分散在每一步的梯度里。**
+
 ---
 
 ## 第 7 步：一次完整的训练迭代——按时间线串联
@@ -791,11 +847,10 @@ $$ \text{clipfrac} = \mathbb{E}\big[ \mathbb{1}\{\,|r_j(\theta)-1|>\epsilon\,\} 
 **① 采样阶段** (`pipeline.transformer.eval()`，no_grad)
 1. 读 prompts = `["a red cat", "blue dog", ...]`（每 GPU 1 个）
 2. T5 编码 → prompt_embeds
-3. `pipeline_with_logprob`（10 步 SDE，window_size=5）
-   - 第 0-4 步：ODE，noise=0，不记录
-   - 第 5-8 步：SDE，noise=0.7，记录 latent + log_prob_old
-   - 第 9 步：ODE，noise=0，不记录
-   - 返回 images (B,3,512,512) 和 log_probs_old (B,5)
+3. `pipeline_with_logprob`（10 步去噪，其中窗口 3 步随机 SDE）
+   - 随机选一个窗口，例如第 2-5 步：SDE，noise=0.7，记录 latent + log_prob_old
+   - 窗口外（第 0-1、6-9 步）：ODE，noise=0，不记录
+   - 返回 images (B,3,512,512) 和 log_probs_old (B,3)
 4. `executor.submit(reward_fn, ...)` 异步提交 reward 计算
 5. 存储 latents / timesteps / prompt_embeds 供训练阶段复用
 
@@ -808,7 +863,7 @@ $$ \text{clipfrac} = \mathbb{E}\big[ \mathbb{1}\{\,|r_j(\theta)-1|>\epsilon\,\} 
 3. A 裁剪到 [-2.0, 2.0]
 
 **④ 训练阶段** (`pipeline.transformer.train()`，梯度开启)
-- inner_epoch=0 里，j 从 0 到 4（window_size=5 步），每步：
+- inner_epoch=0 里，j 遍历窗口内的 `num_train_timesteps` 步（例 window_size=3），每步：
   1. `transformer(latents[:,j], ...) → model_pred`（前向，梯度开启）
   2. `sde_step_with_logprob(..., prev_sample=next_latents[:,j]) → log_prob_new`
   3. `ratio = exp(log_prob_new - log_probs_old[:,j])`
@@ -817,7 +872,7 @@ $$ \text{clipfrac} = \mathbb{E}\big[ \mathbb{1}\{\,|r_j(\theta)-1|>\epsilon\,\} 
   6. `loss = policy_loss + β·KL_loss`
   7. `accelerator.backward(loss)` → 梯度累加到 LoRA 参数
   8. `optimizer.step()` → LoRA 参数更新
-- 全部 5 步完成后：epoch + 1，回到采样阶段
+- 窗口内所有步完成后：epoch + 1，回到采样阶段
 
 ---
 
@@ -843,7 +898,7 @@ with torch.no_grad():                               # 不记录任何梯度
 
 | | 训练采样阶段 | 推理阶段 |
 |--|------------|---------|
-| `sde_window_size` | 5 | **0**（全 ODE） |
+| `sde_window_size` | `sde_window_size`（如 3） | **0**（全 ODE） |
 | `noise_level` | 0.7 | **0**（不加噪声） |
 | `requires_grad` | ❌ | ❌ |
 | 返回 `log_probs` | ✅ 需要 | **不返回**（`_` 丢弃） |
@@ -853,6 +908,34 @@ with torch.no_grad():                               # 不记录任何梯度
 - 推理只关心图片质量，不需要计算 log_prob
 - ODE（noise_level=0）生成的图片更清晰、质量更高
 - SDE 在训练时是为了引入随机性 → 多样性 → group 内 reward 出现差异 → advantage 信号
+
+### 8.1 采样 / 训练 / 推理三阶段到底各干什么？（一张表收尾）
+
+到这里所有函数都出现了，最后把三阶段的职责和它们共用的函数一次性理清。**你会发现同一个 `sde_step_with_logprob` 被三处调用，只是 `prev_sample` 传的东西不同**：
+
+| | 采样阶段 (SAMPLE) | 训练阶段 (TRAIN) | 推理阶段 (EVAL) |
+|--|------------------|------------------|----------------|
+| **代码位置** | `train_flux_fast.py:610-712` | `train_flux_fast.py:803-917` | `train_flux_fast.py:220-311` |
+| **目标** | 用**当前(旧)模型**生成图片，并**记录旧概率** | 让新模型给旧轨迹**重新打分**，算 PPO loss | 用（EMA 平滑的）模型纯生成，测 reward |
+| **有梯度吗** | ❌ `no_grad` | ✅ `requires_grad` | ❌ |
+| **`prev_sample` 参数** | `None` → 函数**掷骰子随机生成**下一步 | `sample["next_latents"][:, j]` → **不采样**，只算已发生步骤的概率 | `None`，但 `noise_level=0` → **纯 ODE 不掷骰子** |
+| **返回的 log_prob 是** | $\log p_{\theta_{old}}$（旧概率） | $\log p_{\theta}$（新概率） | 不需要（丢弃） |
+| **产出** | 图片、轨迹 $x_0..x_N$、`log_probs_old` | `loss` → `backward` → 更新 LoRA | 图片 + reward |
+| **调用链** | `pipeline_with_logprob` → `sde_step_with_logprob(prev=None)` | `compute_log_prob` → `sde_step_with_logprob(prev=next_latents)` | `pipeline_with_logprob(window=0, noise=0)` |
+
+**为什么同一个函数三处都能用？** 看 `sd3_sde_with_logprob.py:111-119` 的分支：
+```python
+if prev_sample is None:          # 采样/推理：自己掷骰子生成下一步
+    prev_sample = prev_sample_mean + std_dev_t * sqrt(-dt) * noise
+# 不管 prev_sample 从哪来，log_prob 永远是：
+#   拿已知的 prev_sample 对比当前模型的 prev_sample_mean（高斯分布中心）
+```
+log_prob 的定义只依赖"**已知点 vs 模型分布中心**"，所以：
+- 采样时 `prev_sample` 是刚掷出的点 → 记下的是旧模型掷出它的概率；
+- 训练时 `prev_sample` 换成已固定的旧轨迹点 → 算的是新模型眼里旧轨迹上这个点的概率 = `log_prob_new`；
+- 推理时 `noise_level=0` 使 `std_dev_t=0` → SDE 退化为 ODE → 不再随机，也就不需要概率。
+
+> **一个图**：三阶段的循环关系就是上面 `flowgrpo_overview.svg` 画的：**采样 → reward → advantage → 训练 → 回到采样**。推理只在 eval 时独立跑，不参与闭环。
 
 ---
 
@@ -1270,7 +1353,7 @@ $$
 
 **③ 为什么梯度仍能回传（不会断）？**
 
-- `backward()` 只展开窗口内那几步的计算图，所以**显存只存窗口内的 DiT 激活**（`window_size=5` → 约 60B 激活 → ~36GB），窗口外步骤在 `no_grad` 下算完，只把最终 latent 递给窗口。
+- `backward()` 只展开窗口内那几步的计算图，所以**显存只存窗口内的 DiT 激活**（`window_size` 步，如 `geneval_flux_fast` 的 3 步 → 约 36B 激活 → ~22GB），窗口外步骤在 `no_grad` 下算完，只把最终 latent 递给窗口。
 - 因为窗口内每步都**复用同一套权重 $v_\theta$**，由链式法则，窗口路径的梯度会正常累积到所有参数上——不会因为窗口小就"传不回去"。
 - 真正的取舍：窗口外的步骤**不贡献梯度**（它们只负责把 $x_0$ 推进到窗口起点）。这是 Flow-GRPO-Fast 用"梯度近似"换"显存可行"的妥协。
 

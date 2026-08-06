@@ -95,5 +95,5 @@
   <rect x="90" y="675" width="540" height="70" rx="10" fill="#EBF8FF" stroke="#63B3ED" stroke-width="1.5"/>
   <text x="360" y="697" text-anchor="middle" font-size="12" font-weight="bold" fill="#2B6CB0">为什么只有单步计算图也够用？</text>
   <text x="360" y="717" text-anchor="middle" font-size="10" fill="#4A5568">SDE 的马尔可夫性：第 j 步 latent 只由第 j-1 步决定</text>
-  <text x="360" y="735" text-anchor="middle" font-size="10" fill="#4A5568">循环 5 次（window_size=5）累积后，梯度含窗口内全部信息</text>
+  <text x="360" y="735" text-anchor="middle" font-size="10" fill="#4A5568">循环 window_size 次（如 3 步）累积后，梯度含窗口内全部信息</text>
 </svg>

@@ -51,23 +51,23 @@
 
   <!-- Window bracket -->
   <rect x="540" y="320" width="280" height="35" rx="6" fill="#E6FFFA" stroke="#38A169" stroke-width="2"/>
-  <text x="680" y="343" text-anchor="middle" font-size="12" font-weight="bold" fill="#276749">梯度窗口（window_size=5）</text>
+  <text x="680" y="343" text-anchor="middle" font-size="12" font-weight="bold" fill="#276749">梯度窗口（window_size 步）</text>
 
   <path d="M125,285 Q125,340 540,340" fill="none" stroke="#A0AEC0" stroke-width="1.5" stroke-dasharray="4,2"/>
   <path d="M125,285 Q125,340 540,340" fill="none" stroke="#A0AEC0" stroke-width="1.5" stroke-dasharray="4,2"/>
 
   <!-- Labels under steps -->
   <rect x="150" y="335" width="300" height="40" rx="6" fill="#FFF5F5" stroke="#FC8181" stroke-width="1" />
-  <text x="300" y="355" text-anchor="middle" font-size="10" font-weight="bold" fill="#C53030">前 5 步：torch.no_grad()</text>
+  <text x="300" y="355" text-anchor="middle" font-size="10" font-weight="bold" fill="#C53030">窗口外：torch.no_grad()</text>
   <text x="300" y="369" text-anchor="middle" font-size="9" fill="#718096">不记录计算图，仅存储最后 latent x</text>
 
   <rect x="550" y="370" width="280" height="40" rx="6" fill="#F0FFF4" stroke="#68D391" stroke-width="1" />
-  <text x="690" y="390" text-anchor="middle" font-size="10" font-weight="bold" fill="#276749">后 5 步：开启梯度记录</text>
+  <text x="690" y="390" text-anchor="middle" font-size="10" font-weight="bold" fill="#276749">窗口内：开启梯度记录</text>
   <text x="690" y="404" text-anchor="middle" font-size="9" fill="#718096">构造计算图，loss.backward() 传播到</text>
 
   <!-- Code snippet -->
   <rect x="50" y="460" width="800" height="80" rx="8" fill="#1A202C" stroke="#4A5568" stroke-width="1.5"/>
-  <text x="60" y="480" font-size="10" fill="#A0AEC0" font-family="'Fira Code','Cascadia Code',monospace"># 前 N 步（不记录梯度）</text>
+  <text x="60" y="480" font-size="10" fill="#A0AEC0" font-family="'Fira Code','Cascadia Code',monospace"># 窗口外（不记录梯度）</text>
   <text x="60" y="497" font-size="10" fill="#A0AEC0" font-family="'Fira Code','Cascadia Code',monospace">for i in range(num_inference_steps - window_size):</text>
   <text x="80" y="514" font-size="10" fill="#A0AEC0" font-family="'Fira Code','Cascadia Code',monospace">x = model(x, t, prompt_embeds)  # torch.no_grad()</text>
   <text x="60" y="531" font-size="10" fill="#A0AEC0" font-family="'Fira Code','Cascadia Code',monospace">for i in range(window_size):</text>
@@ -76,6 +76,7 @@
   <!-- Summary -->
   <rect x="50" y="560" width="800" height="65" rx="8" fill="#FAF5FF" stroke="#B794F4" stroke-width="1.5"/>
   <text x="450" y="582" text-anchor="middle" font-size="12" font-weight="bold" fill="#6B46C1">效果：显存从 OOM → 可控范围</text>
-  <text x="450" y="602" text-anchor="middle" font-size="11" fill="#4A5568">window_size=5 时，计算图只包含最后 5 步 DiT（≈12B × 5 = 60B 激活 → 约 36GB 显存）</text>
-  <text x="450" y="618" text-anchor="middle" font-size="11" fill="#4A5568">虽然只对后 5 步求导，但由于 SDE 马尔可夫性，梯度仍可回传到所有模型参数</text>
+  <text x="450" y="602" text-anchor="middle" font-size="11" fill="#4A5568">window_size=3 时，计算图只包含窗口内 3 步 DiT（≈12B × 3 = 36B 激活 → 约 22GB 显存）</text>
+  <text x="450" y="618" text-anchor="middle" font-size="11" fill="#4A5568">虽然只对窗口内求导，但由于 SDE 马尔可夫性，梯度仍可回传到所有模型参数</text>
+
 </svg>
