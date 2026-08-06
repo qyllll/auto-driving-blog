@@ -1,0 +1,76 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 700" font-family="'Noto Sans SC','Microsoft YaHei',Arial,sans-serif">
+  <defs>
+    <marker id="f1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0,0 L10,5 L0,10 Z" fill="#4A5568"/>
+    </marker>
+    <marker id="f2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0,0 L10,5 L0,10 Z" fill="#3182CE"/>
+    </marker>
+    <filter id="sh" x="-5%" y="-5%" width="110%" height="110%">
+      <feDropShadow dx="2" dy="2" stdDeviation="3" flood-opacity="0.15"/>
+    </filter>
+  </defs>
+
+  <text x="500" y="35" text-anchor="middle" font-size="20" font-weight="bold" fill="#2D3748">"旧模型" vs "新模型"：其实是同一个模型的两个瞬间</text>
+  <text x="500" y="55" text-anchor="middle" font-size="12" fill="#718096">世界只有一个 FLUX + LoRA 模型——"旧/新"只是 optimizer.step() 前后的参数快照</text>
+
+  <!-- arrows for time -->
+  <line x1="80" y1="95" x2="370" y2="95" stroke="#4A5568" stroke-width="2" marker-end="url(#f1)"/>
+  <line x1="430" y1="95" x2="600" y2="95" stroke="#4A5568" stroke-width="2" marker-end="url(#f1)"/>
+  <text x="225" y="88" text-anchor="middle" font-size="10" fill="#718096">时间</text>
+
+  <!-- Phase 0: initial -->
+  <rect x="80" y="110" width="250" height="60" rx="10" fill="#F7FAFC" stroke="#A0AEC0" stroke-width="2" filter="url(#sh)"/>
+  <text x="205" y="138" text-anchor="middle" font-size="13" font-weight="bold" fill="#4A5568">初始模型</text>
+  <text x="205" y="158" text-anchor="middle" font-size="10" fill="#718096">预训练 FLUX + 初始 LoRA（θ₀）</text>
+
+  <!-- the single model -->
+  <rect x="470" y="110" width="250" height="60" rx="10" fill="#EBF8FF" stroke="#3182CE" stroke-width="3" filter="url(#sh)"/>
+  <text x="595" y="138" text-anchor="middle" font-size="14" font-weight="bold" fill="#2B6CB0">唯一模型 θ</text>
+  <text x="595" y="158" text-anchor="middle" font-size="10" fill="#4A5568">FLUX + LoRA —— 就这一个，全程不复刻</text>
+
+  <!-- arrows down from model to first sample -->
+  <line x1="595" y1="170" x2="595" y2="210" stroke="#4A5568" stroke-width="2" marker-end="url(#f1)"/>
+
+  <!-- ===== First sampling ===== -->
+  <rect x="340" y="220" width="510" height="80" rx="10" fill="#F0FFF4" stroke="#38A169" stroke-width="2" filter="url(#sh)"/>
+  <text x="595" y="248" text-anchor="middle" font-size="13" font-weight="bold" fill="#276749">① 采样（用当时参数 θ₀）</text>
+  <text x="595" y="270" text-anchor="middle" font-size="11" fill="#4A5568">走完整去噪轨迹 → 存下 下一步latent + log_prob_old(=θ₀)</text>
+  <text x="595" y="288" text-anchor="middle" font-size="10" fill="#718096">此刻的模型就是"将要被更新的那个"——记作 π_θ_old</text>
+
+  <line x1="595" y1="295" x2="595" y2="320" stroke="#4A5568" stroke-width="2" marker-end="url(#f1)"/>
+
+  <!-- reward + advantage -->
+  <rect x="100" y="325" width="420" height="65" rx="10" fill="#FFFAF0" stroke="#DD6B20" stroke-width="2" filter="url(#sh)"/>
+  <text x="310" y="350" text-anchor="middle" font-size="13" font-weight="bold" fill="#C05621">② 打分 → Advantage</text>
+  <text x="310" y="372" text-anchor="middle" font-size="11" fill="#4A5568">reward → A = (r−μ)/σ（正：抬该轨迹；负：压该轨迹）</text>
+
+  <!-- training computes log_prob_new with same theta (not yet updated) -->
+  <rect x="560" y="325" width="380" height="65" rx="10" fill="#FFF5F5" stroke="#E53E3E" stroke-width="2" filter="url(#sh)"/>
+  <text x="750" y="350" text-anchor="middle" font-size="13" font-weight="bold" fill="#C53030">③ 训练开始（还是 θ！）</text>
+  <text x="750" y="372" text-anchor="middle" font-size="11" fill="#4A5568">compute_log_prob → log_prob_new（此刻=θ，ratio≈1）</text>
+
+  <line x1="595" y1="390" x2="595" y2="420" stroke="#E53E3E" stroke-width="2" marker-end="url(#f1)"/>
+
+  <!-- optimizer.step -->
+  <rect x="430" y="425" width="340" height="70" rx="10" fill="#FED7D7" stroke="#C53030" stroke-width="3" filter="url(#sh)"/>
+  <text x="600" y="453" text-anchor="middle" font-size="14" font-weight="bold" fill="#9B2C2C">★★★ optimizer.step()</text>
+  <text x="600" y="475" text-anchor="middle" font-size="11" fill="#4A5568">就在这一行之后，参数 θ 第一次变了 → 变成"新模型"</text>
+
+  <line x1="595" y1="495" x2="595" y2="525" stroke="#3182CE" stroke-width="2" marker-end="url(#f2)"/>
+
+  <!-- next round -->
+  <rect x="335" y="530" width="520" height="75" rx="10" fill="#E6FFFA" stroke="#38A169" stroke-width="2" filter="url(#sh)"/>
+  <text x="595" y="558" text-anchor="middle" font-size="13" font-weight="bold" fill="#276749">④ 下一轮采样：用更新后的 θ</text>
+  <text x="595" y="580" text-anchor="middle" font-size="11" fill="#4A5568">此时这套 θ 自动"降级"为新的"旧模型"，新一轮的 log_prob_old</text>
+  <text x="595" y="598" text-anchor="middle" font-size="10" fill="#718096">ratio = exp(log_prob_new − log_prob_old) 从此 ≠ 1，训练真正开始生效</text>
+
+  <!-- side note: first round explanation -->
+  <rect x="40" y="545" width="250" height="110" rx="8" fill="#FFF5F5" stroke="#FC8181" stroke-width="1.5"/>
+  <text x="165" y="568" text-anchor="middle" font-size="12" font-weight="bold" fill="#C53030">第一轮是"空转热身"吗？</text>
+  <text x="55" y="590" font-size="10" fill="#4A5568">• step 前参数未动，ratio≈1</text>
+  <text x="55" y="606" font-size="10" fill="#4A5568">→ loss≈0，看起来空转</text>
+  <text x="55" y="626" font-size="10" fill="#4A5568">• 但 backward 已算出非零梯度：</text>
+  <text x="55" y="642" font-size="10" fill="#4A5568">  方向 = 抬好的/压坏的</text>
+  <text x="55" y="658" font-size="10" fill="#4A5568">• step 就按此挪第一步 ✓</text>
+</svg>
