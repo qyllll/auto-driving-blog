@@ -1,0 +1,62 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 620" font-family="'Noto Sans SC','Microsoft YaHei',Arial,sans-serif">
+  <defs>
+    <marker id="d1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M0,0 L10,5 L0,10 Z" fill="#4A5568"/>
+    </marker>
+    <filter id="sh" x="-5%" y="-5%" width="110%" height="110%">
+      <feDropShadow dx="2" dy="2" stdDeviation="3" flood-opacity="0.15"/>
+    </filter>
+  </defs>
+
+  <text x="500" y="35" text-anchor="middle" font-size="20" font-weight="bold" fill="#2D3748">涌现现象：AlphaDrive 的多模态规划能力</text>
+  <text x="500" y="55" text-anchor="middle" font-size="12" fill="#718096">同一场景，SFT 模型只给一个答案；RL 后的 AlphaDrive 能给多个"各不相同但都合理"的规划</text>
+
+  <!-- SFT side -->
+  <rect x="40" y="90" width="420" height="220" rx="10" fill="#EDF2F7" stroke="#A0AEC0" stroke-width="2" filter="url(#sh)"/>
+  <text x="250" y="118" text-anchor="middle" font-size="14" font-weight="bold" fill="#4A5568">SFT 模型（w/o 推理）</text>
+  <line x1="160" y1="130" x2="440" y2="130" stroke="#CBD5E0" stroke-width="1"/>
+  <rect x="80" y="145" width="200" height="75" rx="6" fill="#FFFFFF" stroke="#A0AEC0" stroke-width="1.5"/>
+  <text x="180" y="170" text-anchor="middle" font-size="11" fill="#4A5568">前车慢行 / 有行人横穿</text>
+  <text x="180" y="200" text-anchor="middle" font-size="12" fill="#2D3748">输出唯一：stop, straight</text>
+  <rect x="320" y="158" width="80" height="30" rx="6" fill="#F56565" stroke="#C53030" stroke-width="1.5"/>
+  <text x="360" y="178" text-anchor="middle" font-size="10" fill="#FFF">只用 1 解</text>
+
+  <text x="250" y="260" text-anchor="middle" font-size="11" fill="#718096">固定路径，遇堵只能停 → 安全但死板、无备选</text>
+
+  <!-- divider -->
+  <text x="520" y="220" text-anchor="middle" font-size="30" font-weight="bold" fill="#3182CE">→</text>
+  <text x="520" y="245" text-anchor="middle" font-size="10" fill="#718096">RL 训练后</text>
+
+  <!-- RL side -->
+  <rect x="540" y="110" width="420" height="220" rx="10" fill="#EBF8FF" stroke="#3182CE" stroke-width="2" filter="url(#sh)"/>
+  <text x="750" y="118" text-anchor="middle" font-size="14" font-weight="bold" fill="#2B6CB0">AlphaDrive（RL）→ 多解涌现</text>
+  <line x1="600" y1="130" x2="900" y2="130" stroke="#90CDF4" stroke-width="1"/>
+
+  <rect x="560" y="140" width="180" height="80" rx="6" fill="#FFFFFF" stroke="#3182CE" stroke-width="1.5"/>
+  <text x="650" y="162" text-anchor="middle" font-size="11" fill="#4A5568">解 A：</text>
+  <text x="650" y="182" text-anchor="middle" font-size="11" fill="#2D3748">减速并左变道绕行</text>
+  <text x="650" y="206" text-anchor="middle" font-size="10" fill="#3182CE" font-weight="bold">decelerate, left_turn</text>
+
+  <rect x="760" y="140" width="180" height="80" rx="6" fill="#FFFFFF" stroke="#3182CE" stroke-width="1.5"/>
+  <text x="850" y="162" text-anchor="middle" font-size="11" fill="#4A5568">解 B：</text>
+  <text x="850" y="182" text-anchor="middle" font-size="11" fill="#2D3748">跟随前车停车避让</text>
+  <text x="850" y="206" text-anchor="middle" font-size="10" fill="#3182CE" font-weight="bold">stop, straight</text>
+
+  <text x="600" y="260" text-anchor="middle" font-size="11" fill="#718096">可交给下游动作模型动态选优 / best-of-N 打分</text>
+
+  <!-- why key insight -->
+  <rect x="90" y="380" width="820" height="80" rx="10" fill="#FFFAF0" stroke="#DD6B20" stroke-width="2" filter="url(#sh)"/>
+  <text x="500" y="408" text-anchor="middle" font-size="14" font-weight="bold" fill="#C05621">为什么会"涌现"出多模态？</text>
+  <text x="500" y="432" text-anchor="middle" font-size="12" fill="#4A5568">多解不是架构的专利，而是训练目标的产物——</text>
+  <text x="500" y="452" text-anchor="middle" font-size="12" fill="#4A5568">GRPO 组内相对优化 + 多样性奖励，奖励"不同的合理答案"，模型就学会"多想几条路"</text>
+
+  <!-- comparison -->
+  <rect x="90" y="480" width="820" height="110" rx="10" fill="#F7FAFC" stroke="#CBD5E0" stroke-width="1.5"/>
+  <text x="500" y="505" text-anchor="middle" font-size="13" font-weight="bold" fill="#2D3748">和扩散式多模态有何不同</text>
+  <text x="110" y="530" font-size="11" fill="#4A5568">▪ 扩散模型（Diffusion Planner）：在【底层轨迹空间】做多模态</text>
+  <text x="110" y="550" font-size="11" fill="#718096">   同一个意图下不同几何走法（"怎么走"的多样性）</text>
+  <text x="110" y="575" font-size="11" fill="#4A5568">▪ AlphaDrive：在【高层元动作空间】做多模态</text>
+  <text x="110" y="595" font-size="11" fill="#718096">"减速跟车" vs "变道绕行"是截然不同的策略（"做什么"的多样性）</text>
+
+  <text x="500" y="615" text-anchor="middle" font-size="11" font-weight="bold" fill="#4A5568">理想系统 = 高层多策略决策（AlphaDrive）+ 底层多轨迹生成（Diffusion Planner）</text>
+</svg>

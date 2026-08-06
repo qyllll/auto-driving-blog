@@ -1,0 +1,81 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 640" font-family="'Noto Sans SC','Microsoft YaHei',Arial,sans-serif">
+  <defs>
+    <marker id="b1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M0,0 L10,5 L0,10 Z" fill="#4A5568"/>
+    </marker>
+    <filter id="sh2" x="-5%" y="-5%" width="110%" height="110%">
+      <feDropShadow dx="2" dy="2" stdDeviation="3" flood-opacity="0.15"/>
+    </filter>
+  </defs>
+
+  <text x="500" y="35" text-anchor="middle" font-size="20" font-weight="bold" fill="#2D3748">AlphaDrive 的四条规划奖励：如何合成一个可训信号</text>
+  <text x="500" y="55" text-anchor="middle" font-size="12" fill="#718096">一条奖励不 work，四个互锁的奖励才构成"既准、又关键、又多样、又规范"的训练信号</text>
+
+  <!-- Rewards input top -->
+  <rect x="60" y="95" width="200" height="110" rx="10" fill="#EBF8FF" stroke="#3182CE" stroke-width="2" filter="url(#sh)"/>
+  <text x="160" y="120" text-anchor="middle" font-size="13" font-weight="bold" fill="#2B6CB0">输入</text>
+  <text x="160" y="140" text-anchor="middle" font-size="10" fill="#4A5568">组内 G 条规划输出</text>
+  <text x="160" y="156" text-anchor="middle" font-size="10" fill="#4A5568">{o₁, … , o_G}</text>
+  <text x="160" y="176" text-anchor="middle" font-size="10" fill="#4A5568">+ 真值动作 e</text>
+
+  <!-- Four reward boxes -->
+  <rect x="300" y="75" width="210" height="60" rx="10" fill="#F0FFF4" stroke="#38A169" stroke-width="2" filter="url(#sh)"/>
+  <text x="405" y="98" text-anchor="middle" font-size="13" font-weight="bold" fill="#276749">Planning Accuracy</text>
+  <text x="405" y="120" text-anchor="middle" font-size="10" fill="#4A5568">用 F1 分评估横向/纵向决策</text>
+
+  <rect x="300" y="170" width="230" height="60" rx="10" fill="#FFFAF0" stroke="#DD6B20" stroke-width="2" filter="url(#sh)"/>
+  <text x="415" y="193" text-anchor="middle" font-size="13" font-weight="bold" fill="#C05621">Action-Weighted</text>
+  <text x="415" y="215" text-anchor="middle" font-size="10" fill="#4A5568">减速/停车/转向 比"保持"权重大</text>
+
+  <rect x="300" y="265" width="230" height="60" rx="10" fill="#FAF5FF" stroke="#805AD5" stroke-width="2" filter="url(#sh)"/>
+  <text x="415" y="288" text-anchor="middle" font-size="13" font-weight="bold" fill="#6B46C1">Planning Diversity</text>
+  <text x="415" y="310" text-anchor="middle" font-size="10" fill="#4A5568">输出多样给高奖励，重复扣分(≤20%)</text>
+
+  <rect x="300" y="260" width="230" height="60" rx="10" fill="#FFF5F5" stroke="#E53E3E" stroke-width="2" filter="url(#sh)"/>
+  <text x="415" y="283" text-anchor="middle" font-size="13" font-weight="bold" fill="#C53030">Planning Format</text>
+  <text x="415" y="305" text-anchor="middle" font-size="10" fill="#4A5568">须含 &lt;think&gt;/&lt;answer&gt;，否则为 0</text>
+
+  <line x1="250" y1="180" x2="295" y2="180" stroke="#4A5568" stroke-width="2" marker-end="url(#b1)"/>
+  <line x1="250" y1="200" x2="295" y2="200" stroke="#4A5568" stroke-width="1.5" marker-end="url(#b1)"/>
+  <line x1="250" y1="220" x2="295" y2="228" stroke="#4A5568" stroke-width="1.5" marker-end="url(#b1)"/>
+
+  <!-- multiply symbol -->
+  <text x="185" y="305" text-anchor="middle" font-size="28" font-weight="bold" fill="#4A5568">×</text>
+  <text x="185" y="325" text-anchor="middle" font-size="10" fill="#718096">三条质量奖励相乘</text>
+
+  <!-- Quality reward -->
+  <rect x="60" y="450" width="470" height="70" rx="10" fill="#E6FFFA" stroke="#38A169" stroke-width="2" filter="url(#sh)"/>
+  <text x="295" y="478" text-anchor="middle" font-size="13" font-weight="bold" fill="#276749">Planning Quality Reward（分 speed / path 各算一次）</text>
+  <text x="295" y="503" text-anchor="middle" font-size="11" fill="#4A5568">R_quality = Accuracy × Action-Weighted × Diversity</text>
+
+  <line x1="60" y1="485" x2="30" y2="485" stroke="#4A5568" stroke-width="2"/>
+  <text x="380" y="455" font-size="0">.</text>
+
+  <!-- format reward joins -->
+  <line x1="530" y1="390" x2="640" y2="390" stroke="#4A5568" stroke-width="2"/>
+  <line x1="640" y1="390" x2="640" y2="505" stroke="#4A5568" stroke-width="2"/>
+  <line x1="530" y1="485" x2="640" y2="485" stroke="#4A5568" stroke-width="2" marker-end="url(#b1)"/>
+  <text x="628" y="455" text-anchor="middle" font-size="26" font-weight="bold" fill="#4A5568">+</text>
+
+  <!-- total reward -->
+  <rect x="650" y="450" width="290" height="70" rx="10" fill="#FEFCBF" stroke="#D69E2E" stroke-width="2" filter="url(#sh)"/>
+  <text x="795" y="478" text-anchor="middle" font-size="13" font-weight="bold" fill="#975A16">总奖励</text>
+  <text x="795" y="503" text-anchor="middle" font-size="11" fill="#4A5568">R_total = R_quality + R_format</text>
+
+  <line x1="795" y1="460" x2="795" y2="560" stroke="#4A5568" stroke-width="2" marker-end="url(#b1)"/>
+
+  <!-- into GRPO -->
+  <rect x="700" y="570" width="240" height="50" rx="10" fill="#FFF5F5" stroke="#E53E3E" stroke-width="2" filter="url(#sh)"/>
+  <text x="820" y="592" text-anchor="middle" font-size="13" font-weight="bold" fill="#C53030">组内归一化 → GRPO 损失</text>
+  <text x="820" y="610" text-anchor="middle" font-size="10" fill="#4A5568">A_i = (R_i − mean) / std → 更新参数</text>
+
+  <!-- why multiply -->
+  <rect x="545" y="95" width="290" height="150" rx="8" fill="#F7FAFC" stroke="#CBD5E0" stroke-width="1.5"/>
+  <text x="690" y="118" text-anchor="middle" font-size="12" font-weight="bold" fill="#4A5568">为什么要"乘法耦合"？</text>
+  <text x="560" y="138" font-size="10" fill="#4A5568">乘起来保证"一票否决"：</text>
+  <text x="560" y="156" font-size="10" fill="#4A5568">  任何一条为 0 → 质量奖励为 0</text>
+  <text x="560" y="176" font-size="10" fill="#4A5568">  必须既准又关键又多样才拿高分，</text>
+  <text x="560" y="192" font-size="10" fill="#4A5568">  模型学不到打擦边球的捷径。</text>
+  <text x="560" y="212" font-size="10" fill="#4A5568">  加性奖励会被高奖励项淹没。</text>
+  <text x="560" y="232" font-size="10" fill="#4A5568">  → 正是这套设计催生多模态涌现。</text>
+</svg>

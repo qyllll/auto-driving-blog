@@ -1,0 +1,62 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 520" font-family="'Noto Sans SC','Microsoft YaHei',Arial,sans-serif">
+  <defs>
+    <marker id="c1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M0,0 L10,5 L0,10 Z" fill="#4A5568"/>
+    </marker>
+    <filter id="sh" x="-5%" y="-5%" width="110%" height="110%">
+      <feDropShadow dx="2" dy="2" stdDeviation="3" flood-opacity="0.15"/>
+    </filter>
+  </defs>
+
+  <text x="500" y="35" text-anchor="middle" font-size="20" font-weight="bold" fill="#2D3748">AlphaDrive 的推理从哪来：大模型蒸馏 + 两阶段训练</text>
+
+  <!-- Prompt -->
+  <rect x="45" y="90" width="210" height="85" rx="10" fill="#EBF8FF" stroke="#3182CE" stroke-width="2" filter="url(#sh)"/>
+  <text x="150" y="115" text-anchor="middle" font-size="13" font-weight="bold" fill="#2B6CB0">Prompt 给大模型</text>
+  <text x="150" y="135" text-anchor="middle" font-size="10" fill="#4A5568">· 场景真实动作</text>
+  <text x="150" y="151" text-anchor="middle" font-size="10" fill="#4A5568">· 当前车速 + 导航</text>
+
+  <line x1="255" y1="132" x2="310" y2="132" stroke="#4A5568" stroke-width="2" marker-end="url(#c1)"/>
+
+  <!-- GPT-4o -->
+  <rect x="320" y="90" width="210" height="85" rx="10" fill="#FFF5F5" stroke="#E53E3E" stroke-width="2" filter="url(#sh)"/>
+  <text x="425" y="115" text-anchor="middle" font-size="13" font-weight="bold" fill="#C53030">GPT-4o 云端生成</text>
+  <text x="425" y="135" text-anchor="middle" font-size="10" fill="#4A5568">生成简洁决策推理过程</text>
+  <text x="425" y="151" text-anchor="middle" font-size="10" fill="#4A5568">（reasoning 数据）</text>
+
+  <line x1="530" y1="132" x2="585" y2="132" stroke="#4A5568" stroke-width="2" marker-end="url(#c1)"/>
+
+  <!-- Filter -->
+  <rect x="595" y="90" width="200" height="85" rx="10" fill="#FFFAF0" stroke="#DD6B20" stroke-width="2" filter="url(#sh)"/>
+  <text x="695" y="115" text-anchor="middle" font-size="13" font-weight="bold" fill="#C05621">人工质量过滤</text>
+  <text x="695" y="135" text-anchor="middle" font-size="10" fill="#4A5568">剔除明显错误样本</text>
+  <text x="695" y="151" text-anchor="middle" font-size="10" fill="#4A5568">→ 30k 高质量推理语料</text>
+
+  <line x1="790" y1="127" x2="850" y2="127" stroke="#4A5568" stroke-width="2" marker-end="url(#c1)"/>
+  <line x1="790" y1="127" x2="790" y2="235" stroke="#4A5568" stroke-width="2"/>
+
+  <!-- Stage 1 -->
+  <rect x="45" y="245" width="700" height="80" rx="10" fill="#F0FFF4" stroke="#38A169" stroke-width="2" filter="url(#sh)"/>
+  <text x="395" y="275" text-anchor="middle" font-size="14" font-weight="bold" fill="#276749">阶段 1：SFT Warm-Up（30k 蒸馏推理数据）</text>
+  <text x="395" y="300" text-anchor="middle" font-size="11" fill="#4A5568">用蒸馏的推理过程做监督微调 → 给 2B 模型"注入"推理能力，缓解 RL 冷启动幻觉</text>
+
+  <line x1="790" y1="275" x2="850" y2="275" stroke="#4A5568" stroke-width="2" marker-end="url(#c1)"/>
+
+  <!-- arrow down -->
+  <line x1="395" y1="325" x2="395" y2="360" stroke="#4A5568" stroke-width="2" marker-end="url(#c1)"/>
+
+  <!-- Stage 2 -->
+  <rect x="45" y="370" width="700" height="80" rx="10" fill="#FFFAF0" stroke="#DD6B20" stroke-width="2" filter="url(#sh)"/>
+  <text x="395" y="400" text-anchor="middle" font-size="14" font-weight="bold" fill="#C05621">阶段 2：RL 探索（110k 全量 MetaAD + 四条 GRPO 奖励）</text>
+  <text x="395" y="425" text-anchor="middle" font-size="11" fill="#4A5568">在推理能力基础上用 RL 探索最优规划策略 → 规划准确率跃升至 77.12%</text>
+
+  <!-- side note -->
+  <rect x="790" y="240" width="180" height="210" rx="8" fill="#F7FAFC" stroke="#CBD5E0" stroke-width="1.5"/>
+  <text x="880" y="262" text-anchor="middle" font-size="12" font-weight="bold" fill="#4A5568">两阶段分工</text>
+  <text x="800" y="284" font-size="10" fill="#4A5568">• SFT：教"怎么想"</text>
+  <text x="800" y="302" font-size="10" fill="#4A5568">  （dense 监督，蒸馏能力）</text>
+  <text x="800" y="324" font-size="10" fill="#4A5568">• RL：教"选哪个最优"</text>
+  <text x="800" y="342" font-size="10" fill="#4A5568">  （sparse 奖励，探索策略）</text>
+  <text x="800" y="342" font-size="10" fill="#4A5568"></text>
+  <text x="880" y="342" text-anchor="middle" font-size="10" fill="#718096">直接 RL 冷启动会震荡/幻觉</text>
+</svg>
