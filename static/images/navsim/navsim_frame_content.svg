@@ -1,0 +1,77 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 560" font-family="'Helvetica Neue',Arial,'PingFang SC','Microsoft YaHei',sans-serif">
+  <defs>
+    <marker id="da" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L8,3 L0,6 Z" fill="#475569"/>
+    </marker>
+    <style>
+      .obs{fill:#e0f2fe;stroke:#0284c7;stroke-width:1.5;}
+      .priv{fill:#fee2e2;stroke:#dc2626;stroke-width:1.5;}
+      .gt{fill:#dcfce7;stroke:#16a34a;stroke-width:1.5;}
+      .core{fill:#1e293b;}
+      .wt{font-size:13px;fill:#ffffff;text-anchor:middle;}
+      .t{font-size:12px;fill:#0f172a;text-anchor:middle;}
+      .st{font-size:10.5px;fill:#475569;text-anchor:middle;}
+      .cap{font-size:11.5px;fill:#334155;}
+    </style>
+  </defs>
+
+  <text x="460" y="24" font-size="15" fill="#0f172a" font-weight="bold" text-anchor="middle">一个 scene 里到底有什么：观测 vs 特权信息 vs 训练标签</text>
+
+  <rect x="330" y="42" width="260" height="42" rx="8" class="core"/>
+  <text x="460" y="63" class="wt">Scene = SceneMetadata + 若干 Frame</text>
+  <text x="460" y="76" class="wt" font-size="10.5">地图 map_api · log/token/初始帧索引</text>
+
+  <line x1="460" y1="84" x2="460" y2="104" stroke="#475569" stroke-width="2" marker-end="url(#da)"/>
+
+  <rect x="62" y="108" width="256" height="196" rx="8" class="obs"/>
+  <text x="190" y="128" class="t"><tspan font-weight="bold">AgentInput（模型可见观测）</tspan></text>
+  <line x1="80" y1="138" x2="300" y2="138" stroke="#7dd3fc" stroke-width="1"/>
+
+  <rect x="76" y="146" width="228" height="40" rx="6" fill="#f0f9ff" stroke="#7dd3fc" stroke-width="1.2"/>
+  <text x="190" y="164" class="t">EgoStatus</text>
+  <text x="190" y="180" class="st">自车位姿 · 速度 · 加速度</text>
+
+  <rect x="76" y="194" width="228" height="40" rx="6" fill="#f0f9ff" stroke="#7dd3fc" stroke-width="1.2"/>
+  <text x="190" y="212" class="t">感观器 Cameras × 8</text>
+  <text x="190" y="228" class="st">f0/l0/l1/l2/r0/r1/r2/b0</text>
+
+  <rect x="76" y="242" width="228" height="40" rx="6" fill="#f0f9ff" stroke="#7dd3fc" stroke-width="1.2"/>
+  <text x="190" y="260" class="t">LiDAR 合并点云 ×2</text>
+  <text x="190" y="276" class="st">5 个 LiDAR 融合 · 覆盖 2s 历史</text>
+
+  <line x1="460" y1="104" x2="318" y2="140" stroke="#0284c7" stroke-width="2" marker-end="url(#da)" stroke-dasharray="5 3"/>
+
+  <rect x="384" y="108" width="256" height="196" rx="8" class="priv"/>
+  <text x="512" y="132" class="t"><tspan font-weight="bold">特权信息（测试不提供）</tspan></text>
+  <line x1="402" y1="138" x2="622" y2="138" stroke="#fca5a5" stroke-width="1"/>
+
+  <rect x="397" y="146" width="228" height="34" rx="6" fill="#fef2f2" stroke="#fca5a5" stroke-width="1.2"/>
+  <text x="508" y="163" class="t">Annotations（包围框标注）</text>
+  <text x="508" y="175" class="st" font-size="9.5">车辆/行人/骑车/锥桶/栅栏等</text>
+
+  <rect x="397" y="188" width="228" height="34" rx="6" fill="#fef2f2" stroke="#fca5a5" stroke-width="1.2"/>
+  <text x="508" y="205" class="t">route_roadblock_ids 路由</text>
+  <text x="508" y="217" class="st">roadblock 序列 · 导航意图</text>
+
+  <rect x="397" y="230" width="228" height="34" rx="6" fill="#fef2f2" stroke="#fca5a5" stroke-width="1.2"/>
+  <text x="508" y="247" class="t">traffic_lights 信号灯</text>
+  <text x="508" y="259" class="st">lane_connector 红/绿状态</text>
+
+  <rect x="397" y="272" width="228" height="24" rx="6" fill="#fef2f2" stroke="#fca5a5" stroke-width="1.2"/>
+  <text x="508" y="288" class="st">driving_command 离散意图（左/直/右）</text>
+
+  <line x1="460" y1="192" x2="460" y2="318" stroke="#475569" stroke-width="2" marker-end="url(#da)"/>
+
+  <rect x="330" y="322" width="260" height="62" rx="8" class="gt"/>
+  <text x="460" y="346" class="t">训练标签（Target / GT）</text>
+  <text x="460" y="364" class="t">人类专家未来轨迹 future_trajectory</text>
+  <text x="460" y="378" class="st">人类驾驶员的真实 5s 轨迹（HD 真值）</text>
+
+  <line x1="460" y1="384" x2="460" y2="410" stroke="#16a34a" stroke-width="2" marker-end="url(#da)"/>
+  <rect x="300" y="414" width="320" height="56" rx="8" class="gt" fill="#f0fdf4"/>
+  <text x="460" y="436" class="t">get_future_trajectory()</text>
+  <text x="460" y="454" class="st">人类在位轨迹 = 学习目标 · 也是 PDM 参考</text>
+
+  <text x="460" y="510" class="cap" text-anchor="middle">评测时：模型只能拿到观测（相机/LiDAR/跟随状态），感知输出交给模型自己</text>
+  <text x="460" y="528" class="cap" text-anchor="middle">而 PDM 打分用的碰撞/车道内，由 huggingface 拿特权信息在服务端算好</text>
+</svg>

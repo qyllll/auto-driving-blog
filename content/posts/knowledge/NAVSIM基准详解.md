@@ -119,6 +119,130 @@ nuPlan 原始日志里，绝大多数场景是**直道匀速、无交互**的"�
 
 ---
 
+## 🗃️ NAVSIM 数据到底长什么样？从源码看一个 scene
+
+上面说了切分，但真正的难点在于**一个"样本"（scene）具体包含哪些数据、模型训练时又能看到什么**。这一节全部依据 NAVSIM 官方源码 `navsim/common/dataclasses.py`、`navsim/common/dataloader.py` 和 `navsim/planning/dataset` 逐行还原。
+
+### 数据的三层组织：log → frame → scene
+
+数据不是整卷倒给模型的，而是按**三层组织**：
+
+```
+OpenScene（=nuPlan 降采样到 2Hz）
+   └── log     一段完整行车记录（约几百到上千帧 @2Hz）
+          └── frame  一帧（2Hz 采样，间隔 NAVSIM_INTERVAL_LENGTH=0.5s）
+              └── scene  以一个「带路由的帧」为中心截取的时序窗口 = 基本训练/评测样本
+```
+
+关键点：
+
+- **log 是下载/切分的最小单位**：`train_logs`（13,180 段）、`val_logs`（2,730 段）都按整段 log 分，**不按帧切**。这样同一段行车记录不会泄漏到训练和验证两边。
+- **scene 是训练/评测的最小单位**：训练 batch 里装的是一个个 scene。一个 scene 由 `SceneMetadata`（log 名、scene token、地图名、初始帧 token、历史/未来帧数）+ `map_api`（地图）+ **一列 `Frame`** 组成。
+- **scene 由滑窗采样生成**：`split_list(input_list, num_frames, frame_interval)` 会从 log 里每 `frame_interval` 帧取一个长度为 `num_frames` 的窗口。默认 `frame_interval=1`、`num_frames = 4 + 10 = 14`（4 历史 + 10 未来），所以**重叠的帧可以出现在多个 scene**，这正是 103,288 帧比 log 数高很多的原因。
+
+![NAVSIM 数据加工链：OpenScene → scene 采样 → 过滤 → 各数据集](/images/navsim/navsim_data_chain.svg)
+
+### 一个 frame 里的五个内容块
+
+每个 `Frame`（`dataclasses.py` 的 `Frame`）包含五类字段，可用 `Scene.from_scene_dict_list()` 从 log 装载：
+
+| 内容块 | 类型 | 作用（是观测还是特权） |
+|--------|------|----------------------|
+| `token` / `timestamp` | 基础 | 唯一标识（即该帧 LiDAR 点数 token） |
+| `roadblock_ids` | `List[str]` | 该帧自车所在车道，后续导出**路由**（特权） |
+| `traffic_lights` | `List[(lane_connector, bool)]` | 路口信号灯状态，`True`=红（特权） |
+| `annotations` | `Annotations` | **包围框真值标定**（特权） |
+| `ego_status` / `lidar` / `cameras` | 观测 | 模型可见输入 |
+
+### 标定信息（Annotations）——"人类专家标注了什么"
+
+这就是你问的"**人类专家轨迹/标定**"落点。`Annotations` 类（`dataclasses.py:260`）在一个场景里携带五段等长数组，**逐对象对齐**：
+
+- `boxes`：3D 包围框，尺寸/朝向。姿态用 `BoundingBoxIndex` 索引：`(x, y, z, len, width, height, heading)`。
+- `names`：**类别标签** `List[str]`，包含 vehicle、pedestrian、bicycle、traffic_cone、barrier、czone、general 等。
+- `velocity_3d`：3D 速度向量。
+- `instance_tokens` / `track_tokens`：跨帧计数与追踪的恒定 ID，供时序关联。
+
+评测/训练用这些真值框前后对齐成**跟踪轨迹**。但注意 **NAVSIM v1/v2 评测不直接要求模型做感知**：打分时碰撞、车道内等用这些真值框离线算，模型自己只需输出未来的自车几何轨迹。
+
+### 观测数据（AgentInput）——模型真正拿到的东西
+
+`Scene.get_agent_input()` 从 scene 里抽出模型可见的观测，组成一个 `AgentInput`，**不包含任何特权信息**：
+
+- **EgoStatus**（当前帧 + 历史帧）：自车 `ego_pose`（3 维）、`ego_velocity` 与 `ego_acceleration`（各 2 维），都转到局部坐标系。
+- **Cameras × 8**：`cam_f0 / cam_l0 / cam_l1 / cam_l2 / cam_r0 / cam_r1 / cam_r2 / cam_b0`，每个含 image + `sensor2lidar` 外参 + 内参 + 畸变。
+- **LiDAR 合并点云**：5 个 LiDAR 融合为一次 `(6, n)` 数组 `+x,y,z,intensity,ring,lidar_id`，频率对标 2Hz。
+- **driving_command 离散意图**：左变道 / 直行 / 右变道（由**期望路由**推出，`EgoStatus` 装载），另有第 4 档"未知"用于训练时过滤歧义样本。
+
+NAVSIM 的观测设计很克制：**相机+LiDAR 只覆盖 2 秒过去 / 2Hz**（每帧 4 帧历史观测）；并刻意用一张图说明了：排列在图里的这些**只有测试帧才释放**——**地图、tracks、occupancy 等你在训练可以用，但排行榜提交时拿不到**，防止做题式作弊。
+
+![一个 NAVSIM scene 里：观测 vs 特权 vs 训练标签](/images/navsim/navsim_frame_content.svg)
+
+### 训练标签：人类专家 GT 轨迹
+
+训练时由 **TrajectoryTargetBuilder** 通过 `Scene.get_future_trajectory()` 取出**人类驾驶员真车未来轨迹**作为回归目标：把未来 5s（10 帧）自车 GEOM 姿态转换到当前后轴为原点的局部坐标。这正是 EgoStatusMLP、TransFuser 等 baseline 做行为克隆（behavior cloning）时监督的标签——"人类专家开成了什么样"。
+
+---
+
+## 🏭 NAVSIM 训练流水线：从 scene 到 cache 到 batch
+
+NAVSIM 提供一套轻量训练接口。它会先把原始 scene 预处理成**特征/标签缓存（feature/target cache）**，训练时直接从缓存读张量，避免每轮重复解析日志与大传感器。
+
+### 1. Feature builder 与 Target builder
+
+学习型 Agent 需实现两个接口（`docs/agents.md` 与 `planning/training`）：
+
+- **`get_feature_builders()`**：把 `AgentInput`（观测）变成特征张量。内置两个示例——
+  - `EgoStatusFeatureBuilder`：输出 `[velocity(2), acceleration(2), driving_command(1)]` 拼接的 5 维向量；
+  - `TransfuserFeatureBuilder`：输出前相机图、LiDAR BEV map、ego status 三块。
+- **`get_target_builders()`**：把 `Scene`（含特权 GT）变成监督标签，`TrajectoryTargetBuilder` → `trajectory` 目标张量 `[T, 3]`（x,y,heading）。
+
+### 2. CacheOnlyDataset：无日志直接训练
+
+`navsim/planning/training/dataset.py` 的 **`CacheOnlyDataset`** 是训练的主力。它从一个 **cache 目录**构造 dataset：目录按 `log_name / token / <builder名>.gz` 组织，每个 `.gz` 是 **gzip + pickle** 压缩的特征或目标字典（`compresslevel=1`）。`__getitem__` 依次加载每个 builder 的文件，合并得到 `(features, targets)` 字典——**训练过程中根本不再碰原始 sensor 数据**。
+
+`Dataset`（非 pure-cache 版）则支持两种模式：
+- 给了 cache 路径：与 CacheOnlyDataset 类似，若非全缓存则先跑一段**离线/在线 caching**（`run_dataset_caching.py` 可并行预热大数据集）；
+- 不给 cache：每个 batch 实时 `get_scene_from_token()` 解析 scene。
+
+### 3. 一个完整的 EgoStatusMLP 示例
+
+最简 baseline 把 Agent 当"盲司机"：忽略全部传感器，只用当前 `[速度, 加速度, driving_command]` 预测未来轨迹。源码可见其 MLP 输入是 **8 维**（`Linear(8, hidden)`），输出 `num_poses×3`：
+
+```text
+feature = [ego_velocity(2), ego_acceleration(2), driving_command(1)]
+                                    │
+                                    ▼
+                    Linear(8→hidden) →ReLU →Linear →ReLU →Linear
+                                    │
+                                    ▼
+              reshape → [num_poses, 3]  (x, y, heading 未来轨迹)
+label  ← get_future_trajectory()  （人类专家 GT)
+```
+
+它虽然"盲"，但常被当作**kinematic 上限**：只外推状态就能拿到的 PDMS，衡量"不看四周能开多好"。
+
+### 4. 评测不再走训练缓存：MetricCache
+
+评测和训练分开。评测前先做 `metric_cache`（`nav/planning/metric_caching/metric_cache.py`），把每条样本的**静态计算量** lzma 压缩落地，评测时直接读入，避免重复算地图、中心线：
+
+| MetricCache 字段 | 内容 |
+|------------------|------|
+| `trajectory` | 参考轨迹（PCM 决策器提出的提案） |
+| `human_trajectory` | 人类专家 GT 轨迹 |
+| `past_human_trajectory` | 人类历史轨迹 |
+| `observation` / `centerline` / `route_lane_ids` / `drivable_area_map` | 观测 + 参考中线 + 路由车道 + 可驾驶区域 |
+| `past/current/future_tracked_objects` | 过去(2Hz)/当前/未来(10Hz)目标轨迹 |
+| `ego_state` / `map_parameters` | 自车状态 + 地图参数 |
+
+这样一个 cache 就够跑 PDM 打分：模型轨迹 + cache 里的参考轨迹送入 `PDMSimulator` 控制器，再配合 `traffic_agents_policy` 的背景交通流完成碰撞与合规检查。
+
+### 预计算为何重要？
+
+评测时我们要对**整个 navtest(12k 帧) 或 navhard(真实+合成)** 逐帧算 PDMS。地图解析、中心线抽取、可驾驶区域这些与模型无关的昂贵计算，多跑一次只会浪费算力。NAVSIM 改成**一次 cache、多次评测复用**，这是它评测高效、可大规模并行的工程基石。
+
+---
+
 ## 🆚 为什么 NAVSIM 比 nuScenes 的 L2 更好？
 
 这要从 L2 误差的根本问题说起。
