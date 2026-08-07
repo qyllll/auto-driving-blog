@@ -42,7 +42,7 @@ NAVSIM 的几个关键事实：
 
 ### PDMS 的设计哲学
 
-PDMS 的思路是：**不跟人比像不像，而是看这条轨迹本身安不安全、舒不舒服、有没有往前走。** 它由两部分组成——**乘性惩罚（multiplier）** 和 **加权子分（weighted）**：
+PDMS 的思路是：**不跟人比像不像，而是看这条轨迹本身安不安全、舒不舒服、有没有往前走。** 它由两部分组成——**乘性惩罚（multiplier）** 和 **加权子分（weighted）**。NAVSIM 官方文档（`docs/metrics.md`）给出的 v1 定义是：
 
 $$\text{PDMS} = \underbrace{\left(\prod_{m \in \{NC,\, DAC\}} m(\text{agent})\right)}_{\text{乘性惩罚：撞了/越界直接清零}} \cdot \underbrace{\left(\frac{\sum_{m \in \{TTC,\, EP,\, C\}} w_m \cdot m(\text{agent})}{\sum w_m}\right)}_{\text{加权平均：行驶质量}}$$
 
@@ -51,61 +51,226 @@ $$\text{PDMS} = \underbrace{\left(\prod_{m \in \{NC,\, DAC\}} m(\text{agent})\ri
 
 这样设计的好处非常明显：**"原地不动"虽然不撞，但 EP（前进量）极低，拿不到高分；合理的绕行即便偏离人类 GT，只要安全舒适、有进展，照样得高分。**
 
-### 一次评测到底发生了什么？
+---
 
-具体到每条样本，NAVSIM 的评测流水线是这样的：取一帧初始场景 → 让被测模型预测未来 **4 秒**（共 8 个 0.5 秒的时间点）的自车轨迹 → 用一个 **LQR 横向控制器**把这条几何轨迹"翻译"成实际可执行的车辆运动（生成真实的位置、速度、加速度序列）→ 与同样回放 4 秒的背景交通流做**碰撞检测与合规检查** → 算出各个子分并按上式合成 PDMS。整个过程**无需模型在线推理、无需交互**，所以可以像开环一样一次性并行算完整个测试集，这也是它比闭环快一个数量级的根本原因。
+## 🔧 一次评测到底发生了什么？从模型输出到 PDMS 的完整链路
+
+这是整篇最关键的一节。**很多文章只告诉你"NAVSIM 用 LQR 把轨迹开出来再打分"，但没有讲清楚几何轨迹是怎么变成物理运动、又怎么变成分数的。** 下面我们完全依据 NAVSIM 官方源码逐段还原，从你的模型吐出一条轨迹开始，到它拿到 PDMS 结束。
+
+### 第 0 步：模型输出什么？
+
+你的模型输出的东西非常朴素——一个 **`Trajectory` 数据类**（`navsim/common/dataclasses.py:280`）：
+
+```python
+@dataclass
+class Trajectory:
+    poses: npt.NDArray[np.float32]        # (T, 3) 局部坐标
+    trajectory_sampling: TrajectorySampling = TrajectorySampling(time_horizon=4, interval_length=0.5)
+```
+
+也就是说：**未来 4 秒、每 0.5 秒一个点，共 8 个点，每个点是 (x, y, heading)**，全部是**以自车当前后轴为原点的局部坐标**。注意这里**不含速度、不含加速度**——模型只需要给出几何形状。
+
+### 第 1 步：评测脚本拿到轨迹 → 转全局帧（transform_trajectory）
+
+评测入口在 `navsim/planning/script/run_pdm_score.py`，它从 `MetricCacheLoader` 读每条样本的缓存，让模型推理出 `Trajectory` 后，调用 `navsim/evaluate/pdm_score.py` 的 `pdm_score()`。第一步是 `transform_trajectory()`（`pdm_score.py:26`）：
+
+- 用 `relative_to_absolute_poses(initial_ego_state.rear_axle, relative_states)` 把 8 个相对点**转换到全局坐标系**；
+- 通过 `_se2_vel_acc_to_ego_state` 把每个点包装成 `EgoState`，**速度与加速度都显式设为 0**——源码注释写着 *"velocity and acceleration ignored by LQR + bicycle model"*，即这两个量反正会被控制器和运动学模型重算，干脆忽略；
+- 最终拼成一个 nuPlan 的 `InterpolatedTrajectory`（包含 t=0 的初始自车状态 + 8 个未来状态）。
+
+### 第 2 步：插值到评测分辨率（get_trajectory_as_array）
+
+`get_trajectory_as_array()`（`pdm_score.py:57`）按 `future_sampling`（评测用的 `proposal_sampling`）把轨迹**重采样成状态数组**。看 `default_common.yaml`：
+
+```yaml
+proposal_sampling:
+  num_poses: 40
+  interval_length: 0.1
+```
+
+也就是说，**实际打分是在 4 秒、0.1 秒步长（40 个点）的分辨率上进行的**——模型那 8 个粗点会被插值成 40 个细点。每个状态是一个 **11 维向量**（`pdm_enums.py` 的 `StateIndex`）：
+
+| 下标 | 含义 | 单位 |
+|-----|------|------|
+| 0–2 | x, y, heading | m, m, rad |
+| 3–4 | velocity_x, velocity_y | m/s |
+| 5–6 | acceleration_x, acceleration_y | m/s² |
+| 7–8 | steering_angle, steering_rate | rad, rad/s |
+| 9–10 | angular_velocity, angular_acceleration | rad/s, rad/s² |
+
+同时，缓存里的 **PDM 参考轨迹（`metric_cache.trajectory`）** 也被同样处理。两条轨迹被拼成 `(2, 41, 11)` 的 batch——**第 0 条是参考、第 1 条是你的模型轨迹**（`pdm_score.py:144`）。
+
+### 第 3 步：LQR 控制器把轨迹翻译成"开出来"（PDMSimulator + BatchLQRTracker）
+
+两条轨迹一起送进 `PDMSimulator.simulate_proposals()`（`pdm_simulator.py:31`）。它的核心是两个组件：
+
+1. **`BatchLQRTracker`**（`batch_lqr.py`）——控制器，负责计算每条轨迹在每个时刻该给什么"指令"；
+2. **`BatchKinematicBicycleModel`**（`batch_kinematic_bicycle.py`）——车辆运动模型，负责把指令积分成真实状态。
+
+仿真是**逐时刻循环**的：`tracker.track_trajectory()` 先根据当前状态和参考轨迹算出控制指令，再用 `motion_model.propagate_state()` 把状态推进 0.1 秒，如此往复 40 次。
+
+#### LQR 控制器如何工作？
+
+`BatchLQRTracker` 把控制问题**分解成纵向、横向两个子系统**（`batch_lqr.py:27` 注释明说）：
+
+**纵向子系统**（决定加不加速）：
+
+$$\text{State: }[v] \qquad \text{Input: }[a] \qquad v{\_dot} = a$$
+
+- 权重：`q_longitudinal = [10.0]`，`r_longitudinal = [1.0]`；
+- 假设整个 `tracking_horizon`（默认 10 步 × 0.1s = 1 秒）内加速度恒定，于是 `velocity_N = v_0 + (N·dt)·a`；
+- 这是一个**单步 LQR**：直接解 `min a·(r + B²q)·a...` 的闭式解得到加速度指令（`_solve_one_step_longitudinal_lqr`）。
+
+**横向子系统**（决定转不转方向），状态向量 3 维（`LateralStateIndex`）：
+
+| 下标 | 状态 | 含义 |
+|-----|------|------|
+| 0 | LATERAL_ERROR | 相对参考线的**横向偏差**（在后轴处） |
+| 1 | HEADING_ERROR | 相对参考线的**航向偏差** |
+| 2 | STEERING_ANGLE | 当前**前轮转角** |
+
+其连续动力学（做了小角度线性化）：
+
+$$\dot{e}_{lat} = v \cdot e_{head} \qquad \dot{e}_{head} = v \cdot \left(\frac{\delta}{L} - \kappa\right) \qquad \dot{\delta} = \dot{\delta}_{cmd}$$
+
+其中 $L$ 是轴距、$\kappa$ 是参考线曲率。权重 `q_lateral = [1.0, 10.0, 0.0]`、`r_lateral = [1.0]`，输入是**转向速率 $\dot\delta$**。由于速度、曲率随时间变化，这是一个**线性时变（LTV）系统**：控制器会先把 `tracking_horizon` 步的状态转移矩阵 $A$、输入矩阵 $B$、仿射项 $g$ 逐步前推（`_lateral_lqr_controller` 里的 `einsum` 累乘），再解一个**单步 LQR** 得到转向速率指令。
+
+> 💡 细节：当参考速度和当前速度都低于 `stopping_velocity = 0.2 m/s` 时，LQR 会被一个更简单的**停车 P 控制器**取代：`a = -0.5·(v - v_ref)`，转向速率归零。这在等红灯场景非常常见。
+
+#### 运动模型如何积分？
+
+`BatchKinematicBicycleModel`（`batch_kinematic_bicycle.py`）使用经典**自行车模型**（后轴为参考点）：
+
+$$\dot{x} = v\cos\theta, \quad \dot{y} = v\sin\theta, \quad \dot{\theta} = \frac{v \tan\delta}{L}$$
+
+关键参数（全部可在源码确认）：
+- 车辆使用 **Pacifica**（克莱斯勒大捷龙）参数：轴距 `wheel_base = 3.089 m`、半长 `2.588 m`、半宽 `1.1485 m`；
+- 指令**不是立即生效**：加速和转向各经过一个一阶低通/控制延迟（`accel_time_constant=0.2s`、`steering_angle_time_constant=0.05s`），模拟真实执行器滞后；
+- 转向角被 clip 到 $\pm \pi/3$，heading 用 `principal_value` 归一化到 $[-\pi, \pi]$。
+
+最终 `simulate_proposals` 返回 `(2, 41, 11)` 的**仿真后真实状态**——这才是打分器看到的"自车实际轨迹"。
+
+### 第 4 步：背景交通流（traffic agents policy）
+
+`pdm_score_from_interpolated_trajectory` 里，仿真出的自车轨迹会交给一个 `traffic_agents_policy` 生成背景车序列（`pdm_score.py:149`）：
+
+```python
+simulated_agent_detections_tracks = traffic_agents_policy.simulate_environment(simulated_states[1], metric_cache)
+```
+
+- **默认（v1 风格，`log_replay_traffic_agents.py`）**：直接取 `metric_cache.observation` 里**录制好的未来目标轨迹**，只把与初始自车重叠的车辆去掉——这就是"非反应式"的字面实现；
+- **反应式（`navsim_IDM_traffic_agents.py`）**：让背景车用 **IDM** 跟车模型对自车的动作做出反应（v2 两阶段评测采用）。IDM 参数可见 `navsim_IDM_traffic_agents.yaml`：目标速度 10 m/s、最小间距 1.0 m、车头时距 1.5 s、a_max=1.0、d_max=2.0。
+
+> ⚠️ 注意：**NAVSIM v2（navhard）的背景车其实是反应式的**。论文标题里的"non-reactive"描述的是**自车评测流程**（不开环做多步递归仿真），而背景车可以用 IDM 响应——这是很多人理解的误区。
+
+### 第 5 步：打分器算各子分（PDMScorer）
+
+`scorer.score_proposals()`（`pdm_scorer.py:130`）拿到的就是仿真后状态。它先把自车每个时刻的位姿转成**车辆包围盒多边形**（`state_array_to_coords_array`），然后算两组指标：
+
+**乘性指标（MultiMetricIndex）**——任何一个违规整条得 0：
+
+| 子指标 | 含义 | 取值 |
+|-------|------|------|
+| **NC** No at-fault Collisions | 是否发生**有责碰撞**（区分前撞/侧撞，撞静止车与动态车责任不同） | {0, ½, 1} |
+| **DAC** Drivable Area Compliance | 车辆是否始终在**可驾驶区域**内（车道/路口/泊车区） | {0, 1} |
+| **DDC** Driving Direction Compliance | 是否**逆行**（沿前进方向投影距离衡量） | {0, ½, 1} |
+| **TLC** Traffic Light Compliance | 是否**闯红灯**（与红灯多边形相交） | {0, 1} |
+
+> v1 只有前两个（NC、DAC），**v2 新增 DDC、TLC**（`docs/metrics.md` 明确标注）。
+
+**加权指标（WeightedMetricIndex）**——在安全前提下给出质量分：
+
+| 子指标 | 权重 | 含义 |
+|-------|------|------|
+| **EP** Ego Progress | 5 | 沿参考中线**前进的距离**，归一化到 [0,1]（反"躺平"的关键） |
+| **TTC** Time-to-Collision | 5 | 未来 1s 内是否始终保留碰撞时间余量（投影 1s 后的车体做前瞻检查） |
+| **LK** Lane Keeping | 2 | 连续 2s 偏离车道中心线 > 0.5m 则失败（路口不判） |
+| **HC** History Comfort | 2 | 舒适度，把**人类历史轨迹**拼在前面一起算体感（急加急刹/急转都扣） |
+| **EC** Extended Comfort | 2 | **相邻帧输出轨迹的动态一致性**，防止"忽左忽右"抖动 |
+
+> v1 的加权项是 `{EP, TTC, C}`（权重 5/5/2），v2 把 C 拆成 HC + EC，并新增 LK。所有权重、阈值都在 `pdm_scorer.yaml` 里：`progress 5, ttc 5, lane_keeping 2, history_comfort 2, two_frame_extended_comfort 2`。
+
+最终在 `_aggregate_pdm_scores()`（`pdm_scorer.py:223`）里合成：
+
+$$\text{PDMS} = \left(\prod_{\text{乘性}} m\right) \cdot \left(\frac{\sum w_m \cdot m_{\text{加权}}}{\sum w_m}\right)$$
+
+注意 EP 是**相对归一化**的：以当前 batch 里所有候选轨迹的最大前进量为基准做 clip 归一化（`norm_constant_progress = np.max(masked_progress)`），这样"敢开"的候选相对占优。而 EC（两帧扩展舒适）这一步先不参与——它是 v2 在**后处理阶段**单独注入的（见下文两阶段聚合）。
+
+### 第 6 步：v2 的 EPDMS —— 两阶段伪闭环聚合
+
+上面算出来的是"单场景 PDMS"。**EPDMS（v2 / navhard）** 在其之上加了 `SceneAggregator`（`scene_aggregator.py`）做两阶段聚合：
+
+1. **第一阶段**：在**初始场景**上按上面的流程打一次分（记录你的轨迹**终点** `endpoint_x/y`）；
+2. **第二阶段**：对每个初始场景，评测集里额外准备了**一组预滚动的 follow-up 场景**（每条对应一种不同的 4 秒规划结果：偏左/偏右/快慢不一）。你的模型在这些 follow-up 场景上各打一次分；
+3. **加权**：用**高斯核**衡量"第一阶段终点"和"第二阶段起点"的距离（`scene_aggregator.py:36`）：
+
+$$\text{weight} = \frac{\exp\left(-\,\frac{d^2}{2\sigma^2}\right)}{\sum \exp(\cdots)}, \qquad \sigma^2 = 0.1$$
+
+   即**你的轨迹最终停在哪，离哪条 follow-up 起点越近，那条 follow-up 的权重越高**——近似模拟"偏离之后会怎样"，却完全不用交互式仿真；
+4. **EC 注入**：`SceneAggregator` 还比较**相邻两帧**的仿真状态重叠段（`_compute_two_frame_comfort`），把 `two_frame_extended_comfort` 填进加权指标（`run_pdm_score.py:compute_final_scores`），最终：
+
+$$\text{EPDMS} = \text{multiplicative\_prod} \times \text{weighted\_avg}(EP, TTC, LK, HC, EC)$$
+
+5. **误报惩罚过滤（human_penalty_filter）**：当**人类驾驶员在该场景也违规**时（如借对向车道绕障），把对应子分强制置 1（`pdm_score.py:171` 起），避免"按规矩开车反而被扣分"。
 
 ---
 
-## 🔍 子指标详解
-
-PDMS 由若干子分组合而成。理解这些子分，你才能看懂论文里的 ablation 在说什么。
+## 🔍 子指标详解（速查表）
 
 | 子指标 | 全称 | 类型 | 取值 | 权重 | 衡量什么 |
 |--------|------|------|------|------|---------|
-| **NC** | No at-fault Collisions | 乘性 | {0, ½, 1} | — | 是否与动态/静态障碍发生**有责碰撞** |
-| **DAC** | Drivable Area Compliance | 乘性 | {0, 1} | — | 是否始终在**可驾驶区域**（车道/路面）内 |
-| **EP** | Ego Progress | 加权 | [0, 1] | 5 | **前进量**：实际行驶距离与参考的比值 |
-| **TTC** | Time-to-Collision | 加权 | {0, 1} | 5 | 是否始终保留足够**碰撞时间**余量 |
-| **C** | Comfort | 加权 | {0, 1} | 2 | 加速度/急动度（jerk）是否在**舒适阈值**内 |
+| **NC** | No at-fault Collisions | 乘性 | {0, ½, 1} | — | 是否与障碍发生**有责碰撞** |
+| **DAC** | Drivable Area Compliance | 乘性 | {0, 1} | — | 是否始终在**可驾驶区域**内 |
+| **DDC** ⭐v2 | Driving Direction Compliance | 乘性 | {0, ½, 1} | — | 是否**逆行** |
+| **TLC** ⭐v2 | Traffic Light Compliance | 乘性 | {0, 1} | — | 是否**闯红灯** |
+| **EP** | Ego Progress | 加权 | [0, 1] | 5 | **前进量**（相对 batch 归一化） |
+| **TTC** | Time-to-Collision | 加权 | {0, 1} | 5 | 是否保留足够**碰撞时间**余量 |
+| **LK** ⭐v2 | Lane Keeping | 加权 | {0, 1} | 2 | 是否长时间**偏离车道中心** |
+| **HC** ⭐v2 | History Comfort | 加权 | {0, 1} | 2 | 含历史运动一致性的**舒适度** |
+| **EC** ⭐v2 | Extended Comfort | 加权 | {0, 1} | 2 | 相邻帧输出的**动态一致性** |
+
+⭐ = v2（EPDMS）新增；v1 加权项为 {EP, TTC, C}。
 
 几个要点深入解读：
 
-- **NC 的"无责"很关键**：NAVSIM 区分"责任"。如果碰撞是背景车突然冲出来造成的（自车无法避免），不算自车的错。这避免了把不可抗力的碰撞算到规划器头上。
+- **NC 的"无责"很关键**：NAVSIM 区分"责任"。如果碰撞是背景车突然冲出来造成的（自车无法避免），不算自车的错。实现上靠 `get_collision_type` 区分 `ACTIVE_FRONT_COLLISION`（正面追尾，有责）/ `ACTIVE_LATERAL_COLLISION`（侧向，需结合是否在多车道判定）/ `STOPPED_TRACK_COLLISION` 等（`pdm_scorer_utils.py`）。撞**动态车**扣到 0，撞**静态物**只扣到 0.5。
 - **EP 是反"躺平"的利器**：它正比于自车沿参考线的前进距离。原地不动 EP→0，直接压低加权平均分。这也是 NAVSIM 区别于 L2 的核心。
-- **TTC 是前瞻安全**：不只看当前这一步撞没撞，而是检查未来每个时间点的碰撞时间是否高于阈值，鼓励"留余地"的规划。
-- **C 关注体感**：对纵向/横向加速度和 jerk 设硬阈值，超过即不舒适。NAVSIM v2 进一步把它升级成 **HC（History Comfort）**，还新增 **EC（Extended Comfort）**，检查相邻帧输出轨迹的动态一致性，惩罚"忽左忽右"的抖动。
-
-### NAVSIM v2 的 EPDMS 扩展
-
-2025 年的 v2 版本把指标升级为 **EPDMS（Extended PDMS）**，新增两个乘性项和三个加权项：
-
-| 新增子指标 | 类型 | 含义 |
-|-----------|------|------|
-| **DDC** Driving Direction Compliance | 乘性 | 是否**逆行/走错方向** |
-| **TLC** Traffic Light Compliance | 乘性 | 是否**闯红灯** |
-| **LK** Lane Keeping | 加权(2) | 是否长时间**偏离车道中心** |
-| **HC** History Comfort | 加权(2) | 含历史运动一致性的**舒适度** |
-| **EC** Extended Comfort | 加权(2) | 相邻帧输出的**动态一致性** |
-
-此外，v2 引入 **误报惩罚过滤**：当人类驾驶员本身在该场景也会违规时（如借对向车道绕障），不再惩罚规划器，避免"按规矩开车反而被扣分"。还引入了**伪闭环（pseudo closed-loop）两阶段聚合**：第一阶段在初始场景评测；第二阶段额外准备了一组**预滚动的 follow-up 场景**（每个对应一条不同的 4 秒规划），再根据被测模型第一阶段实际终点与各 follow-up 起点的**高斯核距离**加权汇总，最后两阶段相乘。这样无需真正交互，也能近似"偏离之后会怎样"，进一步缩小开环与闭环的差距。
+- **TTC 是前瞻安全**：`future_collision_horizon_window = 1.0s`，把自车包围盒按当前速度**外推 1 秒**，再与未来背景车做碰撞检查，鼓励"留余地"的规划。
+- **LK 是连续犯规才算**：`lane_keeping_horizon_window = 2.0s`、偏差限 `0.5m`，必须**连续超限**才失败，路口豁免——避免把正常变道误判。
+- **EC 专治"抖动"**：比较相邻两帧模型的输出，若加速度、jerk 等动态量在重叠时间段不一致就扣分。
 
 ---
 
 ## 📂 navtrain / navtest / navhard 数据划分
 
-NAVSIM 的评测公平性，很大程度上来自它精心设计的 **split（数据划分）**。这些 split 都是对 OpenScene（nuPlan 2Hz）做**场景过滤**得到的。
+NAVSIM 的评测公平性，很大程度上来自它精心设计的 **split（数据划分）**。这些 split 都是对 OpenScene（nuPlan 2Hz）做**场景过滤**得到的。官方 `docs/splits.md` 和 `config/common/train_test_split/*.yaml` 给出了完整定义：
 
-| Split | 来源 | 用途 | 特点 |
-|-------|------|------|------|
-| **navtrain** | trainval | **训练** | 过滤掉无聊场景，只保留**有挑战性的非平凡驾驶**；传感器数据 445GB（带历史） |
-| **navtest** | test | **NAVSIM v1 标准测试** | 同样过滤为有挑战场景，是 v1 排行榜（PDMS）的评测集 |
-| **navhard_two_stage** | test + 合成帧 | **NAVSIM v2 标准测试** | 含**合成观测**的伪闭环两阶段评测，对应 EPDMS 排行榜 |
-| **warmup / private_test** | — | 挑战赛 | 热身赛与私有测试集，**禁止用于训练** |
+| Split | 来源 | 用途 | 帧数（tokens） | 特点 |
+|-------|------|------|--------------|------|
+| **navtrain** | trainval | **训练** | **104,480** | 过滤掉无聊场景，只保留有挑战性的非平凡驾驶；传感器 445GB（带历史，无历史 300GB） |
+| **navtest** | test | **NAVSIM v1 标准测试** | **12,282** | 过滤为有挑战场景，是 v1 排行榜（PDMS）的评测集 |
+| **navhard_two_stage** | test + 合成帧 | **NAVSIM v2 标准测试** | 5,988 原始 + 合成 | 含**合成观测**的伪闭环两阶段评测，对应 EPDMS 排行榜 |
+| **warmup / private_test** | — | 挑战赛 | 227 / 1,872 | 热身赛与私有测试集，**禁止用于训练** |
+
+这些数字直接来自 `scene_filter/navtrain.yaml`（`tokens:` 列表 104,480 条）、`navtest.yaml`（12,282 条）等配置。
 
 ### 为什么要"过滤"？
 
 nuPlan 原始日志里，绝大多数场景是**直道匀速、无交互**的"无聊"片段。如果直接拿来评测，模型只要输出"恒速直行"就能拿高分。NAVSIM 的 **scene filter** 专门挑选那些**"恒速恒向"会失败**的场景——比如路口转弯、变道、减速避让、应对行人。这样刷出来的分数才有区分度。
+
+### 每个 split 的过滤配置（源码级）
+
+以 `navtest.yaml` / `navtrain.yaml` 为例（`train_test_split/scene_filter/`）：
+
+```yaml
+num_history_frames: 4   # 取 4 帧历史（2 秒 @2Hz）
+num_future_frames: 10   # 取 10 帧未来（5 秒 @2Hz）
+frame_interval: 1       # 滑窗步长，每 1 帧滑一次（所以场景高度重叠）
+has_route: true         # 只保留有有效路由的场景
+```
+
+- **`navtrain` 与 `navtest` 完全独立、无重叠**：一个基于 trainval、一个基于 test 数据 split，navtest 禁止用于训练。
+- **`navhard_two_stage` 不同**：它 `num_future_frames: 8`（4 秒），且 `include_synthetic_scenes: true`、带 `reactive_synthetic_initial_tokens`——即在原始场景基础上**掺入合成观测**做两阶段伪闭环。
 
 ### navtrain vs navtest 的本质区别
 
@@ -121,34 +286,50 @@ nuPlan 原始日志里，绝大多数场景是**直道匀速、无交互**的"�
 
 ## 🗃️ NAVSIM 数据到底长什么样？从源码看一个 scene
 
-上面说了切分，但真正的难点在于**一个"样本"（scene）具体包含哪些数据、模型训练时又能看到什么**。这一节全部依据 NAVSIM 官方源码 `navsim/common/dataclasses.py`、`navsim/common/dataloader.py` 和 `navsim/planning/dataset` 逐行还原。
+上面说了切分，但真正的难点在于**一个"样本"（scene）具体包含哪些数据、模型训练时又能看到什么**。这一节全部依据 NAVSIM 官方源码 `navsim/common/dataclasses.py`、`navsim/common/dataloader.py` 逐行还原。
 
 ### 数据的三层组织：log → frame → scene
 
 数据不是整卷倒给模型的，而是按**三层组织**：
 
 ```
-OpenScene（=nuPlan 降采样到 2Hz）
+OpenScene（=nuPlan 降采样到 2Hz，NAVSIM_INTERVAL_LENGTH=0.5s）
    └── log     一段完整行车记录（约几百到上千帧 @2Hz）
-          └── frame  一帧（2Hz 采样，间隔 NAVSIM_INTERVAL_LENGTH=0.5s）
+          └── frame  一帧（2Hz 采样，间隔 0.5s）
               └── scene  以一个「带路由的帧」为中心截取的时序窗口 = 基本训练/评测样本
 ```
 
 关键点：
 
-- **log 是下载/切分的最小单位**：`train_logs`（13,180 段）、`val_logs`（2,730 段）都按整段 log 分，**不按帧切**。这样同一段行车记录不会泄漏到训练和验证两边。
+- **log 是下载/切分的最小单位**：`train_logs`、`val_logs`、`test_logs` 都按整段 log 分，**不按帧切**。这样同一段行车记录不会泄漏到训练和验证两边。表：trainval 日志 14GB / 传感器 >2000GB；test 日志 1GB / 传感器 217GB；navtrain 传感器 445GB。
 - **scene 是训练/评测的最小单位**：训练 batch 里装的是一个个 scene。一个 scene 由 `SceneMetadata`（log 名、scene token、地图名、初始帧 token、历史/未来帧数）+ `map_api`（地图）+ **一列 `Frame`** 组成。
-- **scene 由滑窗采样生成**：`split_list(input_list, num_frames, frame_interval)` 会从 log 里每 `frame_interval` 帧取一个长度为 `num_frames` 的窗口。默认 `frame_interval=1`、`num_frames = 4 + 10 = 14`（4 历史 + 10 未来），所以**重叠的帧可以出现在多个 scene**，这正是 103,288 帧比 log 数高很多的原因。
+- **scene 由滑窗采样生成**：`filter_scenes()`（`dataloader.py:16`）里的 `split_list(input_list, num_frames, frame_interval)` 会从 log 里每 `frame_interval` 帧取一个长度为 `num_frames` 的窗口。默认 `frame_interval=1`、`num_frames = 4 + 10 = 14`（4 历史 + 10 未来），所以**重叠的帧可以出现在多个 scene**，这正是 navtrain 104,480 个 scene 远高于 log 数（13,180）的原因。
 
-![NAVSIM 数据加工链：OpenScene → scene 采样 → 过滤 → 各数据集](/images/navsim/navsim_data_chain.svg)
+### 帧类型：Original vs Synthetic（token 的秘密）
 
-### 一个 frame 里的五个内容块
+`navsim/common/enums.py` 定义了**帧类型**：
 
-每个 `Frame`（`dataclasses.py` 的 `Frame`）包含五类字段，可用 `Scene.from_scene_dict_list()` 从 log 装载：
+```python
+class SceneFrameType(IntEnum):
+    ORIGINAL = 0   # 来自 nuPlan/OpenScene 真实日志
+    SYNTHETIC = 1  # v2 生成的合成观测帧
+```
+
+如何区分？`metric_cache_processor.py:317` 有一行很妙的 trick：
+
+```python
+is_synthetic_scene = len(scenario.token) == 17
+```
+
+**真实帧的 token 是 16 位十六进制，合成帧的 token 是 17 位**（多一位前缀用于标识）。合成帧来自 v2 的"预滚动"流程：把某条 4 秒规划用仿真器 rollout 到 t=4s，以该时刻为起点生成新的传感器观测（`Scene.save_to_disk` / `load_from_disk` 实现了这套落盘/加载）。所以合成帧天然携带 `corresponding_original_scene` 与 `corresponding_original_initial_token` 两个元数据字段（`SceneMetadata`），用于第二阶段回链到原始场景。
+
+### 一个 frame 里的内容块
+
+每个 `Frame`（`dataclasses.py:318`）包含五类字段，可用 `Scene.from_scene_dict_list()` 从 log 装载：
 
 | 内容块 | 类型 | 作用（是观测还是特权） |
 |--------|------|----------------------|
-| `token` / `timestamp` | 基础 | 唯一标识（即该帧 LiDAR 点数 token） |
+| `token` / `timestamp` | 基础 | 唯一标识（即该帧 LiDAR 点数的 token） |
 | `roadblock_ids` | `List[str]` | 该帧自车所在车道，后续导出**路由**（特权） |
 | `traffic_lights` | `List[(lane_connector, bool)]` | 路口信号灯状态，`True`=红（特权） |
 | `annotations` | `Annotations` | **包围框真值标定**（特权） |
@@ -156,9 +337,9 @@ OpenScene（=nuPlan 降采样到 2Hz）
 
 ### 标定信息（Annotations）——"人类专家标注了什么"
 
-这就是你问的"**人类专家轨迹/标定**"落点。`Annotations` 类（`dataclasses.py:260`）在一个场景里携带五段等长数组，**逐对象对齐**：
+`Annotations` 类（`dataclasses.py:260`）在一个场景里携带五段等长数组，**逐对象对齐**：
 
-- `boxes`：3D 包围框，尺寸/朝向。姿态用 `BoundingBoxIndex` 索引：`(x, y, z, len, width, height, heading)`。
+- `boxes`：3D 包围框，姿态用 `BoundingBoxIndex` 索引：`(x, y, z, len, width, height, heading)`。
 - `names`：**类别标签** `List[str]`，包含 vehicle、pedestrian、bicycle、traffic_cone、barrier、czone、general 等。
 - `velocity_3d`：3D 速度向量。
 - `instance_tokens` / `track_tokens`：跨帧计数与追踪的恒定 ID，供时序关联。
@@ -184,58 +365,27 @@ NAVSIM 的观测设计很克制：**相机+LiDAR 只覆盖 2 秒过去 / 2Hz**�
 
 ---
 
-## 🏭 NAVSIM 训练流水线：从 scene 到 cache 到 batch
+## 🏭 MetricCache：评测的工程基石
 
-NAVSIM 提供一套轻量训练接口。它会先把原始 scene 预处理成**特征/标签缓存（feature/target cache）**，训练时直接从缓存读张量，避免每轮重复解析日志与大传感器。
+评测时我们**不可能**每帧都重新解析日志、抽中心线、算可驾驶区域——那会慢一个数量级。NAVSIM 的做法是**离线预计算 MetricCache**（`metric_caching/metric_cache_processor.py`），每条样本一个 lzma 压缩的 pkl，评测时直接读入。
 
-### 1. Feature builder 与 Target builder
+### 缓存里有什么？
 
-学习型 Agent 需实现两个接口（`docs/agents.md` 与 `planning/training`）：
+`compute_metric_cache()`（`metric_cache_processor.py:313`）返回的 `MetricCache` 字段：
 
-- **`get_feature_builders()`**：把 `AgentInput`（观测）变成特征张量。内置两个示例——
-  - `EgoStatusFeatureBuilder`：输出 `[velocity(2), acceleration(2), driving_command(1)]` 拼接的 5 维向量；
-  - `TransfuserFeatureBuilder`：输出前相机图、LiDAR BEV map、ego status 三块。
-- **`get_target_builders()`**：把 `Scene`（含特权 GT）变成监督标签，`TrajectoryTargetBuilder` → `trajectory` 目标张量 `[T, 3]`（x,y,heading）。
-
-### 2. CacheOnlyDataset：无日志直接训练
-
-`navsim/planning/training/dataset.py` 的 **`CacheOnlyDataset`** 是训练的主力。它从一个 **cache 目录**构造 dataset：目录按 `log_name / token / <builder名>.gz` 组织，每个 `.gz` 是 **gzip + pickle** 压缩的特征或目标字典（`compresslevel=1`）。`__getitem__` 依次加载每个 builder 的文件，合并得到 `(features, targets)` 字典——**训练过程中根本不再碰原始 sensor 数据**。
-
-`Dataset`（非 pure-cache 版）则支持两种模式：
-- 给了 cache 路径：与 CacheOnlyDataset 类似，若非全缓存则先跑一段**离线/在线 caching**（`run_dataset_caching.py` 可并行预热大数据集）；
-- 不给 cache：每个 batch 实时 `get_scene_from_token()` 解析 scene。
-
-### 3. 一个完整的 EgoStatusMLP 示例
-
-最简 baseline 把 Agent 当"盲司机"：忽略全部传感器，只用当前 `[速度, 加速度, driving_command]` 预测未来轨迹。源码可见其 MLP 输入是 **8 维**（`Linear(8, hidden)`），输出 `num_poses×3`：
-
-```text
-feature = [ego_velocity(2), ego_acceleration(2), driving_command(1)]
-                                    │
-                                    ▼
-                    Linear(8→hidden) →ReLU →Linear →ReLU →Linear
-                                    │
-                                    ▼
-              reshape → [num_poses, 3]  (x, y, heading 未来轨迹)
-label  ← get_future_trajectory()  （人类专家 GT)
-```
-
-它虽然"盲"，但常被当作**kinematic 上限**：只外推状态就能拿到的 PDMS，衡量"不看四周能开多好"。
-
-### 4. 评测不再走训练缓存：MetricCache
-
-评测和训练分开。评测前先做 `metric_cache`（`nav/planning/metric_caching/metric_cache.py`），把每条样本的**静态计算量** lzma 压缩落地，评测时直接读入，避免重复算地图、中心线：
-
-| MetricCache 字段 | 内容 |
-|------------------|------|
-| `trajectory` | 参考轨迹（PCM 决策器提出的提案） |
-| `human_trajectory` | 人类专家 GT 轨迹 |
-| `past_human_trajectory` | 人类历史轨迹 |
-| `observation` / `centerline` / `route_lane_ids` / `drivable_area_map` | 观测 + 参考中线 + 路由车道 + 可驾驶区域 |
+| 字段 | 内容 |
+|------|------|
+| `trajectory` | **PDM-Closed 参考轨迹**（用 `PDMClosedPlanner` 在离线仿真实时生成） |
+| `human_trajectory` | 人类专家 GT 轨迹（合成帧为 None） |
+| `past_human_trajectory` | 人类历史轨迹（用于 HC 舒适度） |
+| `observation` | `PDMObservation`：**插值到 10Hz** 的未来检测轨迹 + 信号灯（TTC 需要 1s 额外前瞻） |
+| `centerline` | 参考中线（`PDMPath`，来自 Dijkstra 搜索的路由） |
+| `route_lane_ids` / `drivable_area_map` | 路由车道 + 可驾驶区域多边形 |
 | `past/current/future_tracked_objects` | 过去(2Hz)/当前/未来(10Hz)目标轨迹 |
-| `ego_state` / `map_parameters` | 自车状态 + 地图参数 |
+| `ego_state` / `map_parameters` | 初始自车状态 + 地图参数 |
+| `scene_type` / `timepoint` | Original/Synthetic 与起始时刻 |
 
-这样一个 cache 就够跑 PDM 打分：模型轨迹 + cache 里的参考轨迹送入 `PDMSimulator` 控制器，再配合 `traffic_agents_policy` 的背景交通流完成碰撞与合规检查。
+注意缓存里的 `observation` 目标轨迹是**从 2Hz 真值插值到 10Hz** 的（`_interpolate_gt_observation`，`metric_cache_processor.py:99`），因为打分的仿真步长是 0.1s——背景车也要有逐 0.1s 的状态才能做碰撞检测。
 
 ### 预计算为何重要？
 
@@ -300,8 +450,9 @@ NAVSIM 再好用，也**不是闭环**。认清它的边界，才能正确解读
 
 | 局限 | 说明 | 后果 |
 |------|------|------|
-| **非反应式** | 背景车不回应自车 | 自车激进加塞也不会被撞回来，**高估安全性** |
-| **无误差恢复** | 只仿真 4 秒，不递归 | 看不到"小偏差滚雪球成大事故"的**复合误差** |
+| **非反应式（自车层面）** | 只评测单次 4 秒前向仿真，不递归 | 看不到"小偏差滚雪球成大事故"的**复合误差** |
+| **背景车可反应、但不交互学习** | v2 背景车是 IDM 反应式 | 仍无法覆盖"自车与背景互相博弈"的完整闭环 |
+| **无误差恢复** | 只仿真 4 秒，不递归 | 复合误差根本触发不了 |
 | **分布偏移** | 评测仍在数据集分布内 | OOD（真正长尾）场景的失败**完全暴露不出来** |
 | **传感器固定** | 无天气/光照/对抗扰动 | 感知鲁棒性测不到 |
 | **开环打分本质** | 仍是非交互式 | "刷榜技巧"（针对指标过拟合）依然可能 |
@@ -319,7 +470,7 @@ NAVSIM 再好用，也**不是闭环**。认清它的边界，才能正确解读
 | 维度 | NAVSIM（开环/半开环） | Bench2Drive（闭环） |
 |------|----------------------|---------------------|
 | **底层** | OpenScene / nuPlan 真实日志 | **CARLA** 仿真器 |
-| **交互** | 非反应式 | **完全反应式**，交通流实时响应 |
+| **交互** | 自车非反应式，背景车 v2 起可 IDM 反应 | **完全反应式**，交通流实时响应 |
 | **指标** | PDMS / EPDMS | Driving Score（完成率×合规） |
 | **成本** | 低，提交预测即可 | 高，需模型在线推理 rollout |
 | **覆盖** | 真实数据分布 | 44 条预定义路线、9 类能力的**场景库** |
@@ -355,7 +506,7 @@ Bench2Drive（闭环，DS） →  暴露累积误差、验证真能开
 抓住这三点，你就抓住了 NAVSIM 的精髓：
 
 1. **本质** = 基于 nuPlan/OpenScene 的**非反应式开环评测**，用 4 秒前向仿真让轨迹"开出来"再做碰撞/合规检查，成本远低于闭环。
-2. **指标** = **PDMS / EPDMS**，由"乘性安全惩罚（NC、DAC）"和"加权质量分（EP、TTC、Comfort）"组成，**抛弃 L2 误差**，直接衡量"开得好不好"，并与闭环分数正相关。
+2. **链路** = 模型输出 `(8,3)` 局部坐标轨迹 → 转全局帧 → 插值到 0.1s → **LQR 控制器（纵向+横向双子系统）** 生成加减速/转向指令 → **自行车运动模型** 逐 0.1s 积分 → 与背景交通流做碰撞/合规检查 → **乘性×加权合成 PDMS**，v2 再经两阶段伪闭环聚合得到 **EPDMS**。
 3. **定位** = 当前端到端规划的**事实标准**，navtest 接近饱和、战场转向 v2 的 EPDMS 与 navhard；但它**仍非闭环**，必须与 Bench2Drive、实路测试互补。
 
 一句话总结：**NAVSIM 让"规划好不好"第一次变得可量化、可复现、可比拼——它是端到端驾驶走向科学的基石。**
