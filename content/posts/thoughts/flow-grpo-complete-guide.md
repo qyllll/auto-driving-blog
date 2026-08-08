@@ -417,6 +417,53 @@ $$ \text{mean} = x_t\Big(1+\frac{\sigma_{\mathrm{noise}}^2}{2\sigma}\Delta t\Big
 
 其中 `std_dev_t` 就是 $\sigma_{\mathrm{noise}}=\sqrt{\frac{\sigma}{1-\sigma}}\cdot\text{noise\_level}$，`model_output` 是 DiT 预测的速度 $v_\theta$，`dt` 是相邻两个噪声水平的差 $\Delta t=\sigma_{prev}-\sigma$。
 
+#### 均值公式是怎么来的（推到 4 步）
+
+这条均值公式不是拍脑袋定的，而是 Flow-GRPO（arXiv 2505.05470，附录 A）**把确定性的概率流 ODE 转成"边际分布不变"的逆时 SDE 后，再做 Euler–Maruyama 离散化**的结果。四个推导步骤：
+
+**第 1 步｜为什么要引入 SDE。** GRPO 的 PPO ratio 需要采样轨迹的逐转移概率 $p_\theta(x_{t+1}\mid x_t)$：
+- 纯 **ODE** $\mathrm{d}x_t = v_t\,\mathrm{d}t$ 是确定性的，算它的 log-prob 要估计 **divergence**（Jacobian 迹），昂贵且不稳；
+- **RL 需要探索随机性**——确定性采样除初始 noise 外没有任何随机源，探索效率低（论文实验：噪声太小训练效率骤降）。
+
+所以要把 ODE 变成边际密度 $p_t$ 在**所有时刻都不变**的 SDE，这样转移核是高斯、log-prob 直接可算。
+
+**第 2 步｜用 Fokker–Planck 反解漂移。** 令"一般 SDE 的边际演化"与"ODE 的边际演化"相等，即保证边际不变：
+- ODE 的边际（连续性/Liouville 方程）：$\partial_t p_t = -\nabla\cdot[v_t\,p_t]$
+- 一般 SDE $\mathrm{d}x_t = f_{\mathrm{SDE}}\,\mathrm{d}t + \sigma_{\mathrm{noise}}\,\mathrm{d}w$ 的边际（Fokker–Planck）：$\partial_t p_t = -\nabla\cdot[f_{\mathrm{SDE}}p_t] + \tfrac12\nabla^2[\sigma_{\mathrm{noise}}^2\,p_t]$
+
+两者相等，用 $\nabla^2(\sigma^2 p)=\sigma^2\nabla\cdot(p\,\nabla\log p)$ 整理，得到漂移：
+
+$$ f_{\mathrm{SDE}} = v_t - \frac{\sigma_{\mathrm{noise}}^2}{2}\nabla\log p_t(x) $$
+
+（这正是经典概率流 ODE ⇄ score-SDE 的关系，Song et al. 2021。）
+
+**第 3 步｜整流流下用速度场替换 score（关键一步）。** 对整流流插值 $x_t=(1-t)x_0 + t x_1$，score 可用速度场**闭式表示**：
+
+$$ \nabla\log p_t(x) = -\frac{x}{t} - \frac{1-t}{t}\,v_t(x) $$
+
+> 直觉来源：该插值的条件密度 $p_{t|0}=\mathcal{N}((1-t)x_0,\,t^2I)$，其 score 正比于 $-\mathbb{E}[x_1\mid x_t]/t$；而速度场 $v_t(x)=\mathbb{E}[x_1-x_0\mid x_t]$。两条式子消去 $\mathbb{E}[x_1\mid x_t]$ 即得该恒等式。
+
+**第 4 步｜代回 + 欧拉离散化。** 把上式代入 $f_{\mathrm{SDE}} = v_t - \frac{\sigma_{\mathrm{noise}}^2}{2}\nabla\log p_t$，得到逆时 SDE：
+
+$$ \mathrm{d}x_t = \Big[\underbrace{v_t(x_t) + \frac{\sigma_{\mathrm{noise}}^2}{2t}\big(x_t + (1-t)\,v_t(x_t)\big)}_{\text{漂移（均值方向）}}\Big]\mathrm{d}t + \sigma_{\mathrm{noise}}\,\mathrm{d}w $$
+
+再按 **Euler–Maruyama** 离散化（式 12）：
+
+$$ x_{t+\Delta t} = x_t + \left[v_\theta + \frac{\sigma_{\mathrm{noise}}^2}{2t}\big(x_t + (1-t)v_\theta\big)\right]\Delta t + \sigma_{\mathrm{noise}}\sqrt{-\Delta t}\,\epsilon $$
+
+把方括号按 $x_t$ 与 $v_\theta$ 的系数拆开（$t=\sigma$），就是第 1 步那三行均值公式；高斯转移核方差为 $\sigma_{\mathrm{noise}}^2(-\Delta t)$，即第 2 步的 log_prob 公式。
+
+**各项含义一览**：
+
+| 项 | 角色 |
+|---|---|
+| $x_t$ 上的 $\frac{\sigma_{\mathrm{noise}}^2}{2\sigma}\Delta t$ | 补偿项：抵消 $\frac{\sigma^2}{2}\nabla\log p$ 对 $x_t$ 的拉拽（式 20 中 $-\frac{\sigma^2}{2}(-\frac{x}{t})$），保边际 |
+| $v_\theta$ 上的 $\frac{\sigma_{\mathrm{noise}}^2(1-\sigma)}{2\sigma}\Delta t$ | 抵消 score 恒等式中 $-\frac{1-t}{t}v_t$ 的贡献 |
+| $\sigma_{\mathrm{noise}}\sqrt{-\Delta t}\,\epsilon$ | 扩散项；去噪时 $\Delta t<0$，取 $\sqrt{-\Delta t}$ 保证方差为正 |
+| $\sigma_{\mathrm{noise}}=\sqrt{\frac{\sigma}{1-\sigma}}\cdot\text{noise\_level}$ | 工程选择：注噪与当前"噪声/信号比"成正比（$t\to0$ 接近图片时噪声消失，$t\to1$ 接近纯噪时噪声最大） |
+
+> 一句话：**均值公式 = "带 score 修正的逆时扩散 SDE" + "整流流下用速度场替换 score 的闭式恒等式" + "欧拉离散化"**。它让确定性 Flow-ODE 变成一个能逐高斯核算 log_prob、且带探索随机性的 SDE，从而支撑 GRPO 的在线策略梯度。
+
 **第 2 件事**：从均值 + 噪声得到下一步 latent，并计算它的 log_prob
 ```python
 # sd3_sde_with_logprob.py:111-119
