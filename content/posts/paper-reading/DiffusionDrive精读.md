@@ -221,33 +221,33 @@ DiffusionDrive 主要在 **NAVSIM** 上评测。NAVSIM 采用 **PDMS（Predictiv
 
 ### 🎨 定性可视化对比：多模态轨迹到底长什么样？
 
-光看指标很难感受"多模态"，下面直接看论文附录里三种典型场景的逐像素对比。三张图都对比了 **Transfuser（单模态回归 → 一条轨迹）、Transfuser-DP（原始 DDIM 扩散策略 → 多条轨迹）与 DiffusionDrive（截断扩散）**。
+光看指标很难感受"多模态"，下面直接看作者官方发布的 NAVSIM navtest 定性对比。四张大图覆盖三类典型场景，都对比了 **Transfuser（单模态回归 → 一条轨迹）、Transfuser-DP（标准 DDIM 扩散策略 → 多条轨迹）与 DiffusionDrive（截断扩散）**。
 
-#### 直行场景
+#### 直行场景：跟车 + 变道
 
-![直行场景可视化对比：DiffusionDrive 的 top-1 轨迹最贴近真值，top-10 给出质量颇高的变道候选（来源：arXiv:2411.15139 Figure 5a/5b/5c）](/images/diffusiondrive/qual-go-straight-a.png)
+![直行场景①：前方有慢车时，Transfuser 只能硬挤出单条轨迹，Transfuser-DP 的多条候选彼此重叠、难以分离出一个合理的超车选择；而 DiffusionDrive 的 top-1 紧贴自车车道跟车，top-10 降噪候选里浮现出清晰的高质量变道路径（来源：arXiv:2411.15139, DiffusionDrive 官方仓库图）](/images/diffusiondrive/qual-go-straight-a.png)
 
-![直行场景可视化对比：其他候选在保持车道的同时与前方慢车作出避让互动（来源：arXiv:2411.15139 Figure 5）](/images/diffusiondrive/qual-go-straight-b.png)
+**解读**：这张图最能体现**模式坍缩（mode collapse）**的对比。Transfuser 的单条轨迹中线插在两车道之间（mode averaging 的典型症状：直接压在分隔线上），Transfuser-DP 的噪声采样则挤成一团、看不出分化；只有 DiffusionDrive 在 top-10 中给出了理由充分的变道候选。注意看红框标注的 top-1：它仍然贴着真值走，变道只出现在"行为伞"里，保证了安全兜底。
 
-![直行场景可视化对比：多模态候选覆盖"跟随"与"变道超车"两种合法决策（来源：arXiv:2411.15139 Figure 5）](/images/diffusiondrive/qual-go-straight-c.png)
+#### 直行场景：变道 + 红绿灯 + 停车线
 
-#### 左转
+![直行场景②：路口红灯。Transfuser-DP 的多条候选明显往两侧"乱窜"，甚至越过交叉方向车流；DiffusionDrive 的 top-1 稳定在车道内减速、top-10 则在停车线前有序减速，并保留了红灯变绿灯后的通过候选（来源：arXiv:2411.15139, 官方图）](/images/diffusiondrive/qual-go-straight-b.png)
 
-![左转场景可视化对比：top-1 贴合真值靠左转，top-10 提供贴右转向同时变道的备选（来源：arXiv:2411.15139 Figure 6）](/images/diffusiondrive/qual-turn-left-a.png)
+**解读**：这个场景暴露了**原始扩散（Transfuser-DP）的"腿乱飞"问题**——从标准高斯噪声出发、去噪步数少，候选轨迹会在场景里发散、不够收敛。位置化：确定性回归（Transfuser）和原始扩散（Transfuser-DP）在红绿灯面前要么不减速要么乱窜；兼具两者优点的 DiffusionDrive 则在**懂规则**（见红灯停下）+ **有选择**（灯后变道）之间取得了平衡。这也正是截断扩散 + 锚定起点带来的收益：起点在人类轨迹附近，模型只需要在"驾驶行为空间"里做小范围修正，而不是从完全随机处去学"红灯要停"这种常识。
 
-![左转场景可视化对比：候选集中有低速等待右方直行车流的高分方案（来源：arXiv:2411.15139 Figure 6）](/images/diffusiondrive/qual-turn-left-b.png)
+#### 左转：与周边智能体交互
 
-![左转场景可视化对比：面对对向来车，部分候选主动减速让行（来源：arXiv:2411.15139 Figure 6）](/images/diffusiondrive/qual-turn-left-c.png)
+![左转场景：对向来车占道、需让行。Transfuser 的单模态左转轨迹直接切入对向车流；DiffusionDrive 的 top-1 左转前主动等待、给对向让出足够间距，top-10 中既有"加速抢道"也有"等车过去"多模态策略（来源：arXiv:2411.15139, DiffusionDrive 官方仓库左转图）](/images/diffusiondrive/qual-turn-left-a.png)
 
-#### 右转
+**解读**：左转是自动驾驶里交互最强、博弈最重的场景。单模态回归在这个场景**必然冒进**：它只能学到"左转轨迹的平均形状"，不知道什么时候该停。Transfuser-DP 的随机性则没有训练的适配，候选要么撞车要么明显不自然。DiffusionDrive 的全部能力在多模态上：top-1 决策"减速让行"是最安全的解法，top-10 则把"加速抢道/停车等待"等人类司机在不同博弈下会走的各种策略都摊开，交给下游得分器选择——这正是**"分布即行为库"**的生动例子。
 
-![右转场景可视化对比：top-1 贴合真值右转，top-10 覆盖绕行路口的合法候选（来源：arXiv:2411.15139 Figure 7）](/images/diffusiondrive/qual-turn-right-a.png)
+#### 右转：跟车 + 绕行
 
-![右转场景可视化对比：候选轨迹在进路口前预降速、顺势右转，分布呈现多模态（来源：arXiv:2411.15139 Figure 7）](/images/diffusiondrive/qual-turn-right-b.png)
+![右转场景：前方有慢车 + 路口有障碍。Transfuser 只能给出单条右转轨迹、完全看不到绕行可能；DiffusionDrive 的 top-1 在慢车后减速跟随，top-10 通过变道绕过往慢车、再从路口右侧顺利右转（官方图）](/images/diffusiondrive/qual-turn-right-a.png)
 
-![右转场景可视化对比：多候选对自车与邻车的交互采取不同让距（来源：arXiv:2411.15139 Figure 7）](/images/diffusiondrive/qual-turn-right-c.png)
+**解读**：这张图展示了扩散轨迹的**"交规与效率的权衡"在多模态里的体现**。单模态和 vanilla 扩散都只给出一条"禁直绕行"的可能；唯一能给出"先绕变量、再合规右转"的多模态方案的，是 DiffusionDrive 的包裹——它把"安全等待（top-1）"与"高效绕行（top-10 变道）"两条路同时摆上桌。这正是端到端生成式规划相比回归式规划的**结构性优势**:不是"输出一条最优",而是"输出一个分布，让下游选择器既有照做又有切换的自由"。
 
-> **看图解读**：每张图里红色 top-1 + 灰色 top-10 的轨迹簇，DiffusionDrive 的关键特征是——**"一条保安全、一簇保多样"**。top-1 永远贴着真值走（遵循规则、安全），而 top-10 候选像一把"行为伞"覆盖绕行、变道、让行等所有合法选择，供下游检验逐层筛选。
+> **看图解读（三图通用）**：红色 top-1 轨迹永远贴着真值和车道线走（安全底线），灰色 top-10 文档构成"行为伞"覆盖变道/绕行/让行等所有合法决策——**"一条保安全、一簇保多样"** 就是截断扩散多模态规划的画质。
 
 ---
 
