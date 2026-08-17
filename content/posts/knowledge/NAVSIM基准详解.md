@@ -294,9 +294,9 @@ has_route: true         # 只保留有有效路由的场景
 
 ```
 OpenScene（=nuPlan 降采样到 2Hz，NAVSIM_INTERVAL_LENGTH=0.5s）
-   └── log     一段完整行车记录（约几百到上千帧 @2Hz）
-          └── frame  一帧（2Hz 采样，间隔 0.5s）
-              └── scene  以一个「带路由的帧」为中心截取的时序窗口 = 基本训练/评测样本
+  → log     一段完整行车记录（约几百到上千帧 @2Hz）
+     → frame  一帧（2Hz 采样，间隔 0.5s）
+        → scene  以一个「带路由的帧」为中心截取的时序窗口 = 基本训练/评测样本
 ```
 
 关键点：
@@ -385,11 +385,99 @@ NAVSIM 的观测设计很克制：**相机+LiDAR 只覆盖 2 秒过去 / 2Hz**�
 | `ego_state` / `map_parameters` | 初始自车状态 + 地图参数 |
 | `scene_type` / `timepoint` | Original/Synthetic 与起始时刻 |
 
+> 🔑 **关键性质：缓存里没有一条字段依赖任何特定模型。** 全部是"场景本身长什么样 + 参考轨迹 + 真值"——这决定了它**天然可以被所有模型共享**。至于"模型自己的输入（相机图/LiDAR）该从哪来、要不要缓存"，是另一条完全独立的线（AgentInput），详见下节「MetricCache 到底建几份？」。
+
 注意缓存里的 `observation` 目标轨迹是**从 2Hz 真值插值到 10Hz** 的（`_interpolate_gt_observation`，`metric_cache_processor.py:99`），因为打分的仿真步长是 0.1s——背景车也要有逐 0.1s 的状态才能做碰撞检测。
 
 ### 预计算为何重要？
 
 评测时我们要对**整个 navtest(12k 帧) 或 navhard(真实+合成)** 逐帧算 PDMS。地图解析、中心线抽取、可驾驶区域这些与模型无关的昂贵计算，多跑一次只会浪费算力。NAVSIM 改成**一次 cache、多次评测复用**，这是它评测高效、可大规模并行的工程基石。
+
+---
+
+## ❓ 高频疑问：MetricCache 到底建几份？雨雪雾呢？
+
+这是几乎所有第一次用 NAVSIM 的人都会绕进去的问题。**直觉是对的：MetricCache 本质上建一份就够，所有模型应该共享。** 但你会觉得"每个模型都要建自己的 cache"，是因为把**两件完全不同的事**混在了一起。下面彻底讲清楚。
+
+### 先分清两个完全不同的东西：MetricCache ≠ 模型的输入
+
+NAVSIM 里有两套并行的数据通路，一套**与模型无关、全模型共享**，另一套**与模型强相关、每个模型各自定制**。它们唯一的共同点是"都从同一个 scene 派生"。
+
+| | **MetricCache（打分缓存）** | **AgentInput（模型输入）** |
+|---|---|---|
+| 服务于 | **打分器**（PDMS 怎么算） | **模型**（怎么出轨迹） |
+| 内容 | 参考轨迹、人类 GT、中心线、可驾驶区域、路由、未来目标、初始自车状态、地图参数 | 历史 ego 状态 + 相机图像 + LiDAR 点云（+ driving_command） |
+| 生成方式 | 离线预计算，**每个 scene 一份** | 评测时实时从原始传感器按需加载 |
+| 依赖模型吗 | ❌ **完全不依赖** | ✅ **依赖**：模型声明用哪些传感器（SensorConfig） |
+| 谁复用 | **所有模型共用同一份** | **每个模型用自己的配置加载** |
+| 在代码里的入口 | `MetricCacheLoader.get_from_token()` | `SceneLoader.get_agent_input_from_token()` |
+
+看官方评测入口 `run_pdm_score.py` 的实际循环（这是最硬的证据）：
+
+```python
+metric_cache = metric_cache_loader.get_from_token(token)      # ① 共享缓存：同一份给所有模型
+agent_input  = scene_loader.get_agent_input_from_token(token) # ② 专属输入：每个模型按需加载
+trajectory   = agent.compute_trajectory(agent_input)          # ③ 模型只用 AgentInput 推理
+score = pdm_score(metric_cache=metric_cache, model_trajectory=trajectory, ...)
+```
+
+**注意第 ③ 行：模型推理时只碰 `agent_input`，根本不读 cache。** 而打分时用的是 cache 里的地图/真值/参考轨迹。也就是说——**你的模型从头到尾看不到 cache 里有什么，cache 也完全不关心你的模型长什么样。**
+
+> 💡 一句话记忆：**MetricCache 是"考卷的标准答案和阅卷标准"，AgentInput 是"发给考生的考题材料"。** 全年级考生共用同一份标准答案；但每个考生拿到什么考题材料（只给单目前视？还是八路环视+激光雷达？），取决于他"报考"时声明要哪些传感器。
+
+### 那"每个模型建自己的 cache"的错觉是从哪来的？
+
+你的观察不是空穴来风，工程上确实常常看到"每个模型各跑一遍 cache"。原因有四个，但**没有一个是"cache 必须按模型建"**：
+
+1. **每个模型要准备自己的 AgentInput，容易被误记成"建 cache"**。真正的模型专属工作量在于：从原始传感器数据里**提取并预处理**该模型需要的输入（裁哪几个摄像头、LiDAR 要不要 BEV、分辨率、历史帧数、归一化、token 化……）。这是模型的**数据加载器**干的活，不是 MetricCache。`AgentInput.from_scene_dict_list()`（`dataclasses.py:157`）就是干这个的，它按模型的 `SensorConfig` 从 sensor 目录里挑传感器。
+
+2. **训练侧的"cache"确实要按模型重新算**。注意区分：**评测用的 MetricCache 共享**；但很多模型训练时会把 PDM-Closed 参考轨迹、可驾驶区域、未来 GT 目标当**监督标签**（比如 Scoring 类方法）。这部分虽然是"借用 cache 的内容"，但**是否用、怎么用，取决于模型自己**——而且如果你要离线打分给候选轨迹当训练标签，那确实得自己再算一份（参见 [排行榜深度分析](/posts/knowledge/navsim排行榜深度分析/) 里 Hydra-MDP 的"30 小时预计算 PDM 分数"）。**这是"训练标签的 cache"，不是"评测的 MetricCache"，别混为一谈。**
+
+3. **合成帧（navhard）的 cache 需要单独补**。navhard 掺了 3DGS 合成帧，合成帧没有人类 GT（`compute_metric_cache` 里 `human_trajectory = None`），且需要额外预滚动。但这也是**按场景**建的，不是按模型建的——同一份合成帧 cache，所有模型照常共享。
+
+4. **工程上"懒得复用"**。很多人为了省事，直接给每个新模型重跑一遍完整 cache 流程（反正 scene 过滤配置一样就能算）。这不是**必需**，只是**偷懒**——代价是白白多算几千上万条场景的地图解析和 PDM-Closed，纯浪费算力。
+
+> ✅ **结论：只要评测集相同、评测配置（scene filter、proposal sampling、LQR 参数）相同，一份 MetricCache 就够所有模型复用。** 官方设计初衷就是"一次缓存、多模型复用"。你真正要为每个模型单独准备的，是 AgentInput 那条线。
+
+### 雨雪雾数据集：建一份雨的 cache，雪和雾还要建吗？
+
+分两种情况，答案完全不同——**关键看"雨雪雾"是改了什么**：
+
+**情况一：同一个 scene，只换天气渲染（外观不变）——一份就够，而且不需要另建。**
+
+假设你对同一个 navtest 场景，用渲染管线把相机图换成雨天版。此时：
+
+- **MetricCache 完全不变**。因为 cache 里存的是**几何/语义信息**：参考轨迹、中心线、可驾驶区域、未来目标框（坐标+速度+类别）、路由、初始自车状态。**这些内容在雨天、雪天、雾天都是一样的**——车还是那辆车、路还是那条路、目标还是那个目标，变的只是"相机拍到的那张图"。
+- **模型输入才变**。雨天相机图像变模糊、有雨滴；雪天白茫茫、对比度低；雾天能见度低。这些是 **AgentInput 里的 cameras**，属于模型感知要处理的。
+
+所以如果雨/雪/雾只是同一批 scene 的不同**视觉渲染**，那么**建一份 cache，三个天气的评测全都能用**——评测循环里 `metric_cache_loader.get_from_token(token)` 完全不变，你只需要在 `agent_input` 那一步加载不同天气下的相机图。**cache 不感知天气，因为天气只影响图像像素，不影响几何真值。**
+
+**情况二：雨雪雾是不同场景（不同日志/不同路径）——每个场景都要 cache，但这是"场景维度"，不是"天气维度"。**
+
+如果雨天的 1000 个场景和雾天的 1000 个场景是**不同的行车日志**（不同地点、不同车流、不同路段），那它们本来就是不同的 scene，自然各有一份 cache。但注意：**这不是因为"雨天"需要单独的 cache，而是因为"不同场景"需要各自的 cache**——哪怕都是晴天，两个不同场景也得各自建一份。天气在这里只是"这些场景碰巧在雨天拍的"，cache 照旧按 scene 一份一份建。
+
+> 💡 **判断准则：MetricCache 只跟"场景内容"绑定，跟"场景长什么样（外观）"无关。** 换个天气、换个光照、换个渲染风格，只要几何真值和地图没变，cache 就复用；换个地点、换段车流、换个交叉口，那就是新场景，就得新 cache。而"每个模型"这个维度，从头到尾都不影响 cache。
+
+### 那每个模型的输入到底从哪"提取"？
+
+这正是 `SceneLoader` + `AgentInput` 干的活。模型不直接从 cache 里拿输入，而是**从原始日志的传感器数据里提取**：
+
+```
+1. navsim 原始数据（logs + sensors）
+2. SceneLoader：按 scene_filter 圈定 token，按模型 SensorConfig 选传感器
+3. AgentInput { ego_statuses（历史自车状态+driving_command）
+              , cameras（该模型要的相机图 + 内外参）
+              , lidars（可选 LiDAR 点云）}
+4. model.compute_trajectory(agent_input)     ← 模型只用这个
+5. Trajectory（8 个局部坐标点）
+```
+
+提取的关键是 `SensorConfig`（`dataclasses.py:782`）——**每个模型自己声明**：`cam_f0=True`（只要前视）、`cam_l0=[0,1]`（要左前且要历史两帧）、`lidar_pc=True`（要激光雷达）……`SceneLoader` 就按这份声明去 sensor 目录里读对应的 blob，拼成 `AgentInput`。所以：
+
+- **换模型 = 换 SensorConfig + 换预处理**（图像 resize、LiDAR 转 BEV、token 化），这是模型自己的数据加载器逻辑；
+- **不换 scene = cache 不变**（共享那份）；**不换场景内容 = 天气变了 cache 也不变**。
+
+一句话收束本节：**MetricCache 建一份给所有人用；AgentInput 每个模型按自己的 SensorConfig 从原始传感器里现取。** 把这两条线分开，你看到的所有"每个模型都要……"的困惑就都解开了。
 
 ---
 
