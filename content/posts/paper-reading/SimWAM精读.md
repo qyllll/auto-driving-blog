@@ -72,27 +72,24 @@ SimWAM 的核心设计可以拆成三句话：
 **先看宏观数据流（训练期）：**
 
 ```
-当前帧 ──→ Video VAE ──→ z(o_t)（当前观测 latent）
-                              │
-导航指令 l ──→ T5 Text Encoder ──┼──→ 共享注意力流
-                              │         （隔离注意力掩码）
-Ego状态 s_t ──→ Ego Encoder(MLP)──┘
-                              │
-                    ┌─────────┴─────────┐
-              Video DiT              Action DiT
-         （生成未来帧 z_{t+1:t+N}）  （预测轨迹速度场 v_θa）
-                    │                    │
-         flow matching 目标       flow matching 目标
-              （动态监督）           （轨迹生成）
-                              │
-        训练完成后：Video DiT 整个删除，只剩 Action DiT
+1. 输入编码
+   · 当前帧     → Video VAE → z(o_t)（当前观测 latent）
+   · 导航指令 l → T5 Text Encoder
+   · 自车状态   → Ego Encoder(MLP)
+   → 三者进入共享注意力流（隔离注意力掩码，未来视频与动作互不可见）
+
+2. 双专家并行
+   · Video DiT：生成未来帧 z_{t+1:t+N}（flow matching 目标，动态监督）
+   · Action DiT：预测轨迹速度场 v_θa（flow matching 目标，轨迹生成）
+
+3. 训练完成后：Video DiT 整个删除，只剩 Action DiT
 ```
 
 **推理期数据流（极简）：**
 
 ```
-当前帧 ──→ Video VAE ──→ z(o_t) ──→ Action DiT ──→ 轨迹 a_{t+1:t+H}
-指令 + Ego 状态 ──────────────────────────┘
+当前帧 → Video VAE → z(o_t) → Action DiT → 轨迹 a_{t+1:t+H}
+（指令 + Ego 状态也作为条件注入 Action DiT；无未来帧生成）
 ```
 
 ---
@@ -256,21 +253,21 @@ $$\text{PDMS} = \underbrace{\prod_{m \in \{NC, DAC\}} r_m}_{\text{惩罚因子�
 ### 4.5 训练流程全景（对应图 2 右侧 "Inference & RL"）
 
 ```
-                    ┌─── RL 阶段 ────────────────────────────────────┐
-                    │                                                │
-   困难 navtrain 场景 ──→ 用 SDE 采样 G=8 条候选轨迹                     │
-                    │        ↓                                       │
-                    │   每条轨迹 → NAVSIM PDM reward 打分 R(τ_i)        │
-                    │        ↓                                       │
-                    │   组内归一化 → 优势 A_i = (R_i − R̄)/σ            │
-                    │        ↓                                       │
-                    │   clipped policy update：                         │
-                    │   用当前模型重算每步 SDE 转移 log-prob，            │
-                    │   ratio = exp(logπ_new − logπ_old)               │
-                    │   损失 = min(ratio·A, clip(ratio)·A) + KL约束      │
-                    │   只更新 Action Expert 的 rank-32 LoRA             │
-                    └────────────────────────────────────────────────┘
-   推理阶段：当前帧 → VAE → Action DiT（10步 ODE）→ 轨迹，无未来帧
+RL 阶段（困难 navtrain 场景，imitation PDMS < 90）：
+
+  ① 用 SDE 采样 G=8 条候选轨迹
+      ↓
+  ② 每条轨迹 → NAVSIM PDM reward 打分 R(τ_i)
+      ↓
+  ③ 组内归一化 → 优势 A_i = (R_i − R̄) / σ
+      ↓
+  ④ clipped policy update：
+       · 用当前模型重算每步 SDE 转移的 log-prob
+       · ratio = exp(logπ_new − logπ_old)
+       · 损失 = min(ratio·A, clip(ratio)·A) + KL 约束
+       · 只更新 Action Expert 的 rank-32 LoRA
+
+推理阶段：当前帧 → VAE → Action DiT（10 步 ODE）→ 轨迹，无未来帧
 ```
 
 **RL 训练动态**（论文图 3，也是我们在图 3 里看到的曲线）：在困难子集上训练，PDMS 稳步爬到 **15k steps 时 91.5 的峰值**；而在全部 navtrain 上训练反而更差——因为大量场景模仿已经处理得很好，RL 信号被稀释。两条曲线在 15k 步后都略有回落，说明长时间优化收益递减。
@@ -295,7 +292,7 @@ $$\text{PDMS} = \underbrace{\prod_{m \in \{NC, DAC\}} r_m}_{\text{惩罚因子�
 
 ## ⚖️ 与博客 Flow-GRPO 的深度对比
 
-SimWAM 的 RL 部分明确继承了 Flow-GRPO（[博客知识篇完整拆解](/posts/knowledge/flow-grpo-详解/)），但二者领域不同、落地细节也不同。这张表值得反复对照：
+SimWAM 的 RL 部分明确继承了 Flow-GRPO（[博客知识篇完整拆解](/posts/knowledge/flow-grpo详解/)），但二者领域不同、落地细节也不同。这张表值得反复对照：
 
 | 维度 | **Flow-GRPO**（图像生成，arXiv:2505.05470） | **SimWAM RL**（自动驾驶，arXiv:2608.07468） |
 |------|---------------------------------------------|---------------------------------------------|
@@ -319,6 +316,64 @@ SimWAM 的 RL 部分明确继承了 Flow-GRPO（[博客知识篇完整拆解](/p
 2. **探索的尺度不同**：图像生成里 Flow-GRPO 探索的是"像素怎么排布"这种高维语义空间；SimWAM 探索的是**低维驾驶轨迹**（每步 8 waypoint × (x,y,θ)），而且候选轨迹天然被"保持边缘分布的 SDE"约束在可行驶、合理的形状内——探索空间小但更有意义，这也解释了为什么 G=8 就够。
 
 3. **"先训练后删"的结构红利**：Flow-GRPO 把 RL 作用在整个生成模型上；SimWAM 因为**隔离注意力掩码**把动作分支独立出来了，RL 阶段可以**完全不理视频分支**，只优化那个最终要部署的轻量 Action Expert——优化目标和部署目标严格一致，没有"训练一个大家伙、部署一个蒸馏小模型"的落差。
+
+---
+
+## 🗺️ 与博客系列四篇的架构对比 + 做法对比
+
+要真正看懂 SimWAM 在"世界模型 + 生成式规划 + 强化学习"这条知识链上的位置，最有效的方式是把博客里同一条脉络上的四篇文章和它放到一起横向比。这四个参照系分别补上了 SimWAM 的不同"前件"：
+
+| 参照 | 在知识链中的角色 | 补上了什么 |
+|------|----------------|-----------|
+| [DriveVLA-W0 精读](/posts/paper-reading/drivevla-w0精读/) | 世界模型**放大数据** | 证明"未来图像预测当稠密监督"能喂饱大模型 |
+| [GoalFlow 精读](/posts/paper-reading/goalflow精读/) | **Flow Matching** 高效生成 | 证明"直线路径 + 少步采样"让生成式规划上车可行 |
+| [Flow-GRPO 详解](/posts/knowledge/flow-grpo详解/) | **RL 底座** | 给出"Flow Matching × GRPO"的完整算法与源码 |
+| [ReCogDrive 精读](/posts/paper-reading/recogdrive精读/) | **DiffGRPO** 强化认知 | 首次把 GRPO 用到驾驶扩散规划器上 |
+| **SimWAM（本文）** | 以上三者的**合流** | 世界模型监督 + Flow 生成 + **Flow-GRPO** 强化 |
+
+### 架构对比：四条路线的"世界模型"长什么样
+
+| 维度 | **DriveVLA-W0** | **GoalFlow** | **ReCogDrive** | **SimWAM** |
+|------|----------------|--------------|----------------|------------|
+| 骨干 | VLM（Emu3-8B / Qwen2.5-VL-7B）+ MoE Action Expert | Transfuser 感知 → BEV + 目标点词表 | Qwen2.5-VL + 扩散规划器 | Video Expert（Wan2.2-5B）+ Action Expert（1.02B） |
+| 动作生成器 | AR / Flow Matching / Query 三种解码器对比 | **Flow Matching 单步生成** | **扩散规划器**（DDPM） | **Flow Matching DiT**（10 步） |
+| 世界模型形态 | 显式预测**未来图像**（AR 或 Diffusion） | 无显式世界模型 | 无显式世界模型 | 显式预测**未来视频**（联合训练） |
+| 世界模型监督 | 训练期稠密监督，推理期旁路 | — | — | **训练期注入，推理期删除视频分支** |
+| 视频-动作耦合 | 同一 VLA 骨干联合预测 | — | VLM 认知表征 → 扩散规划器 | **隔离注意力掩码**（训练期解耦） |
+| RL 环节 | ❌ 无 | ❌ 无 | ✅ **DiffGRPO**（扩散 × GRPO） | ✅ **Flow-GRPO**（流匹配 × GRPO） |
+| RL 作用对象 | — | — | 扩散规划器去噪网络 | **Action Expert 的 rank-32 LoRA** |
+
+### 做法对比：四篇的关键"动作"
+
+| 做法 | **DriveVLA-W0** | **GoalFlow** | **ReCogDrive** | **SimWAM** |
+|------|----------------|--------------|----------------|------------|
+| 数据策略 | 7000 万帧内部数据 + 世界模型放大缩放律 | NAVSIM + 目标点评分 | VQA 认知数据流水线 + 专家轨迹 | NAVSIM（navtrain 困难子集做 RL） |
+| 两阶段训练 | 先世界预训练（6VA）→ 动作专精（2VA） | 感知/选点/生成/评分联合 | 认知预训练 → 规划器联合 → DiffGRPO | 先视频-动作联合模仿 → 再 Flow-GRPO |
+| 推理时延控制 | Action Expert 瘦身 74ms、旁路世界模型 | **单步生成** | 隐状态注入 7.8× 加速 | 推理期删视频分支，纯动作 DiT |
+| 多模态轨迹 | 三种解码器（大数据下 AR 最优） | 目标点分隔模态 | 扩散天然多模态 | Flow DiT 多模态 + 候选轨迹 |
+| 闭环策略 | 开环 NAVSIM 为主 | 开环 NAVSIM | 开环 + Bench2Drive 闭环 | 开环 NAVSIM + nuScenes 零样本 |
+
+### 关键论断：为什么说 SimWAM 是首个把 Flow-GRPO 引入自动驾驶的工作
+
+这是这篇精读最想强调的一点，需要拆成两层看：
+
+**第一层：GRPO 进入驾驶，ReCogDrive 是先行者，但它用的是"扩散版"。** [ReCogDrive](/posts/paper-reading/recogdrive精读/)（arXiv:2506.08052，2025 年 6 月）首次把 GRPO 用到了自动驾驶的**扩散规划器**上——即 **DiffGRPO**（Diffusion × GRPO）。它验证了"组内相对优势 + 扩散多模态生成"在驾驶里的可行性。但它的生成底座是 **DDPM 式扩散**：弯曲的去噪路径、需要较多采样步数、log-prob 通过 ELBO 近似计算。
+
+**第二层：Flow-GRPO 进入驾驶，SimWAM 是第一个。** Flow-GRPO 本身（arXiv:2505.05470，字节跳动，NeurIPS 2025）最初是给**文生图**设计的（SD3/FLUX/Qwen-Image/Wan2.1）。在自动驾驶领域，把"**Flow Matching（rectified flow）** × **GRPO**"这套组合完整落地——包含关键的 **ODE→SDE 转换**（让确定性 ODE 采样变成有可解析 log-prob 的随机探索）——SimWAM（arXiv:2608.07468）是目前首个明确继承该范式的工作，论文 Eq.2 直接标注 "Following Flow-GRPO [30]"。
+
+为什么"扩散版 GRPO"不能算"Flow-GRPO"？三点本质差异：
+
+| 维度 | **DiffGRPO**（ReCogDrive） | **Flow-GRPO**（SimWAM 所用） |
+|------|---------------------------|------------------------------|
+| 生成路径 | 弯曲的 DDPM 反向去噪链 | **直线 rectified flow**（最优传输） |
+| 采样步数 | 较多（20+ 步） | **少（10 步即可，可降到 2 步）** |
+| log-prob 来源 | ELBO / 变分下界近似 | **SDE 转移的高斯密度解析式** |
+| 探索机制 | 扩散噪声本身 | **ODE→SDE 保持边缘分布的随机化** |
+| 轨迹形状约束 | 无显式约束，易发散 | 直线路径天然稳定、少步收敛 |
+
+> 换句话说：**ReCogDrive 证明了"GRPO 这种 RL 能进驾驶"；SimWAM 证明了"Flow-GRPO 这种'直线路径 + 少步 + 解析密度'的特定配方能进驾驶"，并拿到了比扩散版更高的上限（91.5 vs ReCogDrive 的 90.8 PDMS）。** 这两者不是同一件事——前者是扩散底座，后者是流匹配底座。
+
+还有一个容易被忽略的先后关系佐证：SimWAM 依赖的三大件——世界模型训练期监督（DriveVLA-W0 已验证）、Flow Matching 高效生成（GoalFlow 已验证）、GRPO 强化（ReCogDrive/Flow-GRPO 已验证）——**在 SimWAM 之前没有一篇同时具备**。ReCogDrive 有 GRPO 但没有显式世界模型；DriveVLA-W0 有世界模型但没有 RL；GoalFlow 有 Flow Matching 但没有世界模型和 RL。**SimWAM 是第一个把这三块拼成一个闭环的工作，而其中"Flow-GRPO 上驾驶"这一步，在公开文献里尚无更早的先例。**
 
 ---
 
@@ -465,7 +520,7 @@ NAVSIM 训练的 SimWAM 不做任何微调直接测 nuScenes 开环规划：
 
 **下一步最值得关注**：①在 Bench2Drive 这类**反应式闭环**基准上验证（这是所有 NAVSIM SOTA 的共同考卷）；②把 GRPO-Guard（RatioNorm + 梯度重加权）这类防过优化机制搬进来，防止 RL 训久了对 PDM 奖励钻空子；③Video Expert 换成更强的驾驶域视频模型（Cosmos-Predict2.5 已经显示出趋势），动作先验还能再涨。
 
-**关联阅读**：这篇和 [DriveVLA-W0 精读](/posts/paper-reading/drivevla-w0精读/)（世界模型放大数据）、[ReCogDrive 精读](/posts/paper-reading/recogdrive精读/)（DiffGRPO 强化认知）、[Flow-GRPO 详解](/posts/knowledge/flow-grpo-详解/)（RL 底座）、[GoalFlow 精读](/posts/paper-reading/goalflow精读/)（Flow Matching 高效生成）串起来读，正好构成"世界模型 → Flow 生成 → GRPO 强化"的完整知识链。
+**关联阅读**：这篇和 [DriveVLA-W0 精读](/posts/paper-reading/drivevla-w0精读/)（世界模型放大数据）、[ReCogDrive 精读](/posts/paper-reading/recogdrive精读/)（DiffGRPO 强化认知）、[Flow-GRPO 详解](/posts/knowledge/flow-grpo详解/)（RL 底座）、[GoalFlow 精读](/posts/paper-reading/goalflow精读/)（Flow Matching 高效生成）串起来读，正好构成"世界模型 → Flow 生成 → GRPO 强化"的完整知识链——而 SimWAM 正是这条链上**第一根全部串起来的闭环**：世界模型只在训练期当老师（DriveVLA-W0 的教训）、Flow Matching 直线路径做高效生成（GoalFlow 的教训）、把 Flow-GRPO 的 ODE→SDE 配方首次搬上驾驶（见上文横向对比）——这就是它配得上"首个把 Flow-GRPO 引入自动驾驶"论断的三块基石。再与 [Metis 精读](/posts/paper-reading/metis精读/)（MoT 双专家 + 非对称掩码）对照，就能看清同期"解耦视频-动作"的两种取向。
 
 ---
 

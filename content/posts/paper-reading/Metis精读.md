@@ -61,27 +61,27 @@ Metis 的解法分三步：
 **先看宏观数据流（训练期）：**
 
 ```
-当前帧 ──→ Video VAE ──→ latent tokens（当前观测）
-指令 l ──→ Text Encoder(T5) ──┐
-                             ├──→ 所有 token 先 cross-attend 语言 embedding
-Ego状态 ──→ Ego Encoder ─────┘
-                             │
-                 ┌───────────┴────────────┐
-        Video Generation Expert     Action Expert（Diffusion Transformer）
-       （生成未来帧 latent，Wan2.2-5B）   （预测轨迹速度场，1B）
-                 │                           │
-   未来视频token 可看 当前+未来动作token     动作token 只看 当前观测token
-    （非对称掩码：反向不可见）
-                 │                           │
-        联合 flow matching 优化：L = L_action + λL_video
+1. 输入编码
+   · 当前帧   → Video VAE → latent tokens（当前观测）
+   · 指令 l   → Text Encoder(T5)
+   · 自车状态 → Ego Encoder
+   → 以上 token 先 cross-attend 语言 embedding
+
+2. 双专家分支（非对称注意力掩码）
+   · Video Generation Expert（Wan2.2-5B）：生成未来帧 latent
+       信息流：未来视频 token 可看「当前观测 + 未来动作 token」（反向不可见）
+   · Action Expert（DiT，1B）：预测轨迹速度场
+       信息流：动作 token 只看「当前观测 token」
+
+3. 联合优化：L = L_action + λL_video
 ```
 
 **推理期数据流（极简）：**
 
 ```
-当前帧 ──→ Video VAE ──→ latent ──→ Action Expert（10步去噪）──→ 动作 chunk
-指令 + Ego 状态 ───────────────────────┘
-        （视频生成分支被完全旁路，无未来帧生成）
+当前帧 → Video VAE → latent → Action Expert（10 步去噪）→ 动作 chunk
+（指令 l + 自车状态也作为条件注入 Action Expert；
+  视频生成分支被完全旁路，无未来帧生成）
 ```
 
 ---
