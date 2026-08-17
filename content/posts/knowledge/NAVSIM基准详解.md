@@ -431,7 +431,7 @@ score = pdm_score(metric_cache=metric_cache, model_trajectory=trajectory, ...)
 
 1. **每个模型要准备自己的 AgentInput，容易被误记成"建 cache"**。真正的模型专属工作量在于：从原始传感器数据里**提取并预处理**该模型需要的输入（裁哪几个摄像头、LiDAR 要不要 BEV、分辨率、历史帧数、归一化、token 化……）。这是模型的**数据加载器**干的活，不是 MetricCache。`AgentInput.from_scene_dict_list()`（`dataclasses.py:157`）就是干这个的，它按模型的 `SensorConfig` 从 sensor 目录里挑传感器。
 
-2. **训练侧的"cache"确实要按模型重新算**。注意区分：**评测用的 MetricCache 共享**；但很多模型训练时会把 PDM-Closed 参考轨迹、可驾驶区域、未来 GT 目标当**监督标签**（比如 Scoring 类方法）。这部分虽然是"借用 cache 的内容"，但**是否用、怎么用，取决于模型自己**——而且如果你要离线打分给候选轨迹当训练标签，那确实得自己再算一份（参见 [排行榜深度分析](/posts/knowledge/navsim排行榜深度分析/) 里 Hydra-MDP 的"30 小时预计算 PDM 分数"）。**这是"训练标签的 cache"，不是"评测的 MetricCache"，别混为一谈。**
+2. **训练侧的"cache"确实要按模型重新算**。注意区分两层：**评测用的 MetricCache 共享**；但训练侧有两类 cache 都跟模型有关——一是**DataCache（training_cache）**：每个模型注册自己的 feature/target builders，把 `agent_input` 变成输入张量、把 scene 变成监督标签并缓存（见下节「data cache」），这部分**确实按模型各建一份**；二是很多模型训练时把 PDM-Closed 参考轨迹、可驾驶区域、未来 GT 目标当**监督标签**（比如 Scoring 类方法），**是否用、怎么用取决于模型自己**——如果你要离线打分给候选轨迹当训练标签，那确实得自己再算一份（参见 [排行榜深度分析](/posts/knowledge/navsim排行榜深度分析/) 里 Hydra-MDP 的"30 小时预计算 PDM 分数"）。**这些是"训练标签/输入张量的 cache"，不是"评测的 MetricCache"，别混为一谈。**
 
 3. **合成帧（navhard）的 cache 需要单独补**。navhard 掺了 3DGS 合成帧，合成帧没有人类 GT（`compute_metric_cache` 里 `human_trajectory = None`），且需要额外预滚动。但这也是**按场景**建的，不是按模型建的——同一份合成帧 cache，所有模型照常共享。
 
@@ -457,6 +457,84 @@ score = pdm_score(metric_cache=metric_cache, model_trajectory=trajectory, ...)
 如果雨天的 1000 个场景和雾天的 1000 个场景是**不同的行车日志**（不同地点、不同车流、不同路段），那它们本来就是不同的 scene，自然各有一份 cache。但注意：**这不是因为"雨天"需要单独的 cache，而是因为"不同场景"需要各自的 cache**——哪怕都是晴天，两个不同场景也得各自建一份。天气在这里只是"这些场景碰巧在雨天拍的"，cache 照旧按 scene 一份一份建。
 
 > 💡 **判断准则：MetricCache 只跟"场景内容"绑定，跟"场景长什么样（外观）"无关。** 换个天气、换个光照、换个渲染风格，只要几何真值和地图没变，cache 就复用；换个地点、换段车流、换个交叉口，那就是新场景，就得新 cache。而"每个模型"这个维度，从头到尾都不影响 cache。
+
+### 那 MetricCache 里的东西到底是谁"提供"的？
+
+拆开看，cache 里的字段来自**四个不同的提供方**——不是单纯"数据集给的"：
+
+| MetricCache 字段 | 提供方 | 说明 |
+|---|---|---|
+| `past_human_trajectory` / `human_trajectory` | **数据集（OpenScene 日志）** | 人类司机真实轨迹，日志标注里就有 |
+| `past/current/future_tracked_objects` | **数据集** | 检测目标轨迹，来自日志真值（含类别/尺寸） |
+| `ego_state` / `map_parameters` | **数据集** | 自车起始状态（位置/朝向/速度）+ 场景地图元数据 |
+| `centerline` / `route_lane_ids` / `drivable_area_map` | **地图 + PDM 规划器** | 从 nuPlan 地图 API 拉取路网，Dijkstra 搜出路由、抽取中心线、切出可驾驶区 |
+| `trajectory`（PDM-Closed 参考轨迹） | **NAVSIM 自带的 PDM 规划器** | `PDMClosedPlanner` 在离线仿真里算出的"满分答案" |
+| `observation`（插值到 10Hz 的目标+信号灯） | **数据集 + scorer 版本** | 目标轨迹来自真值，插值方式由 scorer 的仿真分辨率决定 |
+
+所以更准确的说法是：**MetricCache = 数据集（场景/真值）× 地图 × NAVSIM/PDM scorer 版本 × 评测配置** 四者的共同产物，而不是"数据集直接提供的"。
+
+### 那"按数据集提取 MetricCache"具体指什么？
+
+指对**每一个 scene**（一个 token）跑一遍 `compute_metric_cache(scenario)`（`metric_cache_processor.py:313`）：
+
+```python
+# 输入是一个 NavSimScenario = OpenScene 数据(自车/目标/标注) + nuPlan 地图(MapAPI)
+metric_cache = metric_cache_processor.compute_metric_cache(scenario)
+# 按 token 存成 <metric_cache_path>/<log>/<token>/metric_cache.pkl
+metric_cache_loader.dump_all_caches()
+```
+
+数据流是：**原始日志 → scene（pickle）→ 场景 + 地图喂给 compute_metric_cache → 逐字段算出 → 按 token 落盘一份**。评测时所有模型从同一份落盘文件 `get_from_token(token)` 读。**所以"提取"的对象是"场景"，不是"模型"**——你为 11 个模型服务时，这段代码也只该跑一遍。
+
+### 那"data cache"又是什么？和 MetricCache 什么关系？
+
+这是刚才那句"别混为一谈"的关键另一半。**NAVSIM 里确实存在第二种 cache，官方叫 `training_cache`**（见 `default_training.yaml` 里的 `cache_path: ${NAVSIM_EXP_ROOT}/training_cache`），你同事说的 "data cache" 基本就是这个。它和 MetricCache 是**两种完全不同的东西**：
+
+| | **MetricCache（打分缓存）** | **DataCache / training_cache（训练数据缓存）** |
+|---|---|---|
+| 官方配置项 | `metric_cache_path` | `cache_path`（training_cache） |
+| 缓存什么 | PDM scorer 要用的**场景指标**（参考轨迹/中心线/可驾驶区/真值） | 模型的**输入张量 + 监督标签**（feature/target builders 的输出） |
+| 谁生成 | `MetricCacheProcessor`（与模型无关） | `Dataset.cache_dataset()`（按模型注册的 builders） |
+| 落盘形式 | 每个 scene 一个 `metric_cache.pkl` | 每个 scene 下 `token/<builder_unique_name>.gz` |
+| 依赖模型吗 | ❌ 不依赖，全模型共享 | ✅ **依赖**：不同模型注册不同的 feature/target builders |
+| 用途 | 评测打分（PDMS） | **训练**时避免反复从原始传感器重算输入 |
+
+看训练数据集源码 `dataset.py` 的缓存逻辑就一目了然——`_cache_scene_with_token` 对每个 builder 单独存一份：
+
+```python
+scene      = scene_loader.get_scene_from_token(token)   # 从原始数据读场景
+agent_input = scene.get_agent_input()                   # 读传感器 → AgentInput
+# feature_builders：把 agent_input 变成模型输入张量
+builder.compute_features(agent_input)  → 存成 token/<name>.gz
+# target_builders：把 scene 变成监督标签张量
+builder.compute_targets(scene)         → 存成 token/<name>.gz
+```
+
+注意第 ③ 行 `builder.get_unique_name()`——**这个唯一名里带着模型特征**。所以：
+
+- **DataCache 才是"按模型不同"的那个 cache**：你的模型要 8 个摄像头、另一个模型只要前视，它们的 feature builder 不同 → `unique_name` 不同 → 各存各的 `.gz`，不能混用。这就是"每个模型都建 cache"这个说法在训练侧**是真的**的原因。
+- **MetricCache 是"按场景不同"的那个 cache**：跟模型零关系，评测侧全模型共享。
+
+一句话总结两种 cache 的分工：**MetricCache 管"怎么打分"（评测共享）；DataCache 管"怎么喂模型"（训练按模型各自建）。** 前者缓存场景指标，后者缓存输入张量和标签。你之前看到"每张图像都建 cache"，说的其实是 DataCache 这条线；而 MetricCache 从算法上讲就该是大家共用一份的。
+
+### 一个真实例子：同事的雨天数据为什么得重建 cache？
+
+把上面所有规则套到一个具体场景，能帮你彻底固化理解。假设同事用渲染管线做了雨天版本，你问"雨天能复用官方 NAVTEST 的 metric cache 吗？"——**答案取决于雨天数据动了哪些东西**：
+
+**如果能复用**：如果只是把同一批场景的**相机图像**换成雨天渲染，而 scene token、scene pickle（自车/目标/地图真值）、以及动态目标信息全都不变——那么**完全可以复用官方 NAVTEST 的 metric cache**。因为天气只影响 `agent_input.cameras` 的像素，MetricCache 里没有一个字段被它碰到。
+
+**必须重建的情况**：你同事给的雨天数据实际上引入了这些变化——
+1. 新的日志目录、新的 scene pickle 目录；
+2. 新的 token（带 `_rain_multi` 后缀，token 本身变了）；
+3. 场景集合变了：12370 个场景 ≠ 官方 12146 个；
+4. 还需要做 token 映射 + lidar 字段兼容处理。
+
+**token 一变，`MetricCacheLoader` 的索引就找不到了**（它按 `{token: path}` 建立索引，`dataloader.py:316`）。而这些新场景本质上是一批"新场景"——哪怕内容长得和官方场景几乎一样，只要 token/scene pickle/场景集合变了，就得为它们**重建对应场景的 metric cache**。将来做雪天、雾天同理：
+
+- 只做"原 token 对应的图像替换" → 复用官方 cache；
+- token、scene pickle 或场景集合变了 → 必须重建。
+
+**但注意这跟模型数量无关**——不管 11 个模型还是 1 个模型，只要大家用同一批场景、同一个 NAVSIM v1 scorer，就该共享同一份（雨天）metric cache。模型真正不同的，只是 checkpoint 推理和 trajectory 输出。
 
 ### 那每个模型的输入到底从哪"提取"？
 
