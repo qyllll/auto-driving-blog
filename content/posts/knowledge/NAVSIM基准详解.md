@@ -367,7 +367,7 @@ NAVSIM 的观测设计很克制：**相机+LiDAR 只覆盖 2 秒过去 / 2Hz**�
 
 ## 🏭 MetricCache：评测的工程基石
 
-评测时我们**不可能**每帧都重新解析日志、抽中心线、算可驾驶区域——那会慢一个数量级。NAVSIM 的做法是**离线预计算 MetricCache**（`metric_caching/metric_cache_processor.py`），每条样本一个 lzma 压缩的 pkl，评测时直接读入。
+评测时我们**不可能**每帧都重新解析日志、抽中心线、算可驾驶区域——那会慢一个数量级。NAVSIM 的做法是**离线预计算 MetricCache**（`metric_caching/metric_cache_processor.py`），**每个场景 token 一个 lzma 压缩的 pkl 文件**，评测时直接读入（`.pkl` 是什么、目录怎么组织，见下下小节「`.pkl` 是什么？」）。
 
 ### 缓存里有什么？
 
@@ -392,6 +392,45 @@ NAVSIM 的观测设计很克制：**相机+LiDAR 只覆盖 2 秒过去 / 2Hz**�
 ### 预计算为何重要？
 
 评测时我们要对**整个 navtest(12k 帧) 或 navhard(真实+合成)** 逐帧算 PDMS。地图解析、中心线抽取、可驾驶区域这些与模型无关的昂贵计算，多跑一次只会浪费算力。NAVSIM 改成**一次 cache、多次评测复用**，这是它评测高效、可大规模并行的工程基石。
+
+### `.pkl` 是什么？MetricCache 就是每个场景 token 一个 pkl 文件吗？
+
+**是的，正是如此——MetricCache 本质上就是"每个场景 token 一个 `.pkl` 文件"。** 下面把它讲透。
+
+#### ① 什么是 `.pkl`？
+
+`.pkl` 是 Python **pickle 序列化**的标准文件后缀（全称 "pickle file"）。pickle 是 Python 把**内存里的对象**（字典、列表、类实例……）变成**字节流**保存到磁盘的机制，要用时再反序列化还原成对象。
+
+- **能存什么**：几乎任意 Python 对象——NAVSIM 的 `MetricCache` 就是个 `@dataclass` 类，里面嵌套了 `PDMPath`、`PDMObservation`、`Polygon` 等自定义对象，pickle 可以原样整套序列化；
+- **为什么用 pkl 不用 JSON**：JSON 只能存基础类型（字典/列表/字符串/数字），遇到 `Polygon`、`PDMPath` 这种带方法和类型信息的对象就得手写序列化逻辑；pickle 直接"整体封存"，**反序列化后拿到的是类型完整的原始对象**，评测代码读出来就能直接用；
+- **为什么"每条样本一个文件"**：pickle 按对象序列化，天然适合"一个对象存一个文件"的布局——评测按 token 随机取样本时，**只读需要的那一个文件**，不用像一个大 JSON 那样全量加载。
+
+#### ② MetricCache 在磁盘上长什么样？
+
+```
+${NAVSIM_EXP_ROOT}/metric_cache/
+  metadata/                 ← 索引目录：token → 文件路径的映射清单
+  (log_name)/
+    (token)/
+      metric_cache.pkl      ← 这一个场景的完整 MetricCache（lzma 压缩）
+```
+
+- 目录结构按 `log → token → metric_cache.pkl` 三级组织（`(log_name)` 是 log 名、`(token)` 是场景 token，写代码时替换为实际值即可）；
+- **每个 `token` 一个目录**，目录里是 `metric_cache.pkl`（默认文件名见 `dataloader.py` 的 `MetricCacheLoader(cache_path, file_name="metric_cache.pkl")`）；
+- **token 就是场景的唯一 ID**（一条帧级样本）。有多少个评测 token，就有多少个 pkl 文件——navtest 约 12k 个、navhard 还要再加上合成帧；
+- 上面提到 lzma，是指存的时候用 **LZMA 压缩**（`lzma.open` + `pickle.load`）。因为目标轨迹、可驾驶区域多边形这些数据量不小，压缩后能省一大半磁盘，读的时候自动解压，速度影响很小。
+
+#### ③ 评测时怎么"读"它？
+
+`MetricCacheLoader`（`dataloader.py`）在初始化时先扫描 `metadata/` 里的索引，建立 `{token: pkl路径}` 的字典；评测循环里对每个 token 调用：
+
+```python
+metric_cache = metric_cache_loader.get_from_token(token)   # 按 token 找到对应 pkl → lzma 解压 → pickle 还原
+```
+
+注意这个函数**只按 token 查文件**——不涉及任何模型。所以前面说的"所有模型共享同一份 MetricCache"在落盘层面就是：**同一个 token 只存在一个 `metric_cache.pkl`，谁评测谁读它**。
+
+> 💡 一句话总结：**pkl 是 Python 的"对象封存"格式；MetricCache = 每个场景 token 一个 lzma 压缩的 pkl 文件；评测按 token 索引读取，与模型无关。**
 
 ---
 
@@ -480,7 +519,7 @@ score = pdm_score(metric_cache=metric_cache, model_trajectory=trajectory, ...)
 ```python
 # 输入是一个 NavSimScenario = OpenScene 数据(自车/目标/标注) + nuPlan 地图(MapAPI)
 metric_cache = metric_cache_processor.compute_metric_cache(scenario)
-# 按 token 存成 <metric_cache_path>/<log>/<token>/metric_cache.pkl
+# 按 token 存成 metric_cache_path 下 (log)/(token)/metric_cache.pkl 三个层级
 metric_cache_loader.dump_all_caches()
 ```
 
@@ -495,7 +534,7 @@ metric_cache_loader.dump_all_caches()
 | 官方配置项 | `metric_cache_path` | `cache_path`（training_cache） |
 | 缓存什么 | PDM scorer 要用的**场景指标**（参考轨迹/中心线/可驾驶区/真值） | 模型的**输入张量 + 监督标签**（feature/target builders 的输出） |
 | 谁生成 | `MetricCacheProcessor`（与模型无关） | `Dataset.cache_dataset()`（按模型注册的 builders） |
-| 落盘形式 | 每个 scene 一个 `metric_cache.pkl` | 每个 scene 下 `token/<builder_unique_name>.gz` |
+| 落盘形式 | 每个 scene 一个 `metric_cache.pkl` | 每个 scene 下 `token/(builder_unique_name).gz` |
 | 依赖模型吗 | ❌ 不依赖，全模型共享 | ✅ **依赖**：不同模型注册不同的 feature/target builders |
 | 用途 | 评测打分（PDMS） | **训练**时避免反复从原始传感器重算输入 |
 
@@ -505,12 +544,12 @@ metric_cache_loader.dump_all_caches()
 scene      = scene_loader.get_scene_from_token(token)   # 从原始数据读场景
 agent_input = scene.get_agent_input()                   # 读传感器 → AgentInput
 # feature_builders：把 agent_input 变成模型输入张量
-builder.compute_features(agent_input)  → 存成 token/<name>.gz
+builder.compute_features(agent_input)  → 存成 token/(name).gz
 # target_builders：把 scene 变成监督标签张量
-builder.compute_targets(scene)         → 存成 token/<name>.gz
+builder.compute_targets(scene)         → 存成 token/(name).gz
 ```
 
-注意第 ③ 行 `builder.get_unique_name()`——**这个唯一名里带着模型特征**。所以：
+注意上面 `builder.get_unique_name()` 生成的唯一名——**这个唯一名里带着模型特征**。所以：
 
 - **DataCache 才是"按模型不同"的那个 cache**：你的模型要 8 个摄像头、另一个模型只要前视，它们的 feature builder 不同 → `unique_name` 不同 → 各存各的 `.gz`，不能混用。这就是"每个模型都建 cache"这个说法在训练侧**是真的**的原因。
 - **MetricCache 是"按场景不同"的那个 cache**：跟模型零关系，评测侧全模型共享。
