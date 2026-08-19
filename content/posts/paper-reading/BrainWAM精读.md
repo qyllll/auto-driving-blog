@@ -82,6 +82,8 @@ weight: 8
 
 > 💡 **很多读者卡在这里，先把这几个概念说透。** "Mo" 是 **Mixture-of-Transformers（混合 Transformer）** 的缩写，"T" 是 Transformer。它是"MoE（Mixture-of-Experts）"思想在注意力层的变体：**不同类型的 token 共享一部分注意力层，但各自保留专属的 FFN（前馈网络）**，让不同模态"能对话、又不互相污染"。
 
+![MoT / Dual-MoT / Tri-MoT 三栏对比（自绘 SVG）：MoT 是通用机制（N 类 token 共享自注意力 + 各自专属 FFN）；Dual-MoT 只放 2 类 token 进共享注意力锅，各配专属 FFN；Tri-MoT 把语义/视频/动作 3 类 token 全倒进同一口锅，动作 token 的注意力被语义抢走、视频 token 被边缘化——这就是"注意力失衡病"。](/images/brainwam/mot_concepts.svg)
+
 - **Dual-MoT（双模态 MoT）**：**两类** token（比如"视频 token + 动作 token"或"语义 token + 动作 token"）共享自注意力，各自有专属 FFN——BrainWAM 的**每个分支内部**用它来耦合。
 - **Tri-MoT（三模态 MoT）**：**三类** token（VLM 语义 token + VGM 视频 token + 动作 token）全部放进**同一个共享注意力空间**自由互相关注。它是最"暴力"的融合方式——所有 token 都能碰到彼此。
 - **MoT 与 MoE 的关系**：MoE 是"不同输入走不同专家网络"，MoT 是"不同模态的 token 在同一个 Transformer 里但注意力/FFN 分工"。二者都强调"特化 + 共享"的平衡。

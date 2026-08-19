@@ -1,0 +1,136 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1240 470" font-family="PingFang SC, Microsoft YaHei, sans-serif">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#777"/>
+    </marker>
+  </defs>
+  <rect x="0" y="0" width="1240" height="470" fill="#fafbfc"/>
+  <text x="620" y="26" text-anchor="middle" font-size="15" font-weight="bold" fill="#222">MoT 家族一图看懂：共享注意力层 + 各类专属 FFN（区别只在"几类 token 进同一锅"）</text>
+
+  <!-- ============ 第 1 栏：MoT（通用机制） ============ -->
+  <rect x="30" y="45" width="380" height="44" rx="8" fill="#ede7f6" stroke="#5e35b1"/>
+  <text x="220" y="63" text-anchor="middle" font-size="13" font-weight="bold" fill="#311b92">MoT（通用机制）</text>
+  <text x="220" y="80" text-anchor="middle" font-size="11" fill="#555">多类 token 共享注意力，各配专属 FFN</text>
+
+  <!-- 三类 token 输入 -->
+  <rect x="110" y="110" width="220" height="34" rx="6" fill="#fff3e0" stroke="#ef6c00"/>
+  <text x="220" y="132" text-anchor="middle" font-size="12" fill="#e65100">视频 token（VGM）</text>
+  <rect x="110" y="152" width="220" height="34" rx="6" fill="#e3f2fd" stroke="#1565c0"/>
+  <text x="220" y="174" text-anchor="middle" font-size="12" fill="#0d47a1">语义 token（VLM）</text>
+  <rect x="110" y="194" width="220" height="34" rx="6" fill="#e8f5e9" stroke="#2e7d32"/>
+  <text x="220" y="216" text-anchor="middle" font-size="12" fill="#1b5e20">动作 token（Action）</text>
+
+  <line x1="220" y1="144" x2="220" y2="258" stroke="#777" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="220" y1="186" x2="220" y2="258" stroke="#777" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="220" y1="228" x2="220" y2="258" stroke="#777" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- 共享自注意力 -->
+  <rect x="60" y="262" width="320" height="46" rx="8" fill="#f3e5f5" stroke="#8e24aa"/>
+  <text x="220" y="282" text-anchor="middle" font-size="12.5" font-weight="bold" fill="#6a1b9a">共享自注意力（所有 token 互相关注）</text>
+  <text x="220" y="299" text-anchor="middle" font-size="10.5" fill="#6a1b9a">一个注意力层，三类 token 都过</text>
+
+  <line x1="220" y1="308" x2="220" y2="342" stroke="#777" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- 各类专属 FFN -->
+  <rect x="60" y="346" width="95" height="56" rx="6" fill="#ffe0b2" stroke="#ef6c00"/>
+  <text x="107" y="370" text-anchor="middle" font-size="11" font-weight="bold" fill="#e65100">FFN</text>
+  <text x="107" y="385" text-anchor="middle" font-size="10.5" fill="#e65100">视频专属</text>
+  <rect x="172" y="346" width="95" height="56" rx="6" fill="#bbdefb" stroke="#1565c0"/>
+  <text x="219" y="370" text-anchor="middle" font-size="11" font-weight="bold" fill="#0d47a1">FFN</text>
+  <text x="219" y="385" text-anchor="middle" font-size="10.5" fill="#0d47a1">语义专属</text>
+  <rect x="284" y="346" width="95" height="56" rx="6" fill="#c8e6c9" stroke="#2e7d32"/>
+  <text x="331" y="370" text-anchor="middle" font-size="11" font-weight="bold" fill="#1b5e20">FFN</text>
+  <text x="331" y="385" text-anchor="middle" font-size="10.5" fill="#1b5e20">动作专属</text>
+
+  <line x1="107" y1="402" x2="107" y2="425" stroke="#777" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <line x1="219" y1="402" x2="219" y2="425" stroke="#777" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <line x1="331" y1="402" x2="331" y2="425" stroke="#777" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <rect x="60" y="428" width="95" height="26" rx="5" fill="#fff8e1" stroke="#f9a825"/>
+  <text x="107" y="446" text-anchor="middle" font-size="10.5" fill="#f57f17">视频输出</text>
+  <rect x="172" y="428" width="95" height="26" rx="5" fill="#fff8e1" stroke="#f9a825"/>
+  <text x="219" y="446" text-anchor="middle" font-size="10.5" fill="#f57f17">语义输出</text>
+  <rect x="284" y="428" width="95" height="26" rx="5" fill="#fff8e1" stroke="#f9a825"/>
+  <text x="331" y="446" text-anchor="middle" font-size="10.5" fill="#f57f17">动作输出</text>
+
+  <!-- ============ 第 2 栏：Dual-MoT（两类 token） ============ -->
+  <rect x="440" y="45" width="380" height="44" rx="8" fill="#ede7f6" stroke="#5e35b1"/>
+  <text x="630" y="63" text-anchor="middle" font-size="13" font-weight="bold" fill="#311b92">Dual-MoT（双模态 MoT）</text>
+  <text x="630" y="80" text-anchor="middle" font-size="11" fill="#555">两类 token 共享注意力，各配专属 FFN</text>
+
+  <rect x="520" y="110" width="220" height="34" rx="6" fill="#fff3e0" stroke="#ef6c00"/>
+  <text x="630" y="132" text-anchor="middle" font-size="12" fill="#e65100">视频 token（VGM）</text>
+  <rect x="520" y="152" width="220" height="34" rx="6" fill="#e8f5e9" stroke="#2e7d32"/>
+  <text x="630" y="174" text-anchor="middle" font-size="12" fill="#1b5e20">动作 token（Action）</text>
+
+  <line x1="630" y1="144" x2="630" y2="258" stroke="#777" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="630" y1="186" x2="630" y2="258" stroke="#777" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <rect x="470" y="262" width="320" height="46" rx="8" fill="#f3e5f5" stroke="#8e24aa"/>
+  <text x="630" y="282" text-anchor="middle" font-size="12.5" font-weight="bold" fill="#6a1b9a">共享自注意力（两类互相关注）</text>
+  <text x="630" y="299" text-anchor="middle" font-size="10.5" fill="#6a1b9a">一个注意力层，两类 token 都过</text>
+
+  <line x1="630" y1="308" x2="630" y2="342" stroke="#777" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <rect x="500" y="346" width="120" height="56" rx="6" fill="#ffe0b2" stroke="#ef6c00"/>
+  <text x="560" y="370" text-anchor="middle" font-size="11" font-weight="bold" fill="#e65100">FFN</text>
+  <text x="560" y="385" text-anchor="middle" font-size="10.5" fill="#e65100">视频专属</text>
+  <rect x="640" y="346" width="120" height="56" rx="6" fill="#c8e6c9" stroke="#2e7d32"/>
+  <text x="700" y="370" text-anchor="middle" font-size="11" font-weight="bold" fill="#1b5e20">FFN</text>
+  <text x="700" y="385" text-anchor="middle" font-size="10.5" fill="#1b5e20">动作专属</text>
+
+  <line x1="560" y1="402" x2="560" y2="425" stroke="#777" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <line x1="700" y1="402" x2="700" y2="425" stroke="#777" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <rect x="500" y="428" width="120" height="26" rx="5" fill="#fff8e1" stroke="#f9a825"/>
+  <text x="560" y="446" text-anchor="middle" font-size="10.5" fill="#f57f17">视频输出</text>
+  <rect x="640" y="428" width="120" height="26" rx="5" fill="#fff8e1" stroke="#f9a825"/>
+  <text x="700" y="446" text-anchor="middle" font-size="10.5" fill="#f57f17">动作输出</text>
+
+  <!-- ============ 第 3 栏：Tri-MoT（三类 token 混居） ============ -->
+  <rect x="850" y="45" width="380" height="44" rx="8" fill="#ffebee" stroke="#c62828"/>
+  <text x="1040" y="63" text-anchor="middle" font-size="13" font-weight="bold" fill="#b71c1c">Tri-MoT（三模态 MoT）⚠ 病根在这</text>
+  <text x="1040" y="80" text-anchor="middle" font-size="11" fill="#555">三类 token 全部混进同一个共享注意力空间</text>
+
+  <rect x="930" y="110" width="220" height="34" rx="6" fill="#fff3e0" stroke="#ef6c00"/>
+  <text x="1040" y="132" text-anchor="middle" font-size="12" fill="#e65100">语义 token（VLM）</text>
+  <rect x="930" y="152" width="220" height="34" rx="6" fill="#fff3e0" stroke="#ef6c00"/>
+  <text x="1040" y="174" text-anchor="middle" font-size="12" fill="#e65100">视频 token（VGM）</text>
+  <rect x="930" y="194" width="220" height="34" rx="6" fill="#e8f5e9" stroke="#2e7d32"/>
+  <text x="1040" y="216" text-anchor="middle" font-size="12" fill="#1b5e20">动作 token（Action）</text>
+
+  <line x1="1040" y1="144" x2="1040" y2="258" stroke="#777" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="1040" y1="186" x2="1040" y2="258" stroke="#777" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="1040" y1="228" x2="1040" y2="258" stroke="#777" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- 三模态混居的注意力池：全连接 -->
+  <rect x="890" y="262" width="300" height="46" rx="8" fill="#ffebee" stroke="#c62828"/>
+  <text x="1040" y="282" text-anchor="middle" font-size="12.5" font-weight="bold" fill="#b71c1c">同一个共享注意力空间（全互连）</text>
+  <text x="1040" y="299" text-anchor="middle" font-size="10.5" fill="#b71c1c">语义/视频/动作 token 谁也躲不开谁</text>
+
+  <line x1="1040" y1="308" x2="1040" y2="342" stroke="#777" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <rect x="905" y="346" width="105" height="52" rx="6" fill="#ffe0b2" stroke="#ef6c00"/>
+  <text x="957" y="368" text-anchor="middle" font-size="11" font-weight="bold" fill="#e65100">FFN</text>
+  <text x="957" y="383" text-anchor="middle" font-size="10" fill="#e65100">语义专属</text>
+  <rect x="1016" y="346" width="105" height="52" rx="6" fill="#ffe0b2" stroke="#ef6c00"/>
+  <text x="1068" y="368" text-anchor="middle" font-size="11" font-weight="bold" fill="#e65100">FFN</text>
+  <text x="1068" y="383" text-anchor="middle" font-size="10" fill="#e65100">视频专属</text>
+  <rect x="1127" y="346" width="105" height="52" rx="6" fill="#c8e6c9" stroke="#2e7d32"/>
+  <text x="1179" y="368" text-anchor="middle" font-size="11" font-weight="bold" fill="#1b5e20">FFN</text>
+  <text x="1179" y="383" text-anchor="middle" font-size="10" fill="#1b5e20">动作专属</text>
+
+  <!-- 注意力失衡标注 -->
+  <rect x="905" y="412" width="327" height="34" rx="6" fill="#ffcdd2" stroke="#c62828"/>
+  <text x="1068" y="433" text-anchor="middle" font-size="11" font-weight="bold" fill="#b71c1c">⚠ 动作 token 的注意力被语义抢走，视频 token 被边缘化</text>
+
+  <!-- 中间分隔线 -->
+  <line x1="430" y1="50" x2="430" y2="450" stroke="#e0e0e0" stroke-width="1.5"/>
+  <line x1="840" y1="50" x2="840" y2="450" stroke="#e0e0e0" stroke-width="1.5"/>
+
+  <!-- 底部一句话对比 -->
+  <text x="30" y="462" font-size="11.5" fill="#222">一句话对比：</text>
+  <text x="110" y="462" font-size="11.5" fill="#333">MoT = 机制本身（N 类 token 共享注意力 + 各自专属 FFN）</text>
+  <text x="470" y="462" font-size="11.5" fill="#333">Dual-MoT = 只放 2 类进锅（BrainWAM 分支内用它，干净可控）</text>
+  <text x="850" y="462" font-size="11.5" font-weight="bold" fill="#b71c1c">Tri-MoT = 3 类全倒进同一口锅 → 语义太强，把注意力抢光</text>
+</svg>
