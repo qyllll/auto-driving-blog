@@ -64,6 +64,31 @@ Percept-WAM 的全部设计围绕 **三族 token** 展开，对应"感知 → �
 
 ---
 
+## 🧩 架构讲解：输入 → 模型 → 输出
+
+> 📍 **架构图在这**：Percept-WAM 的完整架构图是 **图 2（Figure 2，见下方"架构总览"小节）**。下面先用一张我自己画的流程图把**整体数据流**讲清楚——它的核心特征是"**一个 VLM 里同时长着感知和规划**"，感知和规划不是串联的模块，而是并联的 token。
+
+![Percept-WAM 数据流总览（自绘 SVG 流程图）：图像（+可选 LiDAR）→ InternVL2-8B VLM 骨干 → 三族 World token（PV 感知 / BEV 感知 / Action 轨迹查询）→ MLP 解码出最终轨迹。](/images/perceptwam/flow_architecture.svg)
+
+#### ① 输入是什么？（2 类）
+
+| 输入 | 类型 | 编码器 | 变成什么 |
+|------|------|--------|---------|
+| **多视角图像** | 视觉 | VLM 视觉编码器（InternVL2-8B，动态分块） | 图像特征 → World-PV tokens 的"母体" |
+| **可选 LiDAR 点云** | 点云 | 预训练 LiDAR 编码器 | 初始化 World-BEV tokens（消融里 +8.2 mAP） |
+
+#### ② 中间经历了什么？（三族 World token 并行）
+
+1. **World-PV tokens**：图像特征网格化 → 透视视角 2D 感知（检测/分割/单目 3D）；
+2. **World-BEV tokens**：可学习 BEV 网格查询 cross-attention World-PV → 鸟瞰 3D 感知（3D 检测/BEV 地图）；
+3. **World-Action tokens**：四组点级 query（Q_pv/Q_bev/Q_ego/Q_full）受控注意力掩码对齐各模态 → MLP 并行解码轨迹。
+
+#### ③ 输出是什么？（2 类，可选）
+
+**感知结果**（2D/3D 检测框、分割 mask）+ **最终轨迹**（推理时只用 Q_full 的解码结果）。**同一个骨架既能出感知、又能出轨迹**——也可以只输出轨迹。
+
+---
+
 ## ⚙️ 架构总览（论文核心图）
 
 ![图 2：Percept-WAM 整体架构（源图 arXiv:2511.19221 Figure 2）。左侧：预训练 VLM 骨干（InternVL2-8B）保持通用推理能力；中间：World-PV tokens 做透视 2D 感知，World-BEV tokens 做鸟瞰 3D 感知；右侧：Action Head 用四组 query 并行解码轨迹；底部 memory bank 支持流式推理。](/images/perceptwam/fig2_architecture.png)

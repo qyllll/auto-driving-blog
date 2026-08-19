@@ -1,0 +1,109 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 700" font-family="PingFang SC, Microsoft YaHei, sans-serif">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#555"/>
+    </marker>
+  </defs>
+  <rect x="0" y="0" width="1000" height="700" fill="#fafbfc"/>
+  <text x="500" y="24" text-anchor="middle" font-size="15" font-weight="bold" fill="#222">SimWAM 数据流总览：训练期（视频当老师）｜推理期（只留 Action Expert）</text>
+
+  <!-- 训练期输入层 -->
+  <rect x="60" y="45" width="180" height="52" rx="8" fill="#e3f2fd" stroke="#1565c0"/>
+  <text x="150" y="70" text-anchor="middle" font-size="13" fill="#0d47a1">当前帧 o_t</text>
+  <text x="150" y="88" text-anchor="middle" font-size="11" fill="#555">单前视相机</text>
+
+  <rect x="270" y="45" width="170" height="52" rx="8" fill="#e3f2fd" stroke="#1565c0"/>
+  <text x="355" y="70" text-anchor="middle" font-size="13" fill="#0d47a1">导航指令 l</text>
+  <text x="355" y="88" text-anchor="middle" font-size="11" fill="#555">T5 文本编码</text>
+
+  <rect x="470" y="45" width="180" height="52" rx="8" fill="#e3f2fd" stroke="#1565c0"/>
+  <text x="560" y="70" text-anchor="middle" font-size="13" fill="#0d47a1">自车状态 s_t</text>
+  <text x="560" y="88" text-anchor="middle" font-size="11" fill="#555">速度/加速度/横摆角速度</text>
+
+  <!-- 编码器层 -->
+  <rect x="60" y="135" width="180" height="52" rx="8" fill="#ede7f6" stroke="#5e35b1"/>
+  <text x="150" y="158" text-anchor="middle" font-size="13" fill="#311b92">Video VAE</text>
+  <text x="150" y="176" text-anchor="middle" font-size="11" fill="#555">图像 → latent token z(o_t)</text>
+
+  <rect x="270" y="135" width="170" height="52" rx="8" fill="#ede7f6" stroke="#5e35b1"/>
+  <text x="355" y="158" text-anchor="middle" font-size="13" fill="#311b92">T5 文本编码器</text>
+  <text x="355" y="176" text-anchor="middle" font-size="11" fill="#555">指令 embedding</text>
+
+  <rect x="470" y="135" width="180" height="52" rx="8" fill="#ede7f6" stroke="#5e35b1"/>
+  <text x="560" y="158" text-anchor="middle" font-size="13" fill="#311b92">Ego Encoder (MLP)</text>
+  <text x="560" y="176" text-anchor="middle" font-size="11" fill="#555">低维状态向量</text>
+
+  <!-- 共享注意力流 -->
+  <rect x="60" y="225" width="590" height="58" rx="8" fill="#f3e5f5" stroke="#8e24aa"/>
+  <text x="355" y="252" text-anchor="middle" font-size="13" font-weight="bold" fill="#6a1b9a">共享注意力流（三类 token 同池，受隔离掩码约束）</text>
+  <text x="355" y="272" text-anchor="middle" font-size="11" fill="#555">当前观测 z(o_t)｜未来帧 z_{t+1:t+N}｜action token —— 未来帧 ↔ action 互不可见</text>
+
+  <!-- 双专家 -->
+  <rect x="80" y="325" width="330" height="72" rx="8" fill="#fff3e0" stroke="#ef6c00"/>
+  <text x="245" y="350" text-anchor="middle" font-size="13" font-weight="bold" fill="#e65100">Video Expert（Video DiT）</text>
+  <text x="245" y="370" text-anchor="middle" font-size="11" fill="#555">继承 Wan2.2-5B 视频先验</text>
+  <text x="245" y="388" text-anchor="middle" font-size="11" fill="#555">flow matching 生成未来帧（训练监督）</text>
+
+  <rect x="440" y="325" width="330" height="72" rx="8" fill="#c8e6c9" stroke="#2e7d32"/>
+  <text x="605" y="350" text-anchor="middle" font-size="13" font-weight="bold" fill="#1b5e20">Action Expert（Action DiT）</text>
+  <text x="605" y="370" text-anchor="middle" font-size="11" fill="#555">轻量 DiT（hidden=1024）</text>
+  <text x="605" y="388" text-anchor="middle" font-size="11" fill="#555">flow matching 预测轨迹速度场</text>
+
+  <!-- 专家输出 -->
+  <rect x="80" y="435" width="330" height="50" rx="8" fill="#fce4ec" stroke="#c2185b"/>
+  <text x="245" y="465" text-anchor="middle" font-size="12" fill="#880e4f">未来帧 z_{t+1:t+N}（仅训练用）</text>
+
+  <rect x="440" y="435" width="330" height="50" rx="8" fill="#c8e6c9" stroke="#2e7d32"/>
+  <text x="605" y="465" text-anchor="middle" font-size="12" font-weight="bold" fill="#1b5e20">轨迹 a_{t+1:t+H}（部署用）</text>
+
+  <!-- 训练期标题 -->
+  <text x="60" y="505" font-size="12" font-weight="bold" fill="#222">【训练期】Video Expert + Action Expert 联合训练（rectified flow + 隔离掩码）</text>
+
+  <!-- 推理期 -->
+  <rect x="60" y="520" width="680" height="150" rx="8" fill="#fff8e1" stroke="#f9a825"/>
+  <text x="70" y="542" font-size="12" font-weight="bold" fill="#e65100">【推理 / RL 期】Video 分支已删除（Removed），只剩 Action Expert</text>
+
+  <rect x="80" y="555" width="140" height="46" rx="8" fill="#e3f2fd" stroke="#1565c0"/>
+  <text x="150" y="582" text-anchor="middle" font-size="12" fill="#0d47a1">当前帧 o_t</text>
+
+  <rect x="260" y="555" width="140" height="46" rx="8" fill="#ede7f6" stroke="#5e35b1"/>
+  <text x="330" y="582" text-anchor="middle" font-size="12" fill="#311b92">Video VAE</text>
+
+  <rect x="440" y="555" width="160" height="46" rx="8" fill="#c8e6c9" stroke="#2e7d32"/>
+  <text x="520" y="582" text-anchor="middle" font-size="12" fill="#1b5e20">Action DiT（10 步 ODE）</text>
+
+  <rect x="640" y="555" width="80" height="46" rx="8" fill="#fce4ec" stroke="#c2185b"/>
+  <text x="680" y="582" text-anchor="middle" font-size="12" font-weight="bold" fill="#880e4f">轨迹</text>
+
+  <text x="80" y="622" font-size="11" fill="#555">RL 阶段：Flow ODE → SDE（保持边缘分布的随机探索）→ GRPO 组内优势 → 只更新 Action Expert 的 rank-32 LoRA</text>
+  <text x="80" y="640" font-size="11" fill="#555">奖励 = NAVSIM PDM 组合驾驶奖励（无碰撞 × 可行驶 × 进度/碰撞时间/舒适），只在模仿 PDMS&lt;90 的困难场景上做</text>
+
+  <!-- 输入→编码箭头 -->
+  <line x1="150" y1="97" x2="150" y2="135" stroke="#555" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="355" y1="97" x2="355" y2="135" stroke="#555" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="560" y1="97" x2="560" y2="135" stroke="#555" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- 编码→共享注意力 -->
+  <line x1="150" y1="187" x2="150" y2="225" stroke="#555" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="355" y1="187" x2="355" y2="225" stroke="#555" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="560" y1="187" x2="560" y2="225" stroke="#555" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- 共享注意力→双专家 -->
+  <line x1="245" y1="283" x2="245" y2="325" stroke="#555" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="605" y1="283" x2="605" y2="325" stroke="#555" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- 隔离说明 -->
+  <line x1="410" y1="340" x2="440" y2="340" stroke="#8e24aa" stroke-width="2.5" stroke-dasharray="6,4"/>
+  <line x1="410" y1="380" x2="440" y2="380" stroke="#8e24aa" stroke-width="2.5" stroke-dasharray="6,4"/>
+  <text x="425" y="326" text-anchor="middle" font-size="10" fill="#8e24aa">隔离</text>
+  <text x="425" y="398" text-anchor="middle" font-size="10" fill="#8e24aa">掩码</text>
+
+  <!-- 专家→输出 -->
+  <line x1="245" y1="397" x2="245" y2="435" stroke="#555" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="605" y1="397" x2="605" y2="435" stroke="#555" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- 推理期箭头 -->
+  <line x1="220" y1="578" x2="260" y2="578" stroke="#555" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="400" y1="578" x2="440" y2="578" stroke="#555" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="600" y1="578" x2="640" y2="578" stroke="#555" stroke-width="2" marker-end="url(#arrow)"/>
+</svg>

@@ -1,0 +1,79 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 660" font-family="PingFang SC, Microsoft YaHei, sans-serif">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#555"/>
+    </marker>
+  </defs>
+  <rect x="0" y="0" width="1000" height="660" fill="#fafbfc"/>
+  <text x="500" y="28" text-anchor="middle" font-size="16" font-weight="bold" fill="#222">Percept-WAM 数据流总览：一个 VLM 里同时长着感知和规划</text>
+
+  <!-- 输入层 -->
+  <rect x="60" y="50" width="230" height="56" rx="8" fill="#e3f2fd" stroke="#1565c0"/>
+  <text x="175" y="78" text-anchor="middle" font-size="13" fill="#0d47a1">多视角图像</text>
+  <text x="175" y="96" text-anchor="middle" font-size="11" fill="#555">高分辨率（动态分块）</text>
+
+  <rect x="320" y="50" width="200" height="56" rx="8" fill="#e3f2fd" stroke="#1565c0"/>
+  <text x="420" y="78" text-anchor="middle" font-size="13" fill="#0d47a1">可选 LiDAR 点云</text>
+  <text x="420" y="96" text-anchor="middle" font-size="11" fill="#555">初始化 World-BEV tokens</text>
+
+  <!-- VLM 骨干 -->
+  <rect x="150" y="140" width="700" height="60" rx="8" fill="#ede7f6" stroke="#5e35b1"/>
+  <text x="500" y="168" text-anchor="middle" font-size="14" font-weight="bold" fill="#311b92">VLM 骨干 InternVL2-8B（共享骨架，保持通用推理能力）</text>
+  <text x="500" y="188" text-anchor="middle" font-size="11" fill="#555">图像特征 → 后续所有 World token 的"母体"</text>
+
+  <!-- World-PV -->
+  <rect x="80" y="240" width="280" height="78" rx="8" fill="#fff3e0" stroke="#ef6c00"/>
+  <text x="220" y="264" text-anchor="middle" font-size="13" font-weight="bold" fill="#e65100">World-PV tokens（透视视角）</text>
+  <text x="220" y="284" text-anchor="middle" font-size="11" fill="#555">H×W 网格化，每格一个局部查询</text>
+  <text x="220" y="302" text-anchor="middle" font-size="11" fill="#555">grid 条件化预测 + IoU 校准置信度</text>
+
+  <!-- World-BEV -->
+  <rect x="400" y="240" width="280" height="78" rx="8" fill="#fff3e0" stroke="#ef6c00"/>
+  <text x="540" y="264" text-anchor="middle" font-size="13" font-weight="bold" fill="#e65100">World-BEV tokens（鸟瞰视角）</text>
+  <text x="540" y="284" text-anchor="middle" font-size="11" fill="#555">40×40 可学习网格查询</text>
+  <text x="540" y="302" text-anchor="middle" font-size="11" fill="#555">cross-attention 查询 World-PV 特征</text>
+
+  <!-- World-Action -->
+  <rect x="80" y="370" width="600" height="72" rx="8" fill="#c8e6c9" stroke="#2e7d32"/>
+  <text x="380" y="394" text-anchor="middle" font-size="13" font-weight="bold" fill="#1b5e20">World-Action tokens：四组点级轨迹查询</text>
+  <text x="380" y="414" text-anchor="middle" font-size="11" fill="#555">Q_pv（只看 PV）｜Q_bev（只看 BEV）｜Q_ego（只看自车状态）｜Q_full（看全部）</text>
+  <text x="380" y="432" text-anchor="middle" font-size="11" fill="#555">受控注意力掩码 → 动作与各模态对齐</text>
+
+  <!-- 感知输出标注 -->
+  <text x="220" y="332" text-anchor="middle" font-size="11" fill="#2e7d32">→ 2D 检测框 / 分割 mask / 单目3D</text>
+  <text x="540" y="332" text-anchor="middle" font-size="11" fill="#2e7d32">→ 3D 检测框 / BEV 语义地图</text>
+
+  <!-- MLP 解码器 -->
+  <rect x="400" y="490" width="200" height="50" rx="8" fill="#e8f5e9" stroke="#2e7d32"/>
+  <text x="500" y="520" text-anchor="middle" font-size="13" fill="#1b5e20">MLP 解码器（并行解码）</text>
+
+  <!-- 输出轨迹 -->
+  <rect x="370" y="570" width="260" height="56" rx="8" fill="#fce4ec" stroke="#c2185b"/>
+  <text x="500" y="594" text-anchor="middle" font-size="13" font-weight="bold" fill="#880e4f">最终轨迹 a（未来 4s）</text>
+  <text x="500" y="614" text-anchor="middle" font-size="11" fill="#555">推理只用 Q_full 的解码结果</text>
+
+  <!-- 输入→骨干 -->
+  <line x1="175" y1="106" x2="175" y2="140" stroke="#555" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="420" y1="106" x2="420" y2="140" stroke="#555" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- 骨干→PV/BEV -->
+  <line x1="220" y1="200" x2="220" y2="240" stroke="#555" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="540" y1="200" x2="540" y2="240" stroke="#555" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- BEV 查询 PV 箭头（虚线） -->
+  <line x1="400" y1="280" x2="360" y2="280" stroke="#ef6c00" stroke-width="2" stroke-dasharray="5,3" marker-end="url(#arrow)"/>
+  <text x="380" y="270" text-anchor="middle" font-size="10" fill="#ef6c00">查询</text>
+
+  <!-- PV/BEV → Action -->
+  <line x1="220" y1="318" x2="220" y2="370" stroke="#555" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="540" y1="318" x2="540" y2="370" stroke="#555" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- Action → MLP -->
+  <line x1="500" y1="442" x2="500" y2="490" stroke="#555" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="500" y1="540" x2="500" y2="570" stroke="#555" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- 流式标注 -->
+  <text x="790" y="90" text-anchor="middle" font-size="12" fill="#2e7d32" font-weight="bold">流式推理（图11）：</text>
+  <text x="790" y="110" text-anchor="middle" font-size="11" fill="#555">KV cache 复用 + attention sink</text>
+  <text x="790" y="126" text-anchor="middle" font-size="11" fill="#555">历史帧缓存 → 时延 707ms</text>
+</svg>

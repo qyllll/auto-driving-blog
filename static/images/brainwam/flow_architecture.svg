@@ -1,0 +1,123 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 770" font-family="PingFang SC, Microsoft YaHei, sans-serif">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#555"/>
+    </marker>
+  </defs>
+  <rect x="0" y="0" width="1100" height="770" fill="#fafbfc"/>
+  <text x="550" y="28" text-anchor="middle" font-size="16" font-weight="bold" fill="#222">BrainWAM 数据流总览：两条特化通路 → CAB 动作桥 → CIF 融合 → 轨迹</text>
+
+  <!-- 输入层 -->
+  <rect x="60" y="50" width="190" height="56" rx="8" fill="#e3f2fd" stroke="#1565c0"/>
+  <text x="155" y="78" text-anchor="middle" font-size="13" fill="#0d47a1">多视角图像</text>
+  <text x="155" y="96" text-anchor="middle" font-size="11" fill="#555">当前观测 o_t</text>
+
+  <rect x="270" y="50" width="150" height="56" rx="8" fill="#e3f2fd" stroke="#1565c0"/>
+  <text x="345" y="78" text-anchor="middle" font-size="13" fill="#0d47a1">导航指令</text>
+
+  <rect x="440" y="50" width="150" height="56" rx="8" fill="#e3f2fd" stroke="#1565c0"/>
+  <text x="515" y="78" text-anchor="middle" font-size="13" fill="#0d47a1">自车历史</text>
+  <text x="515" y="96" text-anchor="middle" font-size="11" fill="#555">ego history E</text>
+
+  <rect x="610" y="50" width="190" height="56" rx="8" fill="#fff3e0" stroke="#ef6c00"/>
+  <text x="705" y="78" text-anchor="middle" font-size="13" fill="#e65100">噪声视频 latent x_v</text>
+  <text x="705" y="96" text-anchor="middle" font-size="11" fill="#555">rectified-flow 时间步 t_v</text>
+
+  <rect x="820" y="50" width="210" height="56" rx="8" fill="#fff3e0" stroke="#ef6c00"/>
+  <text x="925" y="78" text-anchor="middle" font-size="13" fill="#e65100">噪声轨迹 x_a</text>
+  <text x="925" y="96" text-anchor="middle" font-size="11" fill="#555">rectified-flow 时间步 t_a（两条通路共用）</text>
+
+  <!-- 左通路标题 -->
+  <rect x="220" y="140" width="260" height="30" rx="6" fill="#ede7f6" stroke="#5e35b1"/>
+  <text x="350" y="160" text-anchor="middle" font-size="13" font-weight="bold" fill="#4a148c">WAM 预测通路（右脑）</text>
+
+  <!-- 视频骨干 -->
+  <rect x="220" y="185" width="260" height="56" rx="8" fill="#ede7f6" stroke="#5e35b1"/>
+  <text x="350" y="210" text-anchor="middle" font-size="13" fill="#311b92">视频骨干 Wan2.2-TI2V-5B</text>
+  <text x="350" y="228" text-anchor="middle" font-size="11" fill="#555">对 x_v 去噪，产出视觉 token V</text>
+
+  <!-- Dual-MoT 左 -->
+  <rect x="220" y="275" width="260" height="72" rx="8" fill="#fff3e0" stroke="#ef6c00"/>
+  <text x="350" y="298" text-anchor="middle" font-size="13" fill="#e65100">Dual-MoT：视觉 V + 动作专家</text>
+  <text x="350" y="316" text-anchor="middle" font-size="11" fill="#555">共享自注意力耦合，FFN 各自专属</text>
+  <text x="350" y="334" text-anchor="middle" font-size="11" fill="#555">接收同一条噪声轨迹 x_a</text>
+
+  <!-- A_pred 输出 -->
+  <rect x="220" y="385" width="260" height="50" rx="8" fill="#c8e6c9" stroke="#2e7d32"/>
+  <text x="350" y="415" text-anchor="middle" font-size="13" font-weight="bold" fill="#1b5e20">A_pred 预测接地动作 token</text>
+
+  <!-- 右通路标题 -->
+  <rect x="630" y="140" width="260" height="30" rx="6" fill="#ede7f6" stroke="#5e35b1"/>
+  <text x="760" y="160" text-anchor="middle" font-size="13" font-weight="bold" fill="#4a148c">VLA 语义通路（左脑）</text>
+
+  <!-- VLM 骨干 -->
+  <rect x="630" y="185" width="260" height="56" rx="8" fill="#ede7f6" stroke="#5e35b1"/>
+  <text x="760" y="210" text-anchor="middle" font-size="13" fill="#311b92">VLM 骨干 Qwen3-VL-4B</text>
+  <text x="760" y="228" text-anchor="middle" font-size="11" fill="#555">图像 + 指令 → 语义 token U</text>
+
+  <!-- Dual-MoT 右 -->
+  <rect x="630" y="275" width="260" height="72" rx="8" fill="#fff3e0" stroke="#ef6c00"/>
+  <text x="760" y="298" text-anchor="middle" font-size="13" fill="#e65100">Dual-MoT：语义 U + 状态 E + 动作专家</text>
+  <text x="760" y="316" text-anchor="middle" font-size="11" fill="#555">共享自注意力耦合，FFN 各自专属</text>
+  <text x="760" y="334" text-anchor="middle" font-size="11" fill="#555">接收同一条噪声轨迹 x_a</text>
+
+  <!-- A_sem 输出 -->
+  <rect x="630" y="385" width="260" height="50" rx="8" fill="#c8e6c9" stroke="#2e7d32"/>
+  <text x="760" y="415" text-anchor="middle" font-size="13" font-weight="bold" fill="#1b5e20">A_sem 语义接地动作 token</text>
+
+  <!-- CAB 桥 -->
+  <rect x="495" y="395" width="110" height="34" rx="17" fill="#e8f5e9" stroke="#2e7d32"/>
+  <text x="550" y="416" text-anchor="middle" font-size="12" font-weight="bold" fill="#1b5e20">CAB 动作桥</text>
+
+  <!-- 输入→骨干 箭头 -->
+  <line x1="155" y1="106" x2="155" y2="150" stroke="#555" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="345" y1="106" x2="345" y2="150" stroke="#555" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="705" y1="106" x2="350" y2="170" stroke="#555" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="515" y1="106" x2="515" y2="185" stroke="#555" stroke-width="2" marker-end="url(#arrow)"/>
+  <!-- 图像也进 VLM -->
+  <line x1="200" y1="78" x2="630" y2="78" stroke="#9e9e9e" stroke-width="2"/>
+  <line x1="630" y1="78" x2="645" y2="185" stroke="#9e9e9e" stroke-width="2" marker-end="url(#arrow)"/>
+  <text x="415" y="72" text-anchor="middle" font-size="11" fill="#9e9e9e">图像同时进两条通路</text>
+
+  <!-- 骨干→Dual-MoT -->
+  <line x1="350" y1="241" x2="350" y2="275" stroke="#555" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="760" y1="241" x2="760" y2="275" stroke="#555" stroke-width="2" marker-end="url(#arrow)"/>
+  <!-- 噪声轨迹 → 两个动作专家 -->
+  <line x1="925" y1="106" x2="350" y2="347" stroke="#ef6c00" stroke-width="2" marker-end="url(#arrow)" stroke-dasharray="5,3"/>
+  <line x1="925" y1="106" x2="760" y2="347" stroke="#ef6c00" stroke-width="2" marker-end="url(#arrow)" stroke-dasharray="5,3"/>
+  <text x="560" y="300" text-anchor="middle" font-size="11" fill="#ef6c00">同一条噪声轨迹 × 同一动作时间步 t_a</text>
+
+  <!-- Dual-MoT → 输出 -->
+  <line x1="350" y1="347" x2="350" y2="385" stroke="#555" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="760" y1="347" x2="760" y2="385" stroke="#555" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- CAB 双向箭头 -->
+  <line x1="480" y1="410" x2="495" y2="412" stroke="#2e7d32" stroke-width="2.5" marker-end="url(#arrow)"/>
+  <line x1="605" y1="412" x2="630" y2="410" stroke="#2e7d32" stroke-width="2.5" marker-end="url(#arrow)"/>
+  <text x="550" y="385" text-anchor="middle" font-size="11" fill="#2e7d32">双向 cross-attention + 门控残差注入</text>
+
+  <!-- CIF -->
+  <rect x="470" y="530" width="160" height="50" rx="8" fill="#e8f5e9" stroke="#2e7d32"/>
+  <text x="550" y="560" text-anchor="middle" font-size="13" font-weight="bold" fill="#1b5e20">CIF 意图融合</text>
+
+  <!-- 解码器 -->
+  <rect x="470" y="610" width="160" height="50" rx="8" fill="#e8f5e9" stroke="#2e7d32"/>
+  <text x="550" y="640" text-anchor="middle" font-size="13" fill="#1b5e20">动作解码器 D_fuse</text>
+
+  <!-- 输出轨迹 -->
+  <rect x="430" y="690" width="240" height="56" rx="8" fill="#fce4ec" stroke="#c2185b"/>
+  <text x="550" y="714" text-anchor="middle" font-size="13" font-weight="bold" fill="#880e4f">最终轨迹 a（未来 4s）</text>
+  <text x="550" y="734" text-anchor="middle" font-size="11" fill="#555">速度场 u^a_fuse → 积分 ODE 得到</text>
+
+  <!-- A_pred/A_sem → CIF 折线 -->
+  <line x1="350" y1="435" x2="350" y2="500" stroke="#555" stroke-width="2"/>
+  <line x1="350" y1="500" x2="550" y2="500" stroke="#555" stroke-width="2"/>
+  <line x1="550" y1="500" x2="550" y2="530" stroke="#555" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="760" y1="435" x2="760" y2="500" stroke="#555" stroke-width="2"/>
+  <line x1="760" y1="500" x2="550" y2="500" stroke="#555" stroke-width="2"/>
+  <text x="455" y="493" text-anchor="end" font-size="11" fill="#555">A_pred</text>
+  <text x="645" y="493" text-anchor="start" font-size="11" fill="#555">A_sem</text>
+
+  <line x1="550" y1="580" x2="550" y2="610" stroke="#555" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="550" y1="660" x2="550" y2="690" stroke="#555" stroke-width="2" marker-end="url(#arrow)"/>
+</svg>
