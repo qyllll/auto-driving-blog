@@ -1,0 +1,186 @@
+{{- define "main" }}
+<style>
+  .fav-page {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 1.5rem 1rem 3rem;
+  }
+  .fav-page-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 1rem;
+    margin-bottom: 1.8rem;
+  }
+  .fav-page-title {
+    font-size: 1.6rem;
+    font-weight: 700;
+  }
+  .fav-clear-btn {
+    padding: 6px 16px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    border-radius: 100px;
+    cursor: pointer;
+    border: 1px solid rgba(239, 68, 68, 0.4);
+    background: rgba(239, 68, 68, 0.08);
+    color: #f87171;
+    transition: all 0.25s;
+  }
+  .fav-clear-btn:hover { background: rgba(239, 68, 68, 0.18); }
+  [data-theme="light"] .fav-clear-btn { color: #dc2626; }
+
+  .fav-list { display: flex; flex-direction: column; gap: 0.8rem; }
+  .fav-empty {
+    text-align: center;
+    padding: 4rem 1rem;
+    color: var(--secondary);
+    font-size: 1rem;
+  }
+  .fav-empty a { color: #a5b4fc; text-decoration: underline; }
+
+  .fav-card {
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+    background: rgba(30, 35, 50, 0.6);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 14px;
+    padding: 1.2rem 1.4rem;
+    transition: all 0.25s;
+  }
+  .fav-card:hover {
+    border-color: rgba(250, 204, 21, 0.35);
+    background: rgba(250, 204, 21, 0.06);
+  }
+  [data-theme="light"] .fav-card {
+    background: #ffffff;
+    border-color: rgba(0, 0, 0, 0.06);
+  }
+  .fav-card-star {
+    font-size: 1.2rem;
+    color: #facc15;
+    line-height: 1;
+    margin-top: 2px;
+  }
+  .fav-card-body { flex: 1; min-width: 0; }
+  .fav-card-title {
+    font-size: 1.05rem;
+    font-weight: 600;
+    color: inherit;
+    text-decoration: none;
+    line-height: 1.5;
+    display: block;
+  }
+  .fav-card-title:hover { color: #a5b4fc; }
+  .fav-card-meta {
+    margin-top: 0.4rem;
+    font-size: 0.8rem;
+    color: var(--secondary);
+  }
+  .fav-card-remove {
+    background: none;
+    border: none;
+    color: var(--secondary);
+    cursor: pointer;
+    font-size: 0.78rem;
+    padding: 4px 8px;
+    border-radius: 6px;
+    opacity: 0.6;
+    transition: all 0.2s;
+    flex-shrink: 0;
+  }
+  .fav-card-remove:hover { opacity: 1; color: #f87171; background: rgba(239, 68, 68, 0.1); }
+
+  .fav-count {
+    font-size: 0.85rem;
+    color: var(--secondary);
+  }
+</style>
+
+<div class="fav-page">
+  <header class="fav-page-header">
+    <div>
+      <h1 class="fav-page-title">⭐ 我的收藏夹</h1>
+      <div class="fav-count" id="fav-count"></div>
+    </div>
+    <button class="fav-clear-btn" id="fav-clear-all" onclick="clearAllFavs()">🗑️ 清空全部</button>
+  </header>
+
+  <div class="fav-list" id="fav-list"></div>
+</div>
+
+<script>
+  (function () {
+    const STORAGE_KEY = "fav_posts";
+
+    function getFavs() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        return raw ? JSON.parse(raw) : [];
+      } catch (e) { return []; }
+    }
+    function setFavs(list) {
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(list)); } catch (e) {}
+    }
+
+    function fmtDate(added) {
+      if (!added) return "";
+      const d = new Date(added);
+      return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+    }
+
+    function render() {
+      const list = getFavs();
+      const countEl = document.getElementById("fav-count");
+      const listEl = document.getElementById("fav-list");
+      if (countEl) countEl.textContent = "共 " + list.length + " 篇收藏";
+
+      if (!list.length) {
+        listEl.innerHTML = '<div class="fav-empty">还没有收藏任何文章 🕊️<br>阅读文章时点击标题旁的 <strong>⭐ 收藏</strong> 按钮即可加入这里。</div>';
+        return;
+      }
+
+      listEl.innerHTML = list.map(function (f, i) {
+        var meta = [];
+        if (f.date) meta.push(f.date);
+        meta.push("收藏于 " + fmtDate(f.added));
+        return (
+          '<div class="fav-card">' +
+            '<div class="fav-card-star">⭐</div>' +
+            '<div class="fav-card-body">' +
+              '<a class="fav-card-title" href="' + f.url + '">' + escapeHtml(f.title) + "</a>" +
+              '<div class="fav-card-meta">' + meta.join(" · ") + "</div>" +
+            "</div>" +
+            '<button class="fav-card-remove" onclick="removeFav(' + i + ')">✕ 移除</button>' +
+          "</div>"
+        );
+      }).join("");
+    }
+
+    function escapeHtml(s) {
+      return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+    }
+
+    window.removeFav = function (idx) {
+      const list = getFavs();
+      if (idx >= 0 && idx < list.length) {
+        list.splice(idx, 1);
+        setFavs(list);
+        render();
+      }
+    };
+
+    window.clearAllFavs = function () {
+      if (!getFavs().length) return;
+      if (confirm("确定要清空全部收藏吗？")) {
+        setFavs([]);
+        render();
+      }
+    };
+
+    render();
+  })();
+</script>
+{{- end }}

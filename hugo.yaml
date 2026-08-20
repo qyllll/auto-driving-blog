@@ -117,6 +117,10 @@ menu:
       name: 📁 分类
       url: /categories/
       weight: 10
+    - identifier: favorites
+      name: ⭐ 收藏夹
+      url: /favorites/
+      weight: 15
     - identifier: tags
       name: 🏷️ 标签
       url: /tags/
