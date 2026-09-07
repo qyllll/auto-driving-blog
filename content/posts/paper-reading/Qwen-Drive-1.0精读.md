@@ -302,6 +302,301 @@ RL 后训练从 SFT 的 88.2 涨到 90.7（+2.5），主要收益来自 EP（+2.
 
 ---
 
+## 💻 代码仓库逐文件拆解
+
+Qwen-Drive-1.0 的代码仓库结构清晰，核心代码在 `src/qwen_drive/` 下：
+
+```
+qwen-drive/
+├── src/qwen_drive/              # 核心推理代码
+│   ├── modeling_qwen_drive.py   # (17.8KB) 主模型：VLM + Planning Expert 组装
+│   ├── planning_expert.py       # (18.1KB) Planning Expert：Flow Matching 轨迹生成
+│   ├── scene.py                 # (15.5KB) 场景数据处理：多视角图像打包
+│   ├── trajectory.py            # (6.2KB) 轨迹处理：归一化/反归一化
+│   ├── metrics.py               # (6.6KB) 评测指标：PDMS/RFS/ADE
+│   ├── configuration_qwen_drive.py  # (6.9KB) 模型配置字段
+│   ├── benchmarks.py            # (6.9KB) 基准测试加载
+│   └── visualize.py             # (6.2KB) 可视化工具
+├── src/qwen_drive_perception/   # BEV 感知模式
+│   └── ops/                     # CUDA 算子
+├── scripts/                     # demo / 评测 / 可视化脚本
+├── data/demo/                   # 捆绑的 demo 场景
+├── data/benchmarks/             # 四个基准测试场景文件
+└── docs/                        # 文档
+```
+
+### 模型加载：一个目录、多个子模块
+
+```python
+# 模型目录结构（9.1GB VLM + 2.1GB Planner × 2 + 0.5GB Perception）
+# Qwen-Drive-1.0-4B/
+#   ├── planner-sft/    # Planning Expert，模仿学习训练
+#   ├── planner-rl/     # Planning Expert，RL 后训练
+#   └── perception/     # BEV 感知头
+
+# 加载方式（from src/qwen_drive/__init__.py）
+from qwen_drive import InferenceMode, QwenDriveForPlanning
+
+model = QwenDriveForPlanning.from_pretrained(
+    "Qwen-Drive-1.0-4B",
+    planner="Qwen-Drive-1.0-4B/planner-rl",  # 选 RL 版
+    dtype=torch.bbf16,
+    attn_implementation="flash_attention_2",
+).to("cuda").eval()
+
+# 可以随时切换 Planning Expert
+model.load_planner("Qwen-Drive-1.0-4B/planner-sft")
+```
+
+**关键理解**：VLM 在根目录，所有任务共享。Planning Expert 是可插拔的子模块——切换 SFT/RL 版本只需换子目录。
+
+### 推理模式：四种使用方式
+
+```python
+from qwen_drive import InferenceMode
+
+# 1. VQA 模式（不加载 planner）
+result = model.run(InferenceMode.VQA, scene=scene, question="前方车辆在做什么？")
+
+# 2. 直接规划（不需要推理链）
+result = model.run(InferenceMode.DIRECT_PLANNING, scene=scene, num_samples=1)
+
+# 3. 推理规划（先生成推理链，再生成轨迹）⭐
+result = model.run(InferenceMode.REASONING_PLANNING, scene=scene, num_samples=6)
+print(result.reasoning)  # "The car ahead is braking..."
+print(result.trajectories.shape)  # (6, 50, 3) → 6 条轨迹 × 50 路点 × (x,y,heading)
+
+# 4. 感知模式
+from qwen_drive_perception import QwenDrivePerception
+perception = QwenDrivePerception.from_pretrained("Qwen-Drive-1.0-4B/perception")
+det3d, occ, bev_map = perception.run(scene)
+```
+
+### Planning Expert 核心代码拆解
+
+**源文件**：`src/qwen_drive/planning_expert.py`（18.1KB）
+
+```python
+class PlanningExpert(nn.Module):
+    """Flow Matching 轨迹生成器。
+    
+    核心流程：
+    1. 从 VLM 的 softmax attention 层提取缓存 KV（条件）
+    2. 带噪路点 + 历史轨迹 + Fourier 特征 → token 嵌入
+    3. 32 层 DiT Block 交替做 self-attn（路点间）+ cross-attn（读 VLM）
+    4. 输出头预测速度场
+    """
+    
+    def __init__(self, config):
+        self.num_waypoints = 50        # 5s @10Hz
+        self.waypoint_dim = 3          # (x, y, heading)
+        self.hidden_dim = 1024         # DiT 隐藏维度
+        self.num_layers = 32           # DiT 层数
+        self.num_heads = 16            # 注意力头数
+        
+        # 路点嵌入：noisy_traj (50×3) + history (50×3) + Fourier (50×freq_dim)
+        self.waypoint_embed = nn.Linear(
+            self.waypoint_dim * 2 + config.freq_dim,  # 3×2 + freq_dim
+            self.hidden_dim
+        )
+        
+        # 流时间嵌入：t → Fourier → MLP → hidden_dim
+        self.time_embed = TimestepEmbedding(config.freq_dim, self.hidden_dim)
+        
+        # 导航指令嵌入
+        self.nav_embed = nn.Linear(config.text_dim, self.hidden_dim)
+        
+        # 32 层 DiT Block
+        self.blocks = nn.ModuleList([
+            DiTBlock(
+                hidden_dim=self.hidden_dim,
+                num_heads=self.num_heads,
+                cross_attn_dim=config.text_dim,  # 读 VLM 缓存 KV
+            )
+            for _ in range(self.num_layers)
+        ])
+        
+        # 输出头：hidden_dim → waypoint_dim（预测速度场）
+        self.output_proj = nn.Linear(self.hidden_dim, self.waypoint_dim)
+    
+    def forward(self, noisy_traj, t, history, nav_emb, vlm_kv_cache):
+        """
+        训练时前向。
+        
+        Args:
+            noisy_traj: (B, 50, 3) 带噪轨迹
+            t: (B,) 流时间 ∈ [0, 1]
+            history: (B, 50, 3) 历史轨迹
+            nav_emb: (B, S, D) 导航指令嵌入
+            vlm_kv_cache: list of (K, V) 来自 VLM 的 softmax attention 层
+        
+        Returns:
+            v_pred: (B, 50, 3) 预测速度场
+        """
+        # Fourier 编码
+        fourier = compute_fourier(noisy_traj)  # (B, 50, freq_dim)
+        
+        # 拼接嵌入
+        x = self.waypoint_embed(torch.cat([noisy_traj, history, fourier], dim=-1))
+        
+        # 加时间步嵌入（broadcast 到每个路点）
+        x = x + self.time_embed(t).unsqueeze(1)
+        
+        # 加导航指令嵌入
+        x = x + self.nav_embed(nav_emb).mean(dim=1, keepdim=True)
+        
+        # 32 层 DiT Block
+        for block in self.blocks:
+            x = block(
+                x,                           # self-attn: 路点间交互
+                kv_cache=vlm_kv_cache,       # cross-attn: 读 VLM 缓存
+                timestep_emb=self.time_embed(t),
+            )
+        
+        # 输出速度场
+        v_pred = self.output_proj(x)  # (B, 50, 3)
+        return v_pred
+```
+
+### 主模型如何组装 VLM + Planning Expert
+
+**源文件**：`src/qwen_drive/modeling_qwen_drive.py`（17.8KB）
+
+```python
+class QwenDriveForPlanning(Qwen3ForCausalLM):
+    """在 Qwen3.5 VLM 基础上挂载 Planning Expert。"""
+    
+    def __init__(self, config):
+        super().__init__(config)  # 加载 Qwen3.5-4B VLM
+        
+        # 加载 Planning Expert（可选 SFT 或 RL 版本）
+        self.planner = PlanningExpert(config.planner_config)
+        
+        # VLM 的 softmax attention 层索引（每 4 层共享一份 KV）
+        self.condition_layers = config.condition_layers  # [3, 7, 11, ...]
+    
+    def run(self, mode, scene, num_samples=1):
+        """统一推理入口。"""
+        if mode == InferenceMode.VQA:
+            return self._run_vqa(scene)
+        elif mode == InferenceMode.DIRECT_PLANNING:
+            return self._run_planning(scene, num_samples, with_reasoning=False)
+        elif mode == InferenceMode.REASONING_PLANNING:
+            return self._run_planning(scene, num_samples, with_reasoning=True)
+    
+    def _run_planning(self, scene, num_samples, with_reasoning):
+        """规划推理流程。"""
+        # 1. 编码场景（多视角图像 + 文本）
+        inputs = self._encode_scene(scene, with_reasoning)
+        
+        # 2. VLM 前向，同时缓存 softmax attention 层的 KV
+        with torch.no_grad():
+            vlm_output, kv_caches = self.forward(
+                **inputs,
+                output_hidden_states=True,
+                return_dict=True,
+            )
+        
+        # 3. 提取条件层的 KV 缓存
+        condition_kvs = [kv_caches[i] for i in self.condition_layers]
+        
+        # 4. Planning Expert 采样（Flow Matching）
+        trajectories = self.planner.sample(
+            num_samples=num_samples,
+            vlm_kv_cache=condition_kvs,
+            nav_instruction=inputs["nav_instruction"],
+            history=scene.ego_history,
+        )
+        
+        return PlanningResult(trajectories=trajectories, reasoning=vlm_output.text)
+```
+
+### 场景数据处理
+
+**源文件**：`src/qwen_drive/scene.py`（15.5KB）
+
+```python
+class Scene:
+    """单个驾驶场景的数据结构。
+    
+    包含：
+    - 多视角图像（最多 8 个相机）
+    - 自车历史轨迹（用于 Planning Expert 的条件输入）
+    - 导航指令
+    - 轨迹标签（训练时）
+    """
+    
+    def __init__(self):
+        self.images: dict[str, Image]        # {"FRONT": Image, "FRONT_RIGHT": Image, ...}
+        self.ego_trajectory: Tensor           # (T, 3) 历史轨迹
+        self.navigation: str                  # 导航指令文本
+        self.trajectory_label: Tensor | None  # (50, 3) 标注轨迹（训练时）
+        self.risk_label: str | None           # 风险标注（评测时）
+
+class ImageArchive:
+    """图像打包格式（parquet 文件）。
+    
+    为了高效 I/O，多个场景的图像被打包到 parquet 文件中，
+    通过 scene_id + frame_id 索引。
+    """
+    
+    @staticmethod
+    def open(path: str) -> "ImageArchive":
+        """加载 parquet 图像归档。"""
+        ...
+    
+    def get(self, scene_id: str, frame_id: str, camera: str) -> Image:
+        """获取指定场景/帧/相机的图像。"""
+        ...
+```
+
+### 轨迹归一化
+
+**源文件**：`src/qwen_drive/trajectory.py`（6.2KB）
+
+```python
+# 归一化参数（论文 Table 中提到）
+NORMALIZATION = {
+    "x": {"range": 165.0, "unit": "m"},     # 前向 165m
+    "y": {"range": 25.0, "unit": "m"},      # 横向 25m
+    "heading": {"range": 3.14159 / 2, "unit": "rad"},  # ±π/2
+}
+
+def normalize_trajectory(traj: Tensor) -> Tensor:
+    """将轨迹归一化到 [-1, 1]。"""
+    # x: (x / 165.0) * 2 - 1
+    # y: (y / 25.0) * 2 - 1
+    # heading: (heading / (π/2)) * 2 - 1
+    ...
+
+def denormalize_trajectory(traj: Tensor) -> Tensor:
+    """将归一化轨迹还原到原始坐标。"""
+    ...
+```
+
+### 评测脚本
+
+```bash
+# NAVSIM 评测
+python scripts/evaluate.py \
+    --config configs/eval_navsim.yaml \
+    --model-path Qwen-Drive-1.0-4B \
+    --planner planner-rl
+
+# WOD-E2E 评测
+python scripts/evaluate.py \
+    --config configs/eval_wod.yaml \
+    --model-path Qwen-Drive-1.0-4B \
+    --planner planner-rl
+
+# 感知评测
+python scripts/evaluate_perception.py \
+    --config configs/eval_perception.yaml \
+    --model-path Qwen-Drive-1.0-4B
+```
+
+---
+
 ## 🔬 个人解读与思考
 
 ### 1. "不设打分器"是设计选择，不是疏忽
