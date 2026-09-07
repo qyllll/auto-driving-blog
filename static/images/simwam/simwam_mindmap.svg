@@ -1,0 +1,98 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 800" font-family="'Noto Sans SC','Microsoft YaHei',Arial,sans-serif">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M0,0 L10,5 L0,10 Z" fill="#4A5568"/>
+    </marker>
+    <linearGradient id="g-blue" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#EBF8FF"/>
+      <stop offset="100%" stop-color="#BEE3F8"/>
+    </linearGradient>
+    <linearGradient id="g-green" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#F0FFF4"/>
+      <stop offset="100%" stop-color="#C6F6D5"/>
+    </linearGradient>
+    <linearGradient id="g-orange" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#FFFAF0"/>
+      <stop offset="100%" stop-color="#FEEBC8"/>
+    </linearGradient>
+    <linearGradient id="g-purple" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#FAF5FF"/>
+      <stop offset="100%" stop-color="#E9D8FD"/>
+    </linearGradient>
+    <linearGradient id="g-red" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#FFF5F5"/>
+      <stop offset="100%" stop-color="#FED7D7"/>
+    </linearGradient>
+    <filter id="shadow" x="-5%" y="-5%" width="110%" height="110%">
+      <feDropShadow dx="2" dy="2" stdDeviation="3" flood-opacity="0.15"/>
+    </filter>
+  </defs>
+
+  <!-- Title -->
+  <text x="500" y="38" text-anchor="middle" font-size="20" font-weight="bold" fill="#2D3748">SimWAM 思维导图：30 秒建立全局概念</text>
+  <text x="500" y="60" text-anchor="middle" font-size="12" fill="#718096">中心一个词，向外五个分支：是什么、为什么、两个专家、训练方法、推理优势</text>
+
+  <!-- Center node -->
+  <rect x="370" y="340" width="260" height="90" rx="14" fill="url(#g-purple)" stroke="#805AD5" stroke-width="2.5" filter="url(#shadow)"/>
+  <text x="500" y="378" text-anchor="middle" font-size="22" font-weight="bold" fill="#6B46C1">SimWAM</text>
+  <text x="500" y="404" text-anchor="middle" font-size="13" fill="#4A5568">Simple World Action Model</text>
+  <text x="500" y="422" text-anchor="middle" font-size="11" fill="#718096">华中科技大学 × 东风 · arXiv:2608.07468</text>
+
+  <!-- Lines center -> branches -->
+  <line x1="500" y1="340" x2="500" y2="208" stroke="#4A5568" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="370" y1="385" x2="200" y2="385" stroke="#4A5568" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="630" y1="385" x2="810" y2="385" stroke="#4A5568" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="415" y1="430" x2="235" y2="580" stroke="#4A5568" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="585" y1="430" x2="765" y2="580" stroke="#4A5568" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- Branch 1: 是什么 (top, blue) -->
+  <rect x="270" y="88" width="460" height="120" rx="10" fill="url(#g-blue)" stroke="#3182CE" stroke-width="2" filter="url(#shadow)"/>
+  <text x="500" y="112" text-anchor="middle" font-size="14" font-weight="bold" fill="#2B6CB0">① 是什么：用视频模型的运动先验增强轨迹规划</text>
+  <text x="295" y="134" font-size="11.5" fill="#4A5568">• 输入：前摄像头图像 + 导航指令 + 自车状态</text>
+  <text x="295" y="152" font-size="11.5" fill="#4A5568">• 输出：5s 轨迹（50 路点 × (x, y, heading)）</text>
+  <text x="295" y="170" font-size="11.5" fill="#4A5568">• 训练：SFT 模仿学习 + FlowGRPO RL 后训练</text>
+  <text x="295" y="188" font-size="11.5" fill="#4A5568">• 模型：Wan2.2-5B Video DiT（冻结）+ ActionDiT（可训）</text>
+
+  <!-- Branch 2: 为什么 (left, orange) -->
+  <rect x="10" y="290" width="280" height="210" rx="10" fill="url(#g-orange)" stroke="#DD6B20" stroke-width="2" filter="url(#shadow)"/>
+  <text x="150" y="314" text-anchor="middle" font-size="14" font-weight="bold" fill="#C05621">② 为什么要 World Action Model</text>
+  <text x="30" y="336" font-size="11.5" fill="#4A5568">• 视频模型内含丰富运动先验</text>
+  <text x="30" y="354" font-size="11.5" fill="#4A5568">• 传统 WAM 推理时需生成未来帧（慢）</text>
+  <text x="30" y="372" font-size="11.5" fill="#4A5568">• SimWAM：训练时借力，推理时独立</text>
+  <text x="30" y="390" font-size="11.5" fill="#4A5568">• Isolated Attention Mask 隔离信息流</text>
+  <text x="30" y="408" font-size="11.5" fill="#4A5568">• 避免推理时生成未来帧的计算开销</text>
+  <text x="30" y="426" font-size="11.5" fill="#4A5568">• 大幅降低推理延迟</text>
+  <text x="30" y="444" font-size="11.5" fill="#4A5568">• 类比：实习时跟着师傅学（借力）</text>
+  <text x="30" y="462" font-size="11.5" fill="#4A5568">•      独立工作时不再需要师傅在场</text>
+
+  <!-- Branch 5: 推理优势 (right, blue) -->
+  <rect x="710" y="290" width="280" height="210" rx="10" fill="url(#g-blue)" stroke="#3182CE" stroke-width="2" filter="url(#shadow)"/>
+  <text x="850" y="314" text-anchor="middle" font-size="14" font-weight="bold" fill="#2B6CB0">⑤ 推理优势</text>
+  <text x="728" y="336" font-size="11.5" fill="#4A5568">• 不需要 Video DiT</text>
+  <text x="728" y="354" font-size="11.5" fill="#4A5568">• 不需要生成未来帧</text>
+  <text x="728" y="372" font-size="11.5" fill="#4A5568">• 只用 ActionDiT 直接输出轨迹</text>
+  <text x="728" y="390" font-size="11.5" fill="#4A5568">• 推理延迟远低于其他 WAM</text>
+  <text x="728" y="408" font-size="11.5" fill="#4A5568">• 91.5 PDMS（NAVSIM SOTA）</text>
+  <text x="728" y="426" font-size="11.5" fill="#4A5568">• 可扩展：换更强的 Video Backbone</text>
+  <text x="728" y="444" font-size="11.5" fill="#4A5568">• 可扩展：ActionDiT 独立 scaling</text>
+
+  <!-- Branch 3: 两个专家 (bottom-left, green) -->
+  <rect x="50" y="580" width="380" height="170" rx="10" fill="url(#g-green)" stroke="#38A169" stroke-width="2" filter="url(#shadow)"/>
+  <text x="240" y="604" text-anchor="middle" font-size="14" font-weight="bold" fill="#276749">③ 两个专家</text>
+  <text x="70" y="628" font-size="11.5" fill="#4A5568">Video Expert（Wan2.2-5B DiT）：</text>
+  <text x="90" y="648" font-size="11.5" fill="#4A5568">• 冻结预训练权重，预测未来帧</text>
+  <text x="90" y="668" font-size="11.5" fill="#4A5568">• 提供场景理解和运动先验</text>
+  <text x="70" y="692" font-size="11.5" fill="#4A5568">Action Expert（ActionDiT ~0.2B）：</text>
+  <text x="90" y="712" font-size="11.5" fill="#4A5568">• 从噪声轨迹生成干净轨迹</text>
+  <text x="90" y="732" font-size="11.5" fill="#4A5568">• Cross-Attn 读取 VLM 缓存 KV</text>
+
+  <!-- Branch 4: 训练方法 (bottom-right, red) -->
+  <rect x="570" y="580" width="380" height="170" rx="10" fill="url(#g-red)" stroke="#E53E3E" stroke-width="2" filter="url(#shadow)"/>
+  <text x="760" y="604" text-anchor="middle" font-size="14" font-weight="bold" fill="#C53030">④ 训练方法</text>
+  <text x="590" y="628" font-size="11.5" fill="#4A5568">SFT（模仿学习）：</text>
+  <text x="610" y="648" font-size="11.5" fill="#4A5568">• 联合 Flow Matching 损失</text>
+  <text x="610" y="668" font-size="11.5" fill="#4A5568">• Video + Action 同时训练</text>
+  <text x="590" y="692" font-size="11.5" fill="#4A5568">FlowGRPO（RL 后训练）：</text>
+  <text x="610" y="712" font-size="11.5" fill="#4A5568">• LoRA 微调 ActionDiT</text>
+  <text x="610" y="732" font-size="11.5" fill="#4A5568">• NAVSIM PDM 奖励 + SDE 采样</text>
+</svg>

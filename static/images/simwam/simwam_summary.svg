@@ -1,0 +1,87 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 500" font-family="'Noto Sans SC','Microsoft YaHei',Arial,sans-serif">
+  <defs>
+    <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M0,0 L10,5 L0,10 Z" fill="#4A5568"/>
+    </marker>
+    <filter id="s" x="-5%" y="-5%" width="110%" height="110%">
+      <feDropShadow dx="1" dy="1" stdDeviation="2" flood-opacity="0.12"/>
+    </filter>
+  </defs>
+
+  <text x="450" y="30" text-anchor="middle" font-size="18" font-weight="bold" fill="#2D3748">SimWAM 完整逻辑链：一图串起全部</text>
+
+  <!-- Step 1: Flow Matching -->
+  <rect x="30" y="60" width="170" height="80" rx="10" fill="#EBF8FF" stroke="#3182CE" stroke-width="2" filter="url(#s)"/>
+  <text x="115" y="85" text-anchor="middle" font-size="12" font-weight="bold" fill="#2B6CB0">① Flow Matching</text>
+  <text x="115" y="105" text-anchor="middle" font-size="10" fill="#4A5568">训练速度场 v_θ</text>
+  <text x="115" y="120" text-anchor="middle" font-size="10" fill="#4A5568">L = E‖v_θ - (x₁-x₀)‖²</text>
+
+  <line x1="200" y1="100" x2="230" y2="100" stroke="#4A5568" stroke-width="1.5" marker-end="url(#ar)"/>
+
+  <!-- Step 2: Joint Training -->
+  <rect x="230" y="60" width="170" height="80" rx="10" fill="#FAF5FF" stroke="#805AD5" stroke-width="2" filter="url(#s)"/>
+  <text x="315" y="85" text-anchor="middle" font-size="12" font-weight="bold" fill="#6B46C1">② 联合训练</text>
+  <text x="315" y="105" text-anchor="middle" font-size="10" fill="#4A5568">Video + Action 联合 Flow</text>
+  <text x="315" y="120" text-anchor="middle" font-size="10" fill="#4A5568">Isolated Mask 隔离</text>
+
+  <line x1="400" y1="100" x2="430" y2="100" stroke="#4A5568" stroke-width="1.5" marker-end="url(#ar)"/>
+
+  <!-- Step 3: SFT -->
+  <rect x="430" y="60" width="140" height="80" rx="10" fill="#C6F6D5" stroke="#38A169" stroke-width="2" filter="url(#s)"/>
+  <text x="500" y="85" text-anchor="middle" font-size="12" font-weight="bold" fill="#276749">③ SFT 完成</text>
+  <text x="500" y="105" text-anchor="middle" font-size="10" fill="#4A5568">ActionDiT 学会</text>
+  <text x="500" y="120" text-anchor="middle" font-size="10" fill="#4A5568">从噪声生成轨迹</text>
+
+  <line x1="570" y1="100" x2="600" y2="100" stroke="#4A5568" stroke-width="1.5" marker-end="url(#ar)"/>
+
+  <!-- Step 4: FlowGRPO -->
+  <rect x="600" y="60" width="170" height="80" rx="10" fill="#FFF5F5" stroke="#E53E3E" stroke-width="2" filter="url(#s)"/>
+  <text x="685" y="85" text-anchor="middle" font-size="12" font-weight="bold" fill="#C53030">④ FlowGRPO</text>
+  <text x="685" y="105" text-anchor="middle" font-size="10" fill="#4A5568">LoRA + SDE 采样</text>
+  <text x="685" y="120" text-anchor="middle" font-size="10" fill="#4A5568">PDM 奖励 → Advantage</text>
+
+  <line x1="770" y1="100" x2="800" y2="100" stroke="#4A5568" stroke-width="1.5" marker-end="url(#ar)"/>
+
+  <!-- Step 5: Inference -->
+  <rect x="800" y="60" width="80" height="80" rx="10" fill="#FEEBC8" stroke="#DD6B20" stroke-width="2" filter="url(#s)"/>
+  <text x="840" y="90" text-anchor="middle" font-size="11" font-weight="bold" fill="#C05621">⑤ 推理</text>
+  <text x="840" y="108" text-anchor="middle" font-size="10" fill="#4A5568">只用</text>
+  <text x="840" y="122" text-anchor="middle" font-size="10" fill="#4A5568">ActionDiT</text>
+
+  <!-- Loop back -->
+  <path d="M840,145 L840,170 Q840,185 825,185 L115,185 Q100,185 100,170 L100,145" stroke="#805AD5" stroke-width="2" fill="none" stroke-dasharray="6,4" marker-end="url(#ar)"/>
+  <text x="470" y="180" text-anchor="middle" font-size="10" fill="#805AD5">循环：on-policy 采样与训练始终用同一组参数</text>
+
+  <!-- Key formulas -->
+  <rect x="30" y="210" width="840" height="270" rx="10" fill="#F7FAFC" stroke="#CBD5E0" stroke-width="1.5"/>
+  <text x="450" y="235" text-anchor="middle" font-size="14" font-weight="bold" fill="#4A5568">沿因果链的核心公式</text>
+
+  <!-- Formula boxes -->
+  <rect x="50" y="250" width="390" height="45" rx="6" fill="#EBF8FF" stroke="#3182CE" stroke-width="1"/>
+  <text x="65" y="270" font-size="11" font-weight="bold" fill="#2B6CB0">① Flow Matching 损失</text>
+  <text x="65" y="287" font-size="10" fill="#4A5568">L_CFMEE[v_θ(x_t,t,c) - (x₁-x₀)]²</text>
+
+  <rect x="460" y="250" width="390" height="45" rx="6" fill="#FAF5FF" stroke="#805AD5" stroke-width="1"/>
+  <text x="475" y="270" font-size="11" font-weight="bold" fill="#6B46C1">② Isolated Attention</text>
+  <text x="475" y="287" font-size="10" fill="#4A5568">Future ↔ Action: mask = False</text>
+
+  <rect x="50" y="310" width="390" height="45" rx="6" fill="#FFF5F5" stroke="#E53E3E" stroke-width="1"/>
+  <text x="65" y="330" font-size="11" font-weight="bold" fill="#C53030">③ SDE 采样（最后 3 步）</text>
+  <text x="65" y="347" font-size="10" fill="#4A5568">x += σ·low_freq_noise + 0.5σ²·score</text>
+
+  <rect x="460" y="310" width="390" height="45" rx="6" fill="#FEEBC8" stroke="#DD6B20" stroke-width="1"/>
+  <text x="475" y="330" font-size="11" font-weight="bold" fill="#C05621">④ PDM 奖励</text>
+  <text x="475" y="347" font-size="10" fill="#4A5568">PDMS = NC × DAC × (5TTC+5EP+2C)/12</text>
+
+  <rect x="50" y="370" width="390" height="45" rx="6" fill="#C6F6D5" stroke="#38A169" stroke-width="1"/>
+  <text x="65" y="390" font-size="11" font-weight="bold" fill="#276749">⑤ Advantage（组内归一化）</text>
+  <text x="65" y="407" font-size="10" fill="#4A5568">A_i = (r_i - μ) / σ</text>
+
+  <rect x="460" y="370" width="390" height="45" rx="6" fill="#F7FAFC" stroke="#CBD5E0" stroke-width="1"/>
+  <text x="475" y="390" font-size="11" font-weight="bold" fill="#4A5568">⑥ PPO Clipped Loss</text>
+  <text x="475" y="407" font-size="10" fill="#4A5568">L = min(r·A, clip(r,1±ε)·A)</text>
+
+  <!-- Summary -->
+  <rect x="50" y="430" width="800" height="40" rx="6" fill="#FAF5FF" stroke="#805AD5" stroke-width="1.5"/>
+  <text x="450" y="455" text-anchor="middle" font-size="12" font-weight="bold" fill="#6B46C1">一句话：Flow Matching 教会运动先觉 → Isolated Mask 隔离信息流 → FlowGRPO 用 PDM 奖励微调 LoRA → 推理时只跑 ActionDiT</text>
+</svg>

@@ -1,0 +1,85 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600" font-family="'Noto Sans SC','Microsoft YaHei',Arial,sans-serif">
+  <defs>
+    <filter id="s" x="-5%" y="-5%" width="110%" height="110%">
+      <feDropShadow dx="1" dy="1" stdDeviation="2" flood-opacity="0.12"/>
+    </filter>
+  </defs>
+
+  <text x="400" y="30" text-anchor="middle" font-size="18" font-weight="bold" fill="#2D3748">SimWAM 代码结构总览</text>
+
+  <!-- src/simwam/ -->
+  <rect x="30" y="55" width="250" height="530" rx="10" fill="#EBF8FF" stroke="#3182CE" stroke-width="2" filter="url(#s)"/>
+  <text x="155" y="80" text-anchor="middle" font-size="14" font-weight="bold" fill="#2B6CB0">src/simwam/</text>
+
+  <rect x="50" y="95" width="210" height="30" rx="4" fill="#BEE3F8"/>
+  <text x="155" y="115" text-anchor="middle" font-size="11" fill="#2B6CB0">models/wan22/</text>
+
+  <rect x="60" y="135" width="190" height="25" rx="3" fill="#FAF5FF" stroke="#805AD5" stroke-width="1"/>
+  <text x="155" y="152" text-anchor="middle" font-size="10" fill="#6B46C1">simwam.py (53KB) ⭐ 主模型</text>
+
+  <rect x="60" y="165" width="190" height="25" rx="3" fill="#FAF5FF" stroke="#805AD5" stroke-width="1"/>
+  <text x="155" y="182" text-anchor="middle" font-size="10" fill="#6B46C1">simwam_grpo.py (22KB) ⭐ GRPO</text>
+
+  <rect x="60" y="195" width="190" height="25" rx="3" fill="#FFF5F5" stroke="#E53E3E" stroke-width="1"/>
+  <text x="155" y="212" text-anchor="middle" font-size="10" fill="#C53030">action_dit.py (13KB) ⭐ 动作专家</text>
+
+  <rect x="60" y="225" width="190" height="25" rx="3" fill="#FFF5F5" stroke="#E53E3E" stroke-width="1"/>
+  <text x="155" y="242" text-anchor="middle" font-size="10" fill="#C53030">mot.py (24KB) ⭐ 联合注意力</text>
+
+  <rect x="60" y="255" width="190" height="25" rx="3" fill="#F0FFF4" stroke="#38A169" stroke-width="1"/>
+  <text x="155" y="272" text-anchor="middle" font-size="10" fill="#276749">lora.py · wan_video_dit.py · schedulers/</text>
+
+  <rect x="50" y="295" width="210" height="25" rx="4" fill="#BEE3F8"/>
+  <text x="155" y="312" text-anchor="middle" font-size="11" fill="#2B6CB0">runtime.py · runtime_grpo.py</text>
+
+  <rect x="50" y="330" width="210" height="25" rx="4" fill="#FEEBC8"/>
+  <text x="155" y="347" text-anchor="middle" font-size="11" fill="#C05621">trainer_grpo.py (41KB) ⭐ GRPO训练器</text>
+
+  <rect x="50" y="365" width="210" height="25" rx="4" fill="#BEE3F8"/>
+  <text x="155" y="382" text-anchor="middle" font-size="11" fill="#2B6CB0">datasets/navsim/</text>
+
+  <rect x="50" y="400" width="210" height="25" rx="4" fill="#BEE3F8"/>
+  <text x="155" y="417" text-anchor="middle" font-size="11" fill="#2B6CB0">utils/</text>
+
+  <!-- configs/ -->
+  <rect x="310" y="55" width="230" height="180" rx="10" fill="#FEEBC8" stroke="#DD6B20" stroke-width="2" filter="url(#s)"/>
+  <text x="425" y="80" text-anchor="middle" font-size="14" font-weight="bold" fill="#C05621">configs/</text>
+
+  <rect x="325" y="95" width="200" height="25" rx="3" fill="#FFFAF0"/>
+  <text x="425" y="112" text-anchor="middle" font-size="10" fill="#C05621">model/simwam_navsim.yaml</text>
+
+  <rect x="325" y="125" width="200" height="25" rx="3" fill="#FFFAF0"/>
+  <text x="425" y="142" text-anchor="middle" font-size="10" fill="#C05621">task/navsim_uncond_*.yaml (SFT)</text>
+
+  <rect x="325" y="155" width="200" height="25" rx="3" fill="#FFFAF0"/>
+  <text x="425" y="172" text-anchor="middle" font-size="10" fill="#C05621">task/navsim_grpo_*.yaml (GRPO)</text>
+
+  <rect x="325" y="185" width="200" height="25" rx="3" fill="#FFFAF0"/>
+  <text x="425" y="202" text-anchor="middle" font-size="10" fill="#C05621">train.yaml · train_grpo.yaml</text>
+
+  <!-- scripts/ -->
+  <rect x="570" y="55" width="210" height="140" rx="10" fill="#C6F6D5" stroke="#38A169" stroke-width="2" filter="url(#s)"/>
+  <text x="675" y="80" text-anchor="middle" font-size="14" font-weight="bold" fill="#276749">scripts/</text>
+
+  <rect x="585" y="95" width="180" height="25" rx="3" fill="#F0FFF4"/>
+  <text x="675" y="112" text-anchor="middle" font-size="10" fill="#276749">train.py · train_grpo.py</text>
+
+  <rect x="585" y="125" width="180" height="25" rx="3" fill="#F0FFF4"/>
+  <text x="675" y="142" text-anchor="middle" font-size="10" fill="#276749">train_navsim_zero1_torchrun.sh</text>
+
+  <rect x="585" y="155" width="180" height="25" rx="3" fill="#F0FFF4"/>
+  <text x="675" y="172" text-anchor="middle" font-size="10" fill="#276749">train_navsim_grpo_*.sh</text>
+
+  <!-- experiments/ -->
+  <rect x="570" y="215" width="210" height="100" rx="10" fill="#FAF5FF" stroke="#805AD5" stroke-width="2" filter="url(#s)"/>
+  <text x="675" y="240" text-anchor="middle" font-size="14" font-weight="bold" fill="#6B46C1">experiments/navsim/</text>
+
+  <rect x="585" y="255" width="180" height="25" rx="3" fill="#FAF5FF"/>
+  <text x="675" y="272" text-anchor="middle" font-size="10" fill="#6B46C1">eval_navsim.py · run_eval_*.sh</text>
+
+  <!-- Reading order -->
+  <rect x="30" y="500" width="750" height="85" rx="8" fill="#F7FAFC" stroke="#CBD5E0" stroke-width="1.5"/>
+  <text x="405" y="522" text-anchor="middle" font-size="13" font-weight="bold" fill="#4A5568">建议阅读顺序</text>
+  <text x="50" y="545" font-size="11" fill="#4A5568">① configs/model/simwam_navsim.yaml → ② action_dit.py → ③ mot.py → ④ simwam.py → ⑤ simwam_grpo.py → ⑥ trainer_grpo.py → ⑦ runtime_grpo.py</text>
+  <text x="50" y="568" font-size="10" fill="#718096">先理解模型架构（①②③），再看训练流程（④⑤⑥），最后看入口脚本（⑦）</text>
+</svg>

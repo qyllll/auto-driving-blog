@@ -1,0 +1,109 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 700" font-family="'Noto Sans SC','Microsoft YaHei',Arial,sans-serif">
+  <defs>
+    <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M0,0 L10,5 L0,10 Z" fill="#4A5568"/>
+    </marker>
+    <marker id="ar-green" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M0,0 L10,5 L0,10 Z" fill="#38A169"/>
+    </marker>
+    <marker id="ar-red" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M0,0 L10,5 L0,10 Z" fill="#E53E3E"/>
+    </marker>
+    <filter id="sh" x="-5%" y="-5%" width="110%" height="110%">
+      <feDropShadow dx="1" dy="1" stdDeviation="2" flood-opacity="0.12"/>
+    </filter>
+  </defs>
+
+  <text x="500" y="30" text-anchor="middle" font-size="18" font-weight="bold" fill="#2D3748">FlowGRPO 训练循环：采样 → 评分 → 更新</text>
+
+  <!-- Step 1: IL Checkpoint -->
+  <rect x="30" y="60" width="160" height="60" rx="8" fill="#FAF5FF" stroke="#805AD5" stroke-width="2" filter="url(#sh)"/>
+  <text x="110" y="85" text-anchor="middle" font-size="12" font-weight="bold" fill="#6B46C1">① SFT 预训练</text>
+  <text x="110" y="105" text-anchor="middle" font-size="10" fill="#718096">加载 IL checkpoint</text>
+
+  <!-- Step 2: LoRA -->
+  <rect x="230" y="60" width="160" height="60" rx="8" fill="#EBF8FF" stroke="#3182CE" stroke-width="2" filter="url(#sh)"/>
+  <text x="310" y="85" text-anchor="middle" font-size="12" font-weight="bold" fill="#2B6CB0">② 注入 LoRA</text>
+  <text x="310" y="105" text-anchor="middle" font-size="10" fill="#718096">冻结 Video DiT</text>
+
+  <!-- Step 3: Sample -->
+  <rect x="430" y="60" width="160" height="60" rx="8" fill="#FFF5F5" stroke="#E53E3E" stroke-width="2" filter="url(#sh)"/>
+  <text x="510" y="85" text-anchor="middle" font-size="12" font-weight="bold" fill="#C53030">③ 采样 G 条轨迹</text>
+  <text x="510" y="105" text-anchor="middle" font-size="10" fill="#718096">SDE + 10步欧拉积分</text>
+
+  <!-- Step 4: Reward -->
+  <rect x="630" y="60" width="160" height="60" rx="8" fill="#FEEBC8" stroke="#DD6B20" stroke-width="2" filter="url(#sh)"/>
+  <text x="710" y="85" text-anchor="middle" font-size="12" font-weight="bold" fill="#C05621">④ PDM 奖励</text>
+  <text x="710" y="105" text-anchor="middle" font-size="10" fill="#718096">NC×DAC×(5TTC+5EP+2C)/12</text>
+
+  <!-- Step 5: Advantage -->
+  <rect x="830" y="60" width="150" height="60" rx="8" fill="#C6F6D5" stroke="#38A169" stroke-width="2" filter="url(#sh)"/>
+  <text x="905" y="85" text-anchor="middle" font-size="12" font-weight="bold" fill="#276749">⑤ Advantage</text>
+  <text x="905" y="105" text-anchor="middle" font-size="10" fill="#718096">组内归一化</text>
+
+  <!-- Arrows -->
+  <line x1="190" y1="90" x2="230" y2="90" stroke="#4A5568" stroke-width="1.5" marker-end="url(#ar)"/>
+  <line x1="390" y1="90" x2="430" y2="90" stroke="#4A5568" stroke-width="1.5" marker-end="url(#ar)"/>
+  <line x1="590" y1="90" x2="630" y2="90" stroke="#4A5568" stroke-width="1.5" marker-end="url(#ar)"/>
+  <line x1="790" y1="90" x2="830" y2="90" stroke="#4A5568" stroke-width="1.5" marker-end="url(#ar)"/>
+
+  <!-- SDE sampling detail -->
+  <rect x="30" y="160" width="440" height="250" rx="10" fill="#FFF5F5" stroke="#E53E3E" stroke-width="2" filter="url(#sh)"/>
+  <text x="250" y="185" text-anchor="middle" font-size="14" font-weight="bold" fill="#C53030">SDE 采样细节</text>
+
+  <text x="50" y="212" font-size="11" fill="#4A5568">1. 初始化噪声轨迹 x₀ ~ N(0, I)，shape = (B, 50, 3)</text>
+  <text x="50" y="234" font-size="11" fill="#4A5568">2. 10 步欧拉积分，最后 3 步（k∈{7,8,9}）加 SDE 扰动</text>
+
+  <rect x="50" y="248" width="400" height="140" rx="6" fill="#F7FAFC" stroke="#CBD5E0" stroke-width="1"/>
+  <text x="65" y="268" font-size="11" fill="#2D3748" font-weight="bold">for k in range(10):</text>
+  <text x="80" y="288" font-size="11" fill="#4A5568">t = k / 10</text>
+  <text x="80" y="308" font-size="11" fill="#4A5568">v = ActionDiT(x, t, text_emb, obs_kv)</text>
+  <text x="80" y="328" font-size="11" fill="#4A5568">x = x + v × (1.0 / 10)  # ODE step</text>
+  <text x="80" y="348" font-size="11" fill="#E53E3E" font-weight="bold">if k in [7, 8, 9]:  # SDE 窗口</text>
+  <text x="100" y="368" font-size="11" fill="#C53030">x += σ × low_freq_noise + 0.5σ² × score_correction</text>
+
+  <!-- PDM Reward detail -->
+  <rect x="510" y="160" width="470" height="250" rx="10" fill="#FEEBC8" stroke="#DD6B20" stroke-width="2" filter="url(#sh)"/>
+  <text x="745" y="185" text-anchor="middle" font-size="14" font-weight="bold" fill="#C05621">NAVSIM PDM 奖励</text>
+
+  <rect x="530" y="200" width="430" height="30" rx="4" fill="#FFFAF0" stroke="#DD6B20" stroke-width="1"/>
+  <text x="745" y="220" text-anchor="middle" font-size="13" font-weight="bold" fill="#C05621">PDMS = NC × DAC × (5·TTC + 5·EP + 2·C) / 12</text>
+
+  <text x="530" y="252" font-size="11" fill="#4A5568">NC ∈ {0, 0.5, 1}：无责碰撞（SAT 碰撞检测）</text>
+  <text x="530" y="272" font-size="11" fill="#4A5568">DAC ∈ {0, 1}：可行驶区域合规（射线法检测）</text>
+  <text x="530" y="292" font-size="11" fill="#4A5568">TTC ∈ {0, 1}：碰撞时间阈值（相对运动首次重叠）</text>
+  <text x="530" y="312" font-size="11" fill="#4A5568">EP ∈ [0, 1]：前进进度（连续值，归一化位移）</text>
+  <text x="530" y="332" font-size="11" fill="#4A5568">C ∈ {0, 1}：舒适度（加速度/jerk 阈值检测）</text>
+
+  <text x="530" y="362" font-size="11" fill="#C05621" font-weight="bold">乘性项 NC、DAC 硬门控：任一为 0 → PDMS = 0</text>
+  <text x="530" y="382" font-size="11" fill="#C05621" font-weight="bold">加权项 TTC、EP、C 软评分：乘性项通过后才生效</text>
+
+  <!-- Training update -->
+  <rect x="30" y="440" width="950" height="120" rx="10" fill="#C6F6D5" stroke="#38A169" stroke-width="2" filter="url(#sh)"/>
+  <text x="505" y="465" text-anchor="middle" font-size="14" font-weight="bold" fill="#276749">⑥ PPO 更新（复用每批 rollout 做 num_inner_epochs 次）</text>
+
+  <rect x="50" y="480" width="280" height="60" rx="6" fill="#F0FFF4" stroke="#38A169" stroke-width="1"/>
+  <text x="190" y="500" text-anchor="middle" font-size="11" font-weight="bold" fill="#276749">PPO Clipped Objective</text>
+  <text x="190" y="518" text-anchor="middle" font-size="10" fill="#4A5568">L = min(r·A, clip(r, 1±ε)·A)</text>
+
+  <rect x="360" y="480" width="260" height="60" rx="6" fill="#F0FFF4" stroke="#38A169" stroke-width="1"/>
+  <text x="490" y="500" text-anchor="middle" font-size="11" font-weight="bold" fill="#276749">LoRA 更新</text>
+  <text x="490" y="518" text-anchor="middle" font-size="10" fill="#4A5568">只更新 ActionDiT 的 Q/K/V/O LoRA</text>
+
+  <rect x="650" y="480" width="310" height="60" rx="6" fill="#F0FFF4" stroke="#38A169" stroke-width="1"/>
+  <text x="805" y="500" text-anchor="middle" font-size="11" font-weight="bold" fill="#276749">冻结策略</text>
+  <text x="805" y="518" text-anchor="middle" font-size="10" fill="#4A5568">Video DiT: 完全冻结</text>
+  <text x="805" y="532" text-anchor="middle" font-size="10" fill="#4A5568">ActionDiT FFN: 冻结 · 输出头: 训练</text>
+
+  <!-- Loop arrow -->
+  <path d="M905,430 Q960,430 960,380 Q960,130 590,130" stroke="#805AD5" stroke-width="2" fill="none" stroke-dasharray="6,4" marker-end="url(#ar)"/>
+  <text x="970" y="280" font-size="10" fill="#805AD5" transform="rotate(90 970 280)">循环到下一轮采样</text>
+
+  <!-- Bottom summary -->
+  <rect x="30" y="590" width="950" height="80" rx="8" fill="#FAF5FF" stroke="#805AD5" stroke-width="1.5"/>
+  <text x="505" y="615" text-anchor="middle" font-size="12" font-weight="bold" fill="#6B46C1">关键设计决策</text>
+  <text x="50" y="638" font-size="11" fill="#4A5568">• 低频余弦基扰动（6 个基）代替独立路点噪声 → 避免高频抖动</text>
+  <text x="50" y="656" font-size="11" fill="#4A5568">• 只在最后 3 步加 SDE 扰动 → 扰动对最终轨迹影响最直接</text>
+  <text x="500" y="638" font-size="11" fill="#4A5568">• LoRA rank=16，只在 Q/K/V/O 层 → 只训练 ~5% 参数</text>
+  <text x="500" y="656" font-size="11" fill="#4A5568">• Inner epochs=4 复用 rollout → 提高样本效率</text>
+</svg>

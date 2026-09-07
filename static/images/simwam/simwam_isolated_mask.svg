@@ -1,0 +1,91 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 600" font-family="'Noto Sans SC','Microsoft YaHei',Arial,sans-serif">
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M0,0 L10,5 L0,10 Z" fill="#4A5568"/>
+    </marker>
+    <filter id="s" x="-5%" y="-5%" width="110%" height="110%">
+      <feDropShadow dx="1" dy="1" stdDeviation="2" flood-opacity="0.12"/>
+    </filter>
+  </defs>
+
+  <text x="450" y="30" text-anchor="middle" font-size="18" font-weight="bold" fill="#2D3748">Isolated Attention Mask：信息隔离的关键</text>
+
+  <!-- Training phase -->
+  <text x="225" y="65" text-anchor="middle" font-size="14" font-weight="bold" fill="#2B6CB0">训练时注意力矩阵</text>
+
+  <!-- Token labels (training) -->
+  <text x="20" y="115" font-size="11" fill="#4A5568" transform="rotate(-45 20 115)">Obs Tokens</text>
+  <text x="55" y="115" font-size="11" fill="#4A5568" transform="rotate(-45 55 115)">Future Tokens</text>
+  <text x="95" y="115" font-size="11" fill="#4A5568" transform="rotate(-45 95 115)">Action Tokens</text>
+
+  <!-- Matrix grid (training) -->
+  <g transform="translate(20, 130)">
+    <!-- Obs row -->
+    <rect x="0" y="0" width="35" height="35" fill="#C6F6D5" stroke="#38A169" stroke-width="1"/>
+    <text x="17" y="23" text-anchor="middle" font-size="10" fill="#276749">✓</text>
+    <rect x="35" y="0" width="35" height="35" fill="#C6F6D5" stroke="#38A169" stroke-width="1"/>
+    <text x="52" y="23" text-anchor="middle" font-size="10" fill="#276749">✓</text>
+    <rect x="70" y="0" width="35" height="35" fill="#C6F6D5" stroke="#38A169" stroke-width="1"/>
+    <text x="87" y="23" text-anchor="middle" font-size="10" fill="#276749">✓</text>
+    <text x="115" y="23" font-size="10" fill="#4A5568">Obs 被所有 token 看到</text>
+
+    <!-- Future row -->
+    <rect x="0" y="35" width="35" height="35" fill="#C6F6D5" stroke="#38A169" stroke-width="1"/>
+    <text x="17" y="58" text-anchor="middle" font-size="10" fill="#276749">✓</text>
+    <rect x="35" y="35" width="35" height="35" fill="#BEE3F8" stroke="#3182CE" stroke-width="1"/>
+    <text x="52" y="58" text-anchor="middle" font-size="10" fill="#2B6CB0">✓</text>
+    <rect x="70" y="35" width="35" height="35" fill="#FED7D7" stroke="#E53E3E" stroke-width="1"/>
+    <text x="87" y="58" text-anchor="middle" font-size="10" fill="#C53030">✗</text>
+    <text x="115" y="58" font-size="10" fill="#C53030">Future 看不到 Action</text>
+
+    <!-- Action row -->
+    <rect x="0" y="70" width="35" height="35" fill="#C6F6D5" stroke="#38A169" stroke-width="1"/>
+    <text x="17" y="93" text-anchor="middle" font-size="10" fill="#276749">✓</text>
+    <rect x="35" y="70" width="35" height="35" fill="#FED7D7" stroke="#E53E3E" stroke-width="1"/>
+    <text x="52" y="93" text-anchor="middle" font-size="10" fill="#C53030">✗</text>
+    <rect x="70" y="70" width="35" height="35" fill="#FED7D7" stroke="#E53E3E" stroke-width="1"/>
+    <text x="87" y="93" text-anchor="middle" font-size="10" fill="#C53030">✗</text>
+    <text x="115" y="93" font-size="10" fill="#C53030">Action 看不到 Future</text>
+  </g>
+
+  <!-- Legend -->
+  <g transform="translate(20, 275)">
+    <rect x="0" y="0" width="15" height="15" fill="#C6F6D5" stroke="#38A169" stroke-width="1"/>
+    <text x="20" y="12" font-size="10" fill="#4A5568">允许注意力</text>
+    <rect x="100" y="0" width="15" height="15" fill="#FED7D7" stroke="#E53E3E" stroke-width="1"/>
+    <text x="120" y="12" font-size="10" fill="#4A5568">禁止注意力（隔离）</text>
+    <rect x="250" y="0" width="15" height="15" fill="#BEE3F8" stroke="#3182CE" stroke-width="1"/>
+    <text x="270" y="12" font-size="10" fill="#4A5568">Video DiT 处理</text>
+    <rect x="400" y="0" width="15" height="15" fill="#FFF5F5" stroke="#E53E3E" stroke-width="1"/>
+    <text x="420" y="12" font-size="10" fill="#4A5568">ActionDiT 处理</text>
+  </g>
+
+  <!-- Right side: inference -->
+  <text x="670" y="65" text-anchor="middle" font-size="14" font-weight="bold" fill="#C05621">推理时</text>
+
+  <rect x="530" y="90" width="280" height="120" rx="10" fill="#FFFAF0" stroke="#DD6B20" stroke-width="2" filter="url(#s)"/>
+  <text x="670" y="115" text-anchor="middle" font-size="13" font-weight="bold" fill="#C05621">推理时只跑 ActionDiT</text>
+  <text x="555" y="140" font-size="11" fill="#4A5568">• 扔掉整个 Video DiT</text>
+  <text x="555" y="158" font-size="11" fill="#4A5568">• 不需要生成未来帧</text>
+  <text x="555" y="176" font-size="11" fill="#4A5568">• 不需要 VAE 解码视频</text>
+  <text x="555" y="194" font-size="11" fill="#4A5568">• ActionDiT 独立输出轨迹</text>
+
+  <!-- Why this works -->
+  <rect x="530" y="240" width="280" height="100" rx="10" fill="#F0FFF4" stroke="#38A169" stroke-width="2" filter="url(#s)"/>
+  <text x="670" y="265" text-anchor="middle" font-size="13" font-weight="bold" fill="#276749">为什么可行？</text>
+  <text x="555" y="290" font-size="11" fill="#4A5568">Action tokens 在训练时只通过 cross-attention</text>
+  <text x="555" y="308" font-size="11" fill="#4A5568">读取 VLM 的缓存 KV（当前观测的编码）</text>
+  <text x="555" y="326" font-size="11" fill="#4A5568">从来不依赖 future tokens → 推理时不需要它们</text>
+
+  <!-- Flow Matching concept -->
+  <rect x="530" y="370" width="280" height="90" rx="10" fill="#FAF5FF" stroke="#805AD5" stroke-width="2" filter="url(#s)"/>
+  <text x="670" y="395" text-anchor="middle" font-size="13" font-weight="bold" fill="#6B46C1">Flow Matching 推理</text>
+  <text x="555" y="418" font-size="11" fill="#4A5568">x₀ ~ N(0, I)（随机噪声）</text>
+  <text x="555" y="436" font-size="11" fill="#4A5568">for k in range(10):</text>
+  <text x="570" y="452" font-size="11" fill="#4A5568">v = ActionDiT(x_k, t, ...)</text>
+  <text x="570" y="464" font-size="10" fill="#718096">x_{k+1} = x_k + v × Δt</text>
+
+  <!-- Big arrow -->
+  <text x="465" y="180" font-size="28" fill="#805AD5">⟹</text>
+  <text x="465" y="195" font-size="10" fill="#805AD5">推理</text>
+</svg>
