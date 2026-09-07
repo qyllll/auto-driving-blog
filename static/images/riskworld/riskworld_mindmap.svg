@@ -1,0 +1,93 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 700" font-family="'Noto Sans SC','Microsoft YaHei',Arial,sans-serif">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M0,0 L10,5 L0,10 Z" fill="#4A5568"/>
+    </marker>
+    <linearGradient id="g-blue" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#EBF8FF"/>
+      <stop offset="100%" stop-color="#BEE3F8"/>
+    </linearGradient>
+    <linearGradient id="g-green" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#F0FFF4"/>
+      <stop offset="100%" stop-color="#C6F6D5"/>
+    </linearGradient>
+    <linearGradient id="g-orange" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#FFFAF0"/>
+      <stop offset="100%" stop-color="#FEEBC8"/>
+    </linearGradient>
+    <linearGradient id="g-purple" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#FAF5FF"/>
+      <stop offset="100%" stop-color="#E9D8FD"/>
+    </linearGradient>
+    <linearGradient id="g-red" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#FFF5F5"/>
+      <stop offset="100%" stop-color="#FED7D7"/>
+    </linearGradient>
+    <filter id="shadow" x="-5%" y="-5%" width="110%" height="110%">
+      <feDropShadow dx="2" dy="2" stdDeviation="3" flood-opacity="0.15"/>
+    </filter>
+  </defs>
+
+  <text x="500" y="35" text-anchor="middle" font-size="20" font-weight="bold" fill="#2D3748">RiskWorld 思维导图：30 秒建立全局概念</text>
+
+  <!-- Center -->
+  <rect x="370" y="320" width="260" height="80" rx="14" fill="url(#g-purple)" stroke="#805AD5" stroke-width="2.5" filter="url(#shadow)"/>
+  <text x="500" y="355" text-anchor="middle" font-size="22" font-weight="bold" fill="#6B46C1">RiskWorld</text>
+  <text x="500" y="378" text-anchor="middle" font-size="12" fill="#4A5568">以目标为中心的潜在世界模型</text>
+  <text x="500" y="393" text-anchor="middle" font-size="10" fill="#718096">北航 × 中关村实验室 · arXiv:2608.21414</text>
+
+  <!-- Lines -->
+  <line x1="500" y1="320" x2="500" y2="195" stroke="#4A5568" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="370" y1="360" x2="200" y2="360" stroke="#4A5568" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="630" y1="360" x2="800" y2="360" stroke="#4A5568" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="420" y1="400" x2="240" y2="540" stroke="#4A5568" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="580" y1="400" x2="760" y2="540" stroke="#4A5568" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- 1: 是什么 (top) -->
+  <rect x="300" y="80" width="400" height="115" rx="10" fill="url(#g-blue)" stroke="#3182CE" stroke-width="2" filter="url(#shadow)"/>
+  <text x="500" y="105" text-anchor="middle" font-size="14" font-weight="bold" fill="#2B6CB0">① 是什么：预测每个目标与自车的未来关系</text>
+  <text x="325" y="127" font-size="11" fill="#4A5568">• 输入：前视 RGB + 目标跟踪 + 自车运动</text>
+  <text x="325" y="145" font-size="11" fill="#4A5568">• 输出：目标级风险评分 + Time-to-Risk</text>
+  <text x="325" y="163" font-size="11" fill="#4A5568">• 核心：为每个目标单独跑 RSSM 潜在推演</text>
+  <text x="325" y="181" font-size="11" fill="#4A5568">• 结果：RiskBench F1=63.0%, FA=2.1%</text>
+
+  <!-- 2: 为什么 (left) -->
+  <rect x="20" y="270" width="270" height="180" rx="10" fill="url(#g-orange)" stroke="#DD6B20" stroke-width="2" filter="url(#shadow)"/>
+  <text x="155" y="295" text-anchor="middle" font-size="14" font-weight="bold" fill="#C05621">② 为什么要以目标为中心</text>
+  <text x="40" y="318" font-size="11" fill="#4A5568">• 风险 = 不断演化的自车-目标关系</text>
+  <text x="40" y="338" font-size="11" fill="#4A5568">• 现有方法：场景级/间接/脱耦</text>
+  <text x="40" y="358" font-size="11" fill="#4A5568">• RiskWorld：直接预测关系演化</text>
+  <text x="40" y="378" font-size="11" fill="#4A5568">• 不需要生成未来帧（计算高效）</text>
+  <text x="40" y="398" font-size="11" fill="#4A5568">• 类比：不看「未来画面」</text>
+  <text x="40" y="418" font-size="11" fill="#4A5568">•      只看「每个目标会怎么动」</text>
+  <text x="40" y="438" font-size="11" fill="#4A5568">• 任务导向的潜在预测</text>
+
+  <!-- 5: 关键结果 (right) -->
+  <rect x="710" y="270" width="270" height="180" rx="10" fill="url(#g-blue)" stroke="#3182CE" stroke-width="2" filter="url(#shadow)"/>
+  <text x="845" y="295" text-anchor="middle" font-size="14" font-weight="bold" fill="#2B6CB0">⑤ 关键结果</text>
+  <text x="730" y="318" font-size="11" fill="#4A5568">• Overall F1: 63.0% (SOTA)</text>
+  <text x="730" y="338" font-size="11" fill="#4A5568">• 误报率: 2.1% (最低)</text>
+  <text x="730" y="358" font-size="11" fill="#4A5568">• Collision F1: 91.5%</text>
+  <text x="730" y="378" font-size="11" fill="#4A5568">• 超过 FLaRA* 1.2 个百分点</text>
+  <text x="730" y="398" font-size="11" fill="#4A5568">• 临界事件前持续分离风险源</text>
+  <text x="730" y="418" font-size="11" fill="#4A5568">• 选中的目标保留规划信息</text>
+  <text x="730" y="438" font-size="11" fill="#4A5568">• 3s 风险预测误差降 59.8%</text>
+
+  <!-- 3: 四阶段 (bottom-left) -->
+  <rect x="50" y="540" width="380" height="140" rx="10" fill="url(#g-green)" stroke="#38A169" stroke-width="2" filter="url(#shadow)"/>
+  <text x="240" y="565" text-anchor="middle" font-size="14" font-weight="bold" fill="#276749">③ 四阶段架构</text>
+  <text x="70" y="590" font-size="11" fill="#4A5568">① V-JEPA2 编码（冻结）→ 场景+目标特征</text>
+  <text x="70" y="610" font-size="11" fill="#4A5568">② RelAttn → 关系感知目标 token</text>
+  <text x="70" y="630" font-size="11" fill="#4A5568">③ RSSM 潜在推演 → 未来 3s 潜在状态</text>
+  <text x="70" y="650" font-size="11" fill="#4A5568">④ 风险/关系解码 → 风险评分 + TTR</text>
+  <text x="70" y="670" font-size="10" fill="#718096">推理时只用历史观测，不需要未来标注</text>
+
+  <!-- 4: 训练方法 (bottom-right) -->
+  <rect x="570" y="540" width="380" height="140" rx="10" fill="url(#g-red)" stroke="#E53E3E" stroke-width="2" filter="url(#shadow)"/>
+  <text x="760" y="565" text-anchor="middle" font-size="14" font-weight="bold" fill="#C53030">④ 训练目标</text>
+  <text x="590" y="590" font-size="11" fill="#4A5568">L_obj: 目标级风险分类（主损失）</text>
+  <text x="590" y="610" font-size="11" fill="#4A5568">L_xy/L_dist/L_min: 未来几何约束</text>
+  <text x="590" y="630" font-size="11" fill="#4A5568">L_curve: 时序风险曲线监督</text>
+  <text x="590" y="650" font-size="11" fill="#4A5568">L_kl: 后验 vs 先验正则化</text>
+  <text x="590" y="670" font-size="10" fill="#718096">5 个损失项联合优化</text>
+</svg>

@@ -1,0 +1,139 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 650" font-family="'Noto Sans SC','Microsoft YaHei',Arial,sans-serif">
+  <defs>
+    <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M0,0 L10,5 L0,10 Z" fill="#4A5568"/>
+    </marker>
+    <marker id="ar-blue" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M0,0 L10,5 L0,10 Z" fill="#3182CE"/>
+    </marker>
+    <marker id="ar-green" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M0,0 L10,5 L0,10 Z" fill="#38A169"/>
+    </marker>
+    <marker id="ar-red" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M0,0 L10,5 L0,10 Z" fill="#E53E3E"/>
+    </marker>
+    <filter id="s" x="-5%" y="-5%" width="110%" height="110%">
+      <feDropShadow dx="1" dy="1" stdDeviation="2" flood-opacity="0.12"/>
+    </filter>
+  </defs>
+
+  <text x="500" y="28" text-anchor="middle" font-size="18" font-weight="bold" fill="#2D3748">RiskWorld 架构总览</text>
+
+  <!-- Stage 1: Encoding -->
+  <rect x="20" y="50" width="220" height="200" rx="10" fill="#EBF8FF" stroke="#3182CE" stroke-width="2" filter="url(#s)"/>
+  <text x="130" y="75" text-anchor="middle" font-size="13" font-weight="bold" fill="#2B6CB0">① 编码观测</text>
+
+  <rect x="35" y="90" width="190" height="30" rx="4" fill="#BEE3F8"/>
+  <text x="130" y="110" text-anchor="middle" font-size="10" fill="#2B6CB0">V-JEPA2（冻结）→ 场景+目标特征</text>
+
+  <rect x="35" y="125" width="190" height="30" rx="4" fill="#BEE3F8"/>
+  <text x="130" y="145" text-anchor="middle" font-size="10" fill="#2B6CB0">MLP+GRU → 目标状态+自车运动</text>
+
+  <rect x="35" y="160" width="190" height="30" rx="4" fill="#BEE3F8"/>
+  <text x="130" y="180" text-anchor="middle" font-size="10" fill="#2B6CB0">融合 MLP → (s_t, v_t^i, e_t^i)</text>
+
+  <rect x="35" y="195" width="190" height="40" rx="4" fill="#FAF5FF" stroke="#805AD5" stroke-width="1"/>
+  <text x="130" y="215" text-anchor="middle" font-size="10" fill="#6B46C1">x_t^i = FuseMLP(e_t^i, v_t^i, s_t)</text>
+  <text x="130" y="228" text-anchor="middle" font-size="9" fill="#718096">每个目标一个 token</text>
+
+  <!-- Stage 2: RelAttn -->
+  <rect x="260" y="50" width="200" height="200" rx="10" fill="#FAF5FF" stroke="#805AD5" stroke-width="2" filter="url(#s)"/>
+  <text x="360" y="75" text-anchor="middle" font-size="13" font-weight="bold" fill="#6B46C1">② 关系融合</text>
+
+  <rect x="275" y="90" width="170" height="50" rx="4" fill="#E9D8FD"/>
+  <text x="360" y="112" text-anchor="middle" font-size="10" fill="#6B46C1">RelAttn</text>
+  <text x="360" y="128" text-anchor="middle" font-size="9" fill="#718096">掩码多头自注意力</text>
+
+  <rect x="275" y="150" width="170" height="40" rx="4" fill="#FAF5FF"/>
+  <text x="360" y="168" text-anchor="middle" font-size="10" fill="#4A5568">自车-目标交互建模</text>
+  <text x="360" y="182" text-anchor="middle" font-size="10" fill="#4A5568">目标-目标交互建模</text>
+
+  <rect x="275" y="200" width="170" height="40" rx="4" fill="#E9D8FD" stroke="#805AD5" stroke-width="1"/>
+  <text x="360" y="218" text-anchor="middle" font-size="10" fill="#6B46C1">输出：关系感知 token</text>
+  <text x="360" y="232" text-anchor="middle" font-size="9" fill="#718096">{x̃_t^i} 初始化 RSSM</text>
+
+  <!-- Stage 3: RSSM -->
+  <rect x="480" y="50" width="220" height="200" rx="10" fill="#FFF5F5" stroke="#E53E3E" stroke-width="2" filter="url(#s)"/>
+  <text x="590" y="75" text-anchor="middle" font-size="13" font-weight="bold" fill="#C53030">③ RSSM 潜在推演</text>
+
+  <rect x="495" y="90" width="190" height="30" rx="4" fill="#FED7D7"/>
+  <text x="590" y="110" text-anchor="middle" font-size="10" fill="#C53030">每个目标单独跑 60 步（3s）</text>
+
+  <rect x="495" y="125" width="190" height="30" rx="4" fill="#FED7D7"/>
+  <text x="590" y="145" text-anchor="middle" font-size="10" fill="#C53030">z_k ~ p_θ(z_k | h_{k-1})</text>
+
+  <rect x="495" y="160" width="190" height="30" rx="4" fill="#FED7D7"/>
+  <text x="590" y="180" text-anchor="middle" font-size="10" fill="#C53030">h_k = GRU(z_k, h_{k-1})</text>
+
+  <rect x="495" y="200" width="190" height="40" rx="4" fill="#FFF5F5" stroke="#E53E3E" stroke-width="1"/>
+  <text x="590" y="218" text-anchor="middle" font-size="10" fill="#C53030">输出：未来潜在状态序列</text>
+  <text x="590" y="232" text-anchor="middle" font-size="9" fill="#718096">h_1^i, ..., h_H^i（想象中的未来）</text>
+
+  <!-- Stage 4: Decoding -->
+  <rect x="720" y="50" width="260" height="200" rx="10" fill="#C6F6D5" stroke="#38A169" stroke-width="2" filter="url(#s)"/>
+  <text x="850" y="75" text-anchor="middle" font-size="13" font-weight="bold" fill="#276749">④ 风险解码</text>
+
+  <rect x="735" y="90" width="230" height="50" rx="4" fill="#C6F6D5"/>
+  <text x="850" y="112" text-anchor="middle" font-size="10" fill="#276749">逐步头 f_step → 位置/距离/风险曲线</text>
+  <text x="850" y="128" text-anchor="middle" font-size="9" fill="#718096">描述「风险何时出现」</text>
+
+  <rect x="735" y="150" width="230" height="40" rx="4" fill="#C6F6D5"/>
+  <text x="850" y="168" text-anchor="middle" font-size="10" fill="#276749">池化头 f_pool → 目标风险评分 r_t^i</text>
+  <text x="850" y="182" text-anchor="middle" font-size="9" fill="#718096">回答「谁是风险源」</text>
+
+  <rect x="735" y="200" width="230" height="40" rx="4" fill="#C6F6D5" stroke="#38A169" stroke-width="1"/>
+  <text x="850" y="218" text-anchor="middle" font-size="10" fill="#276749">TTR = min{k: R̂_{t+k} ≥ γ}</text>
+  <text x="850" y="232" text-anchor="middle" font-size="9" fill="#718096">Time-to-Risk（风险首次超阈值时刻）</text>
+
+  <!-- Arrows -->
+  <line x1="240" y1="150" x2="260" y2="150" stroke="#4A5568" stroke-width="1.5" marker-end="url(#ar)"/>
+  <line x1="460" y1="150" x2="480" y2="150" stroke="#4A5568" stroke-width="1.5" marker-end="url(#ar)"/>
+  <line x1="700" y1="150" x2="720" y2="150" stroke="#4A5568" stroke-width="1.5" marker-end="url(#ar)"/>
+
+  <!-- Bottom: Training -->
+  <rect x="20" y="280" width="960" height="130" rx="10" fill="#FEEBC8" stroke="#DD6B20" stroke-width="2" filter="url(#s)"/>
+  <text x="500" y="305" text-anchor="middle" font-size="14" font-weight="bold" fill="#C05621">训练目标</text>
+
+  <rect x="40" y="315" width="180" height="80" rx="6" fill="#FFFAF0"/>
+  <text x="130" y="335" text-anchor="middle" font-size="11" font-weight="bold" fill="#C05621">L_obj（主损失）</text>
+  <text x="130" y="355" text-anchor="middle" font-size="10" fill="#4A5568">目标级风险分类</text>
+  <text x="130" y="372" text-anchor="middle" font-size="10" fill="#4A5568">λ_obj = 1.0</text>
+  <text x="130" y="389" text-anchor="middle" font-size="10" fill="#C05621" font-weight="bold">权重最大</text>
+
+  <rect x="240" y="315" width="180" height="80" rx="6" fill="#FFFAF0"/>
+  <text x="330" y="335" text-anchor="middle" font-size="11" font-weight="bold" fill="#C05621">L_curve</text>
+  <text x="330" y="355" text-anchor="middle" font-size="10" fill="#4A5568">时序风险曲线监督</text>
+  <text x="330" y="372" text-anchor="middle" font-size="10" fill="#4A5568">λ_curve = 0.2</text>
+  <text x="330" y="389" text-anchor="middle" font-size="9" fill="#718096">exp[-(a-(t+k))_+/T]</text>
+
+  <rect x="440" y="315" width="180" height="80" rx="6" fill="#FFFAF0"/>
+  <text x="530" y="335" text-anchor="middle" font-size="11" font-weight="bold" fill="#C05621">L_xy + L_dist + L_min</text>
+  <text x="530" y="355" text-anchor="middle" font-size="10" fill="#4A5568">未来几何约束</text>
+  <text x="530" y="372" text-anchor="middle" font-size="10" fill="#4A5568">λ=0.05, 0.05, 0.02</text>
+  <text x="530" y="389" text-anchor="middle" font-size="9" fill="#718096">位置/距离/最小距离</text>
+
+  <rect x="640" y="315" width="180" height="80" rx="6" fill="#FFFAF0"/>
+  <text x="730" y="335" text-anchor="middle" font-size="11" font-weight="bold" fill="#C05621">L_kl</text>
+  <text x="730" y="355" text-anchor="middle" font-size="10" fill="#4A5568">潜在正则化</text>
+  <text x="730" y="372" text-anchor="middle" font-size="10" fill="#4A5568">β = 1e-3</text>
+  <text x="730" y="389" text-anchor="middle" font-size="9" fill="#718096">后验 vs 先验 KL</text>
+
+  <rect x="840" y="315" width="130" height="80" rx="6" fill="#C6F6D5" stroke="#38A169" stroke-width="1.5"/>
+  <text x="905" y="345" text-anchor="middle" font-size="11" font-weight="bold" fill="#276749">联合</text>
+  <text x="905" y="365" text-anchor="middle" font-size="10" fill="#4A5568">L = Σ λ_i L_i</text>
+  <text x="905" y="385" text-anchor="middle" font-size="9" fill="#718096">+ β L_kl</text>
+
+  <!-- Bottom: Inference -->
+  <rect x="20" y="430" width="960" height="80" rx="10" fill="#F0FFF4" stroke="#38A169" stroke-width="2" filter="url(#s)"/>
+  <text x="500" y="455" text-anchor="middle" font-size="14" font-weight="bold" fill="#276749">推理流程</text>
+  <text x="50" y="480" font-size="11" fill="#4A5568">① 编码当前观测（V-JEPA2 + MLP）→ ② RelAttn → ③ RSSM 先验推演 60 步 → ④ 解码风险评分 + TTR</text>
+  <text x="50" y="500" font-size="10" fill="#38A169" font-weight="bold">推理时完全不需要未来观测——只从历史状态推演未来 3s 的风险演化</text>
+
+  <!-- Key insight -->
+  <rect x="20" y="530" width="960" height="100" rx="10" fill="#FAF5FF" stroke="#805AD5" stroke-width="1.5"/>
+  <text x="500" y="555" text-anchor="middle" font-size="13" font-weight="bold" fill="#6B46C1">核心洞察</text>
+  <text x="50" y="580" font-size="11" fill="#4A5568">• 风险 = 不断演化的自车-目标关系 → 需要预测未来关系，而非静态属性</text>
+  <text x="50" y="598" font-size="11" fill="#4A5568">• 以目标为中心 → 不生成未来帧，只为每个目标推演未来状态（计算高效）</text>
+  <text x="50" y="616" font-size="11" fill="#4A5568">• RSSM 随机动力学 → 比确定性 GRU 提供更好的精度-误报平衡</text>
+  <text x="50" y="634" font-size="11" fill="#4A5568">• V-JEPA2 冻结编码 → 预训练的预测性表征天然包含运动先验，无需重建像素</text>
+</svg>
