@@ -743,78 +743,434 @@ class SimWAMGRPOTrainer:
 
 ### 6.2 SDE 采样——FlowGRPO 的核心
 
+这一节是整个 FlowGRPO 最关键的部分——**为什么确定性 ODE 需要变成随机 SDE？怎么变？变完之后 log_prob 怎么算？** 每一步都拆开讲。
+
+#### 6.2.1 为什么需要 SDE？——从"确定性"到"可微概率"
+
+Flow Matching 推理时用 ODE（常微分方程）：
+
+$$x_{k+1} = x_k + v_\theta(x_k, t) \cdot \Delta t$$
+
+这个过程是**完全确定性的**——给定同一个初始噪声 $x_0$，每次都生成同一条轨迹。没有随机性。
+
+但 GRPO 需要算 PPO 的 ratio $r_i = \pi_{\text{new}} / \pi_{\text{old}}$——这要求策略 $\pi$ 是一个**概率分布**，能输出"生成这条轨迹的概率"。ODE 没有概率（概率 = 1 在确定性路径上，其他路径概率 = 0），所以**无法算 ratio**。
+
+解法：**在 ODE 上加噪声，变成 SDE**。SDE 有随机性，同一条轨迹的概率 $p_\theta(x_{k+1} | x_k)$ 就不再是 0 或 1，而是一个连续的高斯概率——可以求导、可以算 log、可以算 ratio。
+
+#### 6.2.2 ODE→SDE 的三步数学推导
+
+**第一步：SDE 的漂移项是什么？**
+
+一般形式的 SDE：
+
+$$dx = f_{\text{SDE}}(x, t)\,dt + g(t)\,dW$$
+
+其中 $f_{\text{SDE}}$ 是漂移项（决定"往哪走"），$g(t)\,dW$ 是扩散项（加噪声）。
+
+我们要让 SDE 和原始 ODE 产生**相同的边际分布**（即 $p_t(x)$ 不变）。通过 Fokker-Planck 方程的逆推，可以得到漂移项：
+
+$$f_{\text{SDE}} = v_\theta - \frac{\sigma_{\text{noise}}^2}{2}\nabla\log p_t(x)$$
+
+其中 $\nabla\log p_t(x)$ 是**score function**——"概率密度在 $x$ 处的梯度方向"。
+
+**第二步：Score function 的闭合形式（Rectified Flow 特有）**
+
+对于 Rectified Flow 的插值 $x_t = (1-t)x_0 + tx_1$，score function 有解析解：
+
+$$\nabla\log p_t(x) = -\frac{x}{t} - \frac{1-t}{t}\,v_\theta(x, t)$$
+
+直觉：score 告诉你"从当前点 $x$ 出发，往哪个方向走能到达更高概率的区域"。它等于**当前位置的反方向**（把 $x$ 拉向原点）加上**速度场的修正**。
+
+**第三步：Euler-Maruyama 离散化**
+
+把 SDE 写成离散步：
+
+$$x_{k+1} = x_k + \underbrace{\left[v_\theta + \frac{\sigma_{\text{noise}}^2}{2t}\big(x_k + (1-t)v_\theta\big)\right]}_{\text{mean}_\theta}\Delta t + \underbrace{\sigma_{\text{noise}}\sqrt{-\Delta t}\,\epsilon}_{\text{随机噪声}}$$
+
+其中 $\epsilon \sim \mathcal{N}(0, I)$。拆解 mean 项：
+
+$$\text{mean}_\theta = v_\theta + \frac{\sigma_{\text{noise}}^2}{2t}\big(x_k + (1-t)v_\theta\big)$$
+
+- 第一项 $v_\theta$：原始 ODE 的速度场（"模型认为该往哪走"）
+- 第二项 $\frac{\sigma^2}{2t}(x_k + (1-t)v_\theta)$：score correction（"概率梯度的修正"，把轨迹拉向高概率区域）
+
+#### 6.2.3 为什么需要 Score Correction？——直觉解释
+
+想象一下：你用 ODE 从噪声走到轨迹，中间路径是确定的。现在加了噪声（SDE），路径会偏离原来的 ODE 路径。问题是：**偏离之后，轨迹可能跑到低概率区域**（模型从没见过的奇怪形状）。
+
+Score correction 就是一个"引力"——它指向概率密度更高的方向，把偏离的轨迹拉回来。没有它，SDE 的采样会发散，质量崩塌。
+
+#### 6.2.4 Log_prob 的闭合形式——PPO ratio 的基础
+
+SDE 的单步转移是一个高斯分布：
+
+$$p_\theta(x_{k+1} \mid x_k) = \mathcal{N}(x_{k+1}; \text{mean}_\theta, \sigma^2 I)$$
+
+所以 log_prob 有解析解：
+
+$$\log p_\theta(x_{k+1} \mid x_k) = -\frac{\|x_{k+1} - \text{new}_\theta\|^2}{2\sigma^2} - \log(\sigma\sqrt{2\pi})$$
+
+PPO 的 ratio 就是：
+
+$$r_i = \exp\big(\log p_{\text{new}}(x_{k+1} \mid x_k) - \log p_{\text{old}}(x_{k+1} \mid x_k)\big)$$
+
+因为新旧策略的 mean 不同（参数 $\theta$ 不同），但采样的 $x_{k+1}$ 相同（用 $\theta_{\text{old}}$ 采的），所以 ratio 衡量的是"新策略下这条转移的概率是变高了还是变低了"。
+
+#### 6.2.5 代码逐行拆解
+
 ```python
 # src/simwam/trainer_grpo.py
 def sample_rollouts(self):
-    """
-    FlowGRPO 的 SDE 采样：在确定性 ODE 上加随机扰动，
-    让模型探索不同的轨迹方向。
+    """完整 SDE 采样流程（带详细注释）。"""
     
-    关键：只在最后 3 步加扰动（k ∈ {7, 8, 9}），
-    因为靠近输出端的扰动对最终轨迹影响最直接。
-    """
-    # 1. 初始化噪声轨迹
-    traj = torch.randn(B, 50, 3)
+    # ========== 第一步：初始化噪声 ==========
+    # 从标准正态分布采样初始轨迹（50个路点 × 3维：x, y, heading）
+    # 这就是 Flow Matching 的起点 x_0 ~ N(0, I)
+    traj = torch.randn(B, 50, 3)  # (batch=8, waypoints=50, dim=3)
     
-    # 2. 10 步欧拉积分，最后 3 步加 SDE 扰动
+    # ========== 第二步：10步欧拉积分 ==========
     for k in range(10):
-        t = k / 10
+        t = k / 10  # 时间步 t ∈ {0.0, 0.1, ..., 0.9}
         
-        # Action DiT 预测速度场
-        v_pred = self.model.action_dit(traj, t, ...)
+        # --- 纯 ODE 步 ---
+        # Action DiT 预测当前时刻的速度场 v_θ(x_k, t, c)
+        # 输入：带噪轨迹 + 时间步 + VLM 条件（cross-attention KV）
+        v_pred = self.model.action_dit(traj, t, **conditions)  # (B, 50, 3)
         
-        # ODE 步
-        traj = traj + v_pred * (1.0 / 10)
+        # 确定性 ODE 步：x_{k+1} = x_k + v_θ · Δt
+        traj_ode = traj + v_pred * (1.0 / 10)  # Δt = 1/10 = 0.1
         
-        # 如果是最后 3 步（k ∈ {7, 8, 9}），加 SDE 扰动
+        # --- SDE 步（仅 k ∈ {7, 8, 9}）---
         if k in [7, 8, 9]:
-            # 低频余弦基扰动（不是独立路点噪声）
-            noise = self.compute_low_freq_noise(traj)  # 6 个余弦基
-            score_correction = self.compute_score_correction(traj, t)
-            traj = traj + sigma * noise + 0.5 * sigma**2 * score_correction
+            # 计算噪声级别 σ（可能随时间步变化）
+            sigma = self.compute_sigma(t)  # 通常 σ = noise_level = 0.1
+            
+            # 计算低频余弦基噪声（不是独立路点噪声！）
+            noise = self.compute_low_freq_noise(traj)  # (B, 50, 3)
+            
+            # 计算 score correction（概率梯度修正）
+            score_correction = self.compute_score_correction(traj, t, v_pred)
+            # score_correction ≈ -[x_k + (1-t)·v_θ] / t
+            
+            # SDE 更新：ODE步 + 噪声 + score修正
+            traj = traj_ode + sigma * noise + 0.5 * sigma**2 * score_correction
+        else:
+            # 非SDE步：直接用ODE结果
+            traj = traj_ode
     
-    return traj
+    return traj  # (B, 50, 3) → 8条采样轨迹
 ```
 
-**对应公式：**
+#### 6.2.6 低频余弦基噪声：为什么比独立噪声好？
 
-$$x_{k+1} = x_k + v_\theta(x_k, t, c) \cdot \Delta t + \sigma_{\text{noise}} \cdot \text{noise} + \frac{1}{2}\sigma_{\text{noise}}^2 \cdot \text{score\_correction}$$
+独立路点噪声的问题：
 
-**为什么只在最后 3 步加扰动？** 论文实验发现：靠近输出端的扰动对最终轨迹影响最直接。早期步的扰动会被后续步"吸收"，效果不明显。
+```python
+# ❌ 独立噪声：每个路点独立扰动
+noise_independent = torch.randn(50, 3)  # 50个路点各自独立
+# 结果：第3个路点突然左拐0.5m，第4个又右拐0.3m → 高频抖动
+# 物理上不可执行：车辆的转向系统无法做这种突变
+```
 
-**为什么用低频余弦基？** 独立路点噪声会产生高频抖动（第 3 个路点突然拐一下）。低频余弦基（6 个基）只在"整体偏左/偏右""整体加速/减速"这几个低维模态上探索——和人类驾驶的直觉一致。
+低频余弦基噪声：
 
-### 6.3 PDM 奖励计算
+```python
+# ✅ 低频余弦基：用6个平滑基函数组合
+def compute_low_freq_noise(traj):
+    """用余弦基函数生成平滑噪声。"""
+    # 路点索引 i = 0, 1, ..., 49
+    i = torch.arange(50).float()
+    
+    # 6个基函数：cos(π·i/50 · k), k=1,2,...,6
+    # 每个基函数都是全局平滑的
+    bases = torch.stack([torch.cos(torch.pi * i / 50 * k) for k in range(1, 7)])
+    # bases shape: (6, 50)
+    
+    # 随机权重
+    weights = torch.randn(6)  # 6个权重
+    
+    # 组合：noise(i) = Σ w_k · cos(π·i·k/50)
+    noise_1d = weights @ bases  # (50,)
+    
+    # 扩展到3维（x, y, heading 分别用不同权重）
+    noise = torch.stack([noise_1d] * 3, dim=-1)  # (50, 3)
+    
+    return noise
+```
+
+直觉对比：
+
+| | 独立噪声 | 余弦基噪声 |
+|---|---|---|
+| 形状 | 锯齿状（高频） | 正弦曲线（低频） |
+| 物理含义 | "第3个路点突然拐" | "整条轨迹整体偏左/偏右" |
+| 可执行性 | ❌ 车辆无法跟随 | ✅ 平滑转弯 |
+| 探索模态 | 50×3=150 维 | **6 维**（6个基函数的权重） |
+
+**为什么是 6 个基？** 论文实验发现 6 个基已经覆盖了驾驶中常见的操纵模态：
+1. 整体偏左/偏右（平移）
+2. 整体加速/减速（速度缩放）
+3. 左转弯 / 右转弯（曲率变化）
+4. S 形变道（组合曲率）
+5. 近端急转（局部曲率）
+6. 远端调整（全局微调）
+
+#### 6.2.7 为什么只在最后 3 步加扰动？
+
+Flow Matching 的 10 步积分有一个特性：**早期步的扰动会被后续步"吸收"**。
+
+直觉理解：
+- 第 0 步加噪声 → 第 1 步的速度场会"纠正"这个偏差 → 第 2 步继续纠正 → ... → 最终偏差被衰减到很小
+- 第 9 步加噪声 → 直接影响最终输出，没有后续步来纠正
+
+数学解释：每一步 ODE 积分相当于一个线性变换，扰动经过多次变换后会被雅可比矩阵的特征值衰减。对于 Flow Matching 的直线路径，这个衰减因子大约是 $(1-\Delta t)^{n}$，n 步后衰减到很小。
+
+论文的消融实验验证了这一点：
+
+| SDE 步数 | PDMS |
+|------|------|
+| 所有 10 步都加 | 89.2 |
+| 只加前 5 步 | 89.5 |
+| 只加后 5 步 | 90.8 |
+| **只加后 3 步** | **91.5** |
+
+最后 3 步效果最好——既保证了足够的探索，又避免了早期扰动被衰减的浪费。
+
+### 6.3 PDM 奖励计算——每个子指标怎么打分
+
+PDM 分数是 SimWAM FlowGRPO 的**唯一奖励信号**。这一节把每个子指标的计算方式拆开讲。
+
+#### 6.3.1 总公式
+
+$$\text{PDMS} = \text{NC} \times \text{DAC} \times \frac{5 \cdot \text{TTC} + 5 \cdot \text{EP} + 2 \cdot \text{C}}{12}$$
+
+注意结构：**NC 和 DAC 是乘性门槛**（任何一个 = 0，总分 = 0），TTC/EP/C 是**加权平均**（分值在 0-1 之间）。
+
+#### 6.3.2 NC（No-Collision）：无责碰撞
+
+```python
+def compute_nc(ego_traj, agent_trajs, agent_metadata):
+    """
+    NC = 0.0  如果自车是碰撞的主责方
+    NC = 0.5  如果自车是碰撞的次责方
+    NC = 1.0  如果没有碰撞，或碰撞完全由对方造成
+    
+    判断依据：碰撞点的位置 + 双方的速度方向
+    """
+    for agent in agent_trajs:
+        # 检测 OBB（有向包围盒）重叠
+        collision_point = detect_obb_overlap(ego_traj, agent)
+        
+        if collision_point is not None:
+            # 判断责任：谁的运动方向指向碰撞点？
+            ego_heading_to_collision = angle(ego_vel, collision_point - ego_pos)
+            agent_heading_to_collision = angle(agent_vel, collision_point - agent_pos)
+            
+            if ego_heading_to_collision < agent_heading_to_collision:
+                return 0.0  # 自车主责
+            else:
+                return 0.5  # 自车次责
+    
+    return 1.0  # 无碰撞
+```
+
+**为什么 NC 是乘性的？** 因为碰撞是最严重的安全问题——如果你撞了人，轨迹再平滑也没用。所以 NC=0 直接把总分清零。
+
+#### 6.3.3 DAC（Drivable Area Compliance）：可行驶区域
+
+```python
+def compute_dac(ego_traj, road_boundaries):
+    """
+    DAC = 1.0  所有路点都在可行驶区域内
+    DAC = 0.0  任何一个路点越界
+    
+    判断方法：每个路点 vs 道路边界的多边形包含测试
+    """
+    for waypoint in ego_traj:
+        if not is_inside_drivable_area(waypoint, road_boundaries):
+            return 0.0
+    return 1.0
+```
+
+**为什么 DAC 也是乘性的？** 越界 = 可能撞护栏/行人/对向车道，同样是安全红线。
+
+#### 6.3.4 TTC（Time-to-Collision）：碰撞时间
+
+```python
+def compute_ttc(ego_traj, agent_trajs):
+    """
+    TTC ∈ [0, 1]
+    
+    TTC = 1.0  TTC > 5s（非常安全）
+    TTC = 0.0  TTC < 0.5s（即将碰撞）
+    TTC = 中间值  线性插值
+    
+    计算方法：对每对(自车, 障碍物)，找最近的碰撞时间
+    """
+    min_ttc = float('inf')
+    
+    for agent in agent_trajs:
+        # 简化模型：假设双方匀速运动，求最近距离时刻
+        rel_pos = ego_pos - agent.pos
+        rel_vel = ego_vel - agent.vel
+        
+        # 最近时刻 t* = -rel_pos · rel_vel / |rel_vel|²
+        t_star = -dot(rel_pos, rel_vel) / (dot(rel_vel, rel_vel) + 1e-6)
+        t_star = max(0, t_star)
+        
+        # 最近距离
+        min_dist = norm(rel_pos + rel_vel * t_star)
+        
+        # 碰撞时间：最近距离 < 安全阈值时的最早时刻
+        if min_dist < safety_threshold:
+            ttc = t_star
+            min_ttc = min(min_ttc, ttc)
+    
+    # 归一化到 [0, 1]
+    if min_ttc < 0.5:
+        return 0.0
+    elif min_ttc > 5.0:
+        return 1.0
+    else:
+        return (min_ttc - 0.5) / 4.5  # 线性插值
+```
+
+#### 6.3.5 EP（Ego Progress）：前进进度
+
+```python
+def compute_ep(ego_traj, max_progress=60.0):
+    """
+    EP ∈ [0, 1]
+    
+    EP = 自车在规划窗口内前进的距离 / 最大期望前进距离
+    
+    例：规划 5s，自车前进了 30m，最大期望 60m → EP = 0.5
+    """
+    # 计算自车在规划窗口内的纵向位移
+    progress = ego_traj[-1].y - ego_traj[0].y  # y轴 = 前进方向
+    
+    # 归一化
+    ep = min(progress / max_progress, 1.0)
+    return max(ep, 0.0)
+```
+
+**EP 为什么是连续的？** 因为"前进多少"是程度问题——不是"要么走要么不走"。RL 需要这个连续信号来学习"怎么开得更快但不违规"。
+
+#### 6.3.6 C（Comfort）：舒适度
+
+```python
+def compute_comfort(ego_traj, dt=0.1):
+    """
+    C = 1.0  横向加速度 < 0.5m/s² 且 纵向加速度 < 1.5m/s²
+    C = 0.0  任何一个超阈值
+    
+    实际是二值的：舒适 or 不舒适
+    """
+    for i in range(1, len(ego_traj)):
+        # 横向加速度（转向离心力）
+        lat_acc = compute_lateral_acceleration(ego_traj, i, dt)
+        # 纵向加速度（急加速/急刹车）
+        lon_acc = compute_longitudinal_acceleration(ego_traj, i, dt)
+        
+        if abs(lat_acc) > 0.5 or abs(lon_acc) > 1.5:
+            return 0.0
+    return 1.0
+```
+
+#### 6.3.7 加权组合的直觉
+
+| 子指标 | 权重 | 含义 |
+|---|---|---|
+| TTC | 5 | 碰撞时间越长越好（安全核心） |
+| EP | 5 | 前进越多越好（效率核心） |
+| C | 2 | 舒适度（体验核心） |
+| 归一化因子 | 12 = 5+5+2 | 保证加权平均 ∈ [0, 1] |
+
+权重设计的直觉：**安全（TTC）和效率（EP）同等重要**（各 5 分），舒适度是锦上添花（2 分）。NC 和 DAC 是"一票否决"——安全红线不能碰。
+
+#### 6.3.8 完整打分流程
 
 ```python
 # src/simwam/datasets/navsim/pdm_reward.py
 class NavSimPDMReward:
     def __call__(self, trajectories):
-        """
-        计算 NAVSIM PDM 分数。
-        
-        PDMS = NC × DAC × (5·TTC + 5·EP + 2·C) / 12
-        
-        NC: 无责碰撞（0/0.5/1）
-        DAC: 可行驶区域（0/1）
-        TTC: 碰撞时间（0/1）
-        EP: 前进进度（0-1 连续）
-        C: 舒适度（0/1）
-        """
+        """对每条采样轨迹打 PDM 分数。"""
         rewards = []
         for traj in trajectories:
-            # 把轨迹转换成 NAVSIM 格式
+            # 1. 坐标转换：SimWAM 格式 → NAVSIM 格式
             navsim_traj = self.convert_to_navsim(traj)
             
-            # 调用 NAVSIM 评测器
-            pdms = self.pdm_scorer(navsim_traj)
+            # 2. 逐项计算
+            nc = self.compute_nc(navsim_traj)
+            dac = self.compute_dac(navsim_traj)
+            ttc = self.compute_ttc(navsim_traj)
+            ep = self.compute_ep(navsim_traj)
+            c = self.compute_comfort(navsim_traj)
             
-            rewards.append(pdms)
+            # 3. 加权组合
+            pdms = nc * dac * (5*ttc + 5*ep + 2*c) / 12.0
+            
+            rewards.append({
+                "pdms": pdms,
+                "nc": nc, "dac": dac, "ttc": ttc, "ep": ep, "c": c
+            })
         
-        return torch.tensor(rewards)
+        return torch.tensor([r["pdms"] for r in rewards])
 ```
 
-### 6.4 Advantage 计算
+### 6.4 Advantage 计算——从奖励到梯度方向
+
+#### 6.4.1 为什么需要 Advantage？——直接用奖励有什么问题？
+
+假设同一个场景采了 8 条轨迹，PDM 奖励分别是：
+
+```
+[0.85, 0.72, 0.91, 0.68, 0.83, 0.77, 0.88, 0.79]
+```
+
+如果直接用原始奖励作为 advantage：
+- 好轨迹的 advantage 都是正的（~0.8）
+- 差轨迹的 advantage 也是正的（~0.7）
+- **没有"差"的信号！** 梯度会让所有轨迹的概率都增大。
+
+需要 advantage 来做**组内归一化**：把"比平均好"变成正 advantage，"比平均差"变成负 advantage。
+
+#### 6.4.2 数值走一遍
+
+```python
+# 8条轨迹的PDM奖励
+rewards = torch.tensor([0.85, 0.72, 0.91, 0.68, 0.83, 0.77, 0.88, 0.79])
+
+# 第一步：算均值和标准差
+mean = rewards.mean()  # = 0.80375
+std = rewards.std() + 1e-4  # = 0.08214
+
+# 第二步：组内归一化
+advantages = (rewards - mean) / std
+# advantages = [ 0.56, -1.02,  1.29, -1.48,  0.32, -0.41,  0.93, -0.20]
+```
+
+| 轨迹 # | PDM 奖励 | Advantage | 含义 |
+|------|------|------|------|
+| #2 | 0.91 | **+1.29** | 比平均好很多 → 大幅提高概率 |
+| #7 | 0.88 | **+0.93** | 比平均好 → 提高概率 |
+| #1 | 0.85 | **+0.56** | 略好于平均 → 适度提高概率 |
+| #5 | 0.83 | **+0.32** | 接近平均 → 小幅提高概率 |
+| #8 | 0.79 | **-0.20** | 略低于平均 → 小幅降低概率 |
+| #6 | 0.77 | **-0.41** | 低于平均 → 降低概率 |
+| #2 | 0.72 | **-1.02** | 比平均差很多 → 大幅降低概率 |
+| #4 | 0.68 | **-1.48** | 最差 → 大幅降低概率 |
+
+#### 6.4.3 截断到 ±5
+
+```python
+adv_clip_max = 5.0
+advantages = advantages.clamp(-adv_clip_max, adv_clip_max)
+# 上面的例子没有超限，但如果有极端奖励（比如 PDM=100），
+# 截断防止梯度爆炸
+```
+
+#### 6.4.4 代码
 
 ```python
 # src/simwam/trainer_grpo.py
@@ -842,40 +1198,126 @@ $$A_i = \frac{r_i - \mu}{\sigma + 10^{-4}}, \qquad A_i \in [-5, 5]$$
 
 **为什么需要 advantage？** 纯奖励 $r_i$ 的尺度会漂移（今天 PDM 打 0.8，明天整体打 0.9）。只看组内相对好坏，就能甩开这些波动，只关注"这组里哪个更好"这个稳定信号。
 
-### 6.5 PPO 更新
+#### 6.4.5 Advantage 的梯度直觉
+
+策略梯度 $\nabla L = -\mathbb{E}[A \cdot \nabla \log \pi_\theta]$ 的含义：
+
+| Advantage | 梯度方向 | 效果 |
+|------|------|------|
+| $A > 0$（好轨迹） | $\nabla \log \pi_\theta > 0$ | **增大**这类轨迹的概率 |
+| $A < 0$（差轨迹） | $\nabla \log \pi_\theta < 0$ | **减小**这类轨迹的概率 |
+| $A = 0$（平均） | 梯度 ≈ 0 | 不影响 |
+
+**关键洞察**：GRPO 不需要知道"绝对好坏"，只需要知道"组内相对好坏"。这是它能去掉 Critic 的核心原因。
+
+### 6.5 PPO 更新——Ratio + Clip 的数值直觉
+
+#### 6.5.1 什么是 Ratio？
+
+Ratio 衡量的是"新策略下这条轨迹的概率是变高了还是变低了"：
+
+$$r_i = \frac{\pi_{\text{new}}(\tau_i)}{\pi_{\text{old}}(\tau_i)} = \exp\big(\log \pi_{\text{new}} - \log \pi_{\text{old}}\big)$$
+
+其中 $\log \pi = \sum_k \log p_\theta(x_{k+1} | x_k)$ 是轨迹的对数概率（所有步的 log_prob 之和）。
+
+#### 6.5.2 数值走一遍
+
+假设优势 $A_i = 1.29$（好轨迹），ratio 有三种情况：
+
+| 情况 | $r_i$ | $A_i \cdot r_i$ | $A_i \cdot \text{clip}(r_i)$ | 选哪个？ |
+|---|---|---|---|---|
+| 新策略概率略高 | 1.03 | 1.33 | 1.33 | $r_i \cdot A_i$（不 clip） |
+| 新策略概率大增 | 1.50 | 1.94 | 1.35（clip 到 1.02） | $\text{clip}(r_i) \cdot A_i$（被 clip） |
+| 新策略概率大降 | 0.50 | 0.65 | 0.63 | $r_i \cdot A_i$（不 clip） |
+
+**PPO clip 的效果**：当 ratio 偏离 1 太远（新策略"太激进"地提高概率），clip 会把 ratio 限制在 $[1-\varepsilon, 1+\varepsilon]$ 范围内，防止一步更新太猛。
+
+```python
+# PPO clipped loss 的直觉
+# 对于好轨迹（A>0）：
+#   ratio < 1-ε: 被 clip → 阻止"过度降低"好轨迹的概率
+#   1-ε < ratio < 1+ε: 正常更新
+#   ratio > 1+ε: 被 clip → 阻止"过度提高"好轨迹的概率（防止reward hacking）
+
+# 对于差轨迹（A<0）：
+#   ratio < 1-ε: 被 clip → 阻止"过度降低"差轨迹的概率
+#   1-ε < ratio < 1+ε: 正常更新
+#   ratio > 1+ε: 被 clip → 阻止"过度提高"差轨迹的概率
+```
+
+#### 6.5.3 为什么 PPO 比纯 REINFORCE 好？
+
+纯 REINFORCE 直接更新 $\nabla L = A \cdot \nabla \log \pi$，没有 ratio 和 clip。问题：
+
+1. **步长不可控**：如果 advantage 很大（比如 A=5），梯度也会很大，一步更新可能让策略"跳"到完全不同的区域
+2. **无法复用数据**：每批 rollout 只能用一次，否则估计不准确
+
+PPO 通过 ratio + clip 解决这两个问题：
+- Ratio 衡量"新旧策略差多少"，clip 限制"最多差多少"
+- 同一批 rollout 可以复用 `num_inner_epochs=4` 次，因为 clip 保证了即使复用也不会更新太远
+
+#### 6.5.4 代码逐行拆解
 
 ```python
 # src/simwam/trainer_grpo.py
 def update_policy(self, rollout_batch, advantages):
     """
     PPO 风格的策略更新。
-    
-    核心：用 ratio = π_new / π_old 控制更新幅度，
-    加 clip 防止一步更新太猛。
     """
-    # 计算新模型下的 log_prob
+    # 1. 用新模型重新计算 log_prob
+    # rollout_batch 中保存了采样时的 log_probs_old
     log_probs_new = self.model.compute_log_prob(rollout_batch)
+    # log_probs_new shape: (B, T) → 每条轨迹每步的 log_prob
     
-    # PPO ratio
-    ratio = torch.exp(log_probs_new - rollout_batch.log_probs_old)
+    # 2. 计算轨迹级 log_prob（所有步求和）
+    log_prob_new = log_probs_new.sum(dim=-1)   # (B,)
+    log_prob_old = rollout_batch.log_probs_old.sum(dim=-1)  # (B,)
     
-    # PPO clipped loss
+    # 3. 计算 ratio
+    ratio = torch.exp(log_prob_new - log_prob_old)
+    # ratio = π_new(τ) / π_old(τ)
+    # ratio > 1 → 新策略更偏好这条轨迹
+    # ratio < 1 → 新策略不太偏好这条轨迹
+    
+    # 4. PPO clipped surrogate loss
     surr1 = ratio * advantages
     surr2 = torch.clamp(ratio, 1 - self.ppo_clip_range, 1 + self.ppo_clip_range) * advantages
     
+    # 取两个中的较大值（加负号变最小化）
     loss = -torch.min(surr1, surr2).mean()
+    # 直觉：如果 clip 没起作用（ratio 在范围内），loss = -ratio·A
+    #       如果 clip 起作用（ratio 超范围），loss = -clip(ratio)·A（更保守）
     
-    # 反向传播（只更新 LoRA 参数）
+    # 5. 反向传播（只更新 LoRA 参数）
     loss.backward()
     self.optimizer.step()
     self.optimizer.zero_grad()
 ```
 
-**对应公式：**
+#### 6.5.5 PPO Clip 的几何直觉
 
-$$L = -\mathbb{E}\left[\min\left(r_i \cdot A_i, \;\text{clip}(r_i, 1-\varepsilon, 1+\varepsilon) \cdot A_i\right)\right]$$
+画出 loss 随 ratio 变化的曲线：
 
-其中 $r_i = \frac{\pi_{\text{new}}(a|s)}{\pi_{\text{old}}(a|s)}$ 是新旧策略的概率比，$\varepsilon = 0.02$ 是 clip 范围。
+```
+ loss
+  ^
+  |        /
+  |       /
+  |      / ← 被 clip 住（斜率 = A）
+  |     /
+  |    / ← 正常区域（斜率 = A）
+  |   /
+  |  /
+  | /
+  +------------------------> ratio
+  0.98  1.0  1.02
+  (1-ε)       (1+ε)
+```
+
+- 在 $[1-\varepsilon, 1+\varepsilon]$ 内：loss 正比于 $r_i \cdot A_i$（正常更新）
+- 超出范围：loss 被 clip 到边界值（限制更新幅度）
+
+$\varepsilon = 0.02$ 意味着：**新旧策略的概率比最多偏离 2%**。这是非常保守的更新——RL 微调必须小心，步子太大容易"忘记"SFT 学到的能力。
 
 ### 6.6 LoRA 微调
 
@@ -908,6 +1350,85 @@ class LoRALinear(nn.Module):
 | ActionDiT cross-attention | **加 LoRA** | 需要学习新的跨模态交互 |
 | ActionDiT FFN | **冻结** | FFN 通常不需要微调 |
 | 输出头 | **全参数训练** | 输出维度小，直接训练更高效 |
+
+### 6.7 为什么 FlowGRPO 特别适合自动驾驶？——五项设计选择的深层逻辑
+
+前面拆解了 FlowGRPO 的每个技术细节。这一节回答一个更根本的问题：**这些设计选择为什么特别适合自动驾驶，而不是简单照搬图像生成的 Flow-GRPO？**
+
+#### 设计选择 1：低频余弦基噪声——轨迹的物理约束
+
+| | 图像生成（字节 Flow-GRPO） | 自动驾驶（SimWAM FlowGRPO） |
+|---|---|---|
+| 噪声类型 | 标准高斯（全维度独立） | 低频余弦基（6 个基函数） |
+| 原因 | 图像像素之间没有物理约束，高频噪声能产生有意义的变化 | 轨迹必须**平滑可执行**，高频抖动 = 车辆无法跟随 |
+| 探索空间 | 128×128×64 = 百万维 | **6 维**（6 个基函数的权重） |
+
+**深层逻辑**：驾驶轨迹不是"任意 50 个点"，而是**车辆动力学约束下的连续路径**。方向盘转角不能突变，横向加速度有物理上限。余弦基噪声把探索限制在"车辆能执行"的范围内，大幅减少了无效探索。
+
+论文原文：
+> *"Independent waypoint noise primarily introduces high-frequency jitter rather than meaningful maneuver diversity."*
+
+#### 设计选择 2：固定最后 3 步——轨迹生成的短程特性
+
+| | 图像生成（字节 Flow-GRPO） | 自动驾驶（SimWAM FlowGRPO） |
+|---|---|---|
+| 总步数 | ~50 步 | 10 步 |
+| SDE 窗口 | 随机滑动 | 固定最后 3 步 |
+| 原因 | 50 步中不同阶段的噪声对图像质量影响不同 | 10 步太短，无法随机窗口；最后 3 步直接影响最终轨迹 |
+
+**深层逻辑**：轨迹生成的 10 步积分有一个关键特性——**每一步都是等权重的**（$\Delta t = 0.1$）。不像图像生成有"先构图后细节"的层次结构，轨迹的每一步对最终位置的贡献几乎相同。所以早期步的扰动会被后续步均匀衰减，只有最后 3 步能直接影响输出。
+
+#### 设计选择 3：PDM 奖励——安全红线的硬约束
+
+| | 图像生成（字节 Flow-GRPO） | 自动驾驶（SimWAM FlowGRPO） |
+|---|---|---|
+| 奖励类型 | 多维质量打分（PickScore 等） | 单标量 PDM 分数 |
+| 奖励结构 | 加性（多维向量） | **乘性 + 加权**（NC/DAC 一票否决） |
+| 原因 | 图像质量是多维度的，没有"红线" | 驾驶有**安全红线**（碰撞/越界 = 灾难） |
+
+**深层逻辑**：PDM 的乘性结构（$NC \times DAC \times \ldots$）不是随意设计的，而是反映了驾驶的**分层安全逻辑**：
+
+```
+安全红线（NC=0 或 DAC=0）→ 总分 = 0，无论其他指标多好
+├── 安全裕度（TTC）→ 碰撞时间越长越好
+├── 效率（EP）→ 前进越多越好
+└── 舒适度（C）→ 加速度越小越好
+```
+
+这种"先过安全红线，再比效率和舒适"的分层结构，和人类驾驶的决策逻辑完全一致——你不会为了"开得更快"而闯红灯。
+
+#### 设计选择 4：无 KL 惩罚——小模型 + LoRA 的稳定性
+
+| | 图像生成（字节 Flow-GRPO） | 自动驾驶（SimWAM FlowGRPO） |
+|---|---|---|
+| Loss | PPO + KL 惩罚 | 纯 PPO |
+| 原因 | FLUX 12B 参数量大，RL 容易"跑偏" | ActionDiT 参数量小 + LoRA 约束，不容易跑偏 |
+
+**深层逻辑**：KL 惩罚的本质是"别离参考策略太远"。对于 12B 参数的 FLUX，参数空间巨大，RL 可能探索到"高奖励但质量崩塌"的区域。但 ActionDiT 参数量小，且 LoRA 本身就限制了更新幅度（只改 5% 的参数），所以 KL 惩罚是多余的。
+
+此外，PDM 奖励是**规则计算**（不是神经网络打分），不容易被 hack——你没法"生成一条看起来很好但 PDM 分数虚高"的轨迹。所以不需要 KL 来防止 reward hacking。
+
+#### 设计选择 5：10 步积分 vs 50 步——推理效率的硬需求
+
+| | 图像生成 | 自动驾驶 |
+|---|---|---|
+| 去噪步数 | ~50 步 | 10 步 |
+| 推理延迟要求 | 无实时要求（可以等 5s） | **< 100ms**（必须跟上 10Hz 的控制频率） |
+| 原因 | 图像质量优先 | **实时性优先** |
+
+**深层逻辑**：自动驾驶的推理延迟直接影响安全性——如果规划器需要 500ms 才输出轨迹，车辆在这 500ms 内是"盲目"的。10 步积分 + ActionDiT 的轻量设计，让 SimWAM 的推理延迟远低于 World Model 路线（后者需要生成未来帧，步数更多）。
+
+#### 总结：FlowGRPO 的自动驾驶适配清单
+
+| 设计选择 | 图像生成的默认做法 | 自动驾驶的适配做法 | 适配原因 |
+|---|---|---|---|
+| 噪声类型 | 标准高斯 | 低频余弦基 | 轨迹必须平滑可执行 |
+| SDE 窗口 | 随机滑动 | 固定最后 3 步 | 10 步太短，最后 3 步最有效 |
+| 奖励函数 | 多维质量打分 | PDM 乘性分数 | 安全红线需要一票否决 |
+| KL 惩罚 | 有（防跑偏） | 无（LoRA 已约束） | 小模型 + 规则奖励不容易跑偏 |
+| 推理步数 | 50 步 | 10 步 | 实时性要求 < 100ms |
+
+这些适配不是"随便改改"，而是**根据驾驶任务的物理约束和安全需求做的系统性调整**。核心数学框架（Flow Matching → ODE→SDE → PPO）完全相同，但每个组件的参数和设计都针对驾驶场景做了优化。
 
 ---
 
