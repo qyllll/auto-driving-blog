@@ -1138,7 +1138,269 @@ GRPO 训练时只给 Action DiT 的注意力层加 LoRA（rank=16），冻结 FF
 
 SimWAM 的核心优势：**用预训练视频模型的运动先觉，但推理时不需要生成未来帧**——既借了视频模型的力，又不背它的包袱。
 
-### 5. 闭环仍是短板
+### 5. SimWAM 的 FlowGRPO vs 字节 Flow-GRPO：同名不同魂
+
+博客里有一篇 [Flow-GRPO 完全讲解](/zh/posts/thoughts/flow-grpo-complete-guide/)，讲的是字节跳动把 Flow-GRPO 用在图像生成（FLUX 模型）上的方法。SimWAM 也叫 FlowGRPO，但两者**名字相似、内核不同**——一个是画图的，一个是开车的。这一节把两者的每个技术细节拆开对比。
+
+#### 总览：一句话区分
+
+| | 字节 Flow-GRPO | SimWAM FlowGRPO |
+|---|---|---|
+| **一句话** | 用 RL 让 FLUX 生成更好的图像 | 用 RL 让 ActionDiT 生成更好的驾驶轨迹 |
+| **论文/博客** | Flow-GRPO: Boosting Reward-based Generation Models (字节) | SimWAM (arXiv:2608.07468) |
+| **基座模型** | FLUX 12B DiT（图像生成） | ActionDiT（轨迹生成） |
+| **生成空间** | 高维 latent（64×128×128） | 低维 waypoint（50×3） |
+
+#### 1. 奖励函数：画图 vs 开车
+
+这是**最本质的区别**——奖励决定了 RL 往哪个方向优化。
+
+**字节 Flow-GRPO**：奖励来自图像质量评估
+
+```python
+# flow_grpo/rewards.py
+reward_fn = multi_score(device, config.reward_fn)
+# 返回 {"avg": [0.45, 0.78, ...], "strict_accuracy": [0, 1, ...]}
+
+# 具体奖励类型：
+# - OCR reward: 图中文字是否正确渲染
+# - PickScore: 人类偏好分数
+# - GenEval: 组合逻辑检查（几个物体、什么颜色、什么关系）
+```
+
+奖励是**多维度、任务相关**的——可以同时优化文本渲染、美学质量、组合正确性。
+
+**SimWAM FlowGRPO**：奖励来自 NAVSIM PDM 分数
+
+```python
+# src/simwam/datasets/navsim/pdm_reward.py
+PDMS = NC × DAC × (5·TTC + 5·EP + 2·C) / 12
+```
+
+奖励是**单一标量、驾驶专用**的——NC（无责碰撞）、DAC（可行驶区域）、TTC（碰撞时间）、EP（前进进度）、C（舒适度）。五个子指标乘性组合，一个分数定好坏。
+
+| 维度 | 字节 Flow-GRPO | SimWAM FlowGRPO |
+|------|------|------|
+| 奖励类型 | 多维向量（avg + 子分数） | 单标量 PDMS |
+| 奖励来源 | 预训练打分器（PickScore 等） | 规则计算（PDM scorer） |
+| 奖励范围 | [0, 1] 连续 | [0, 100] 连续 |
+| 任务相关性 | 通用（可换不同奖励） | 驾驶专用（NAVSIM 基准） |
+| 奖励是否可微 | 通常不可微（黑盒打分器） | 不可微（规则计算） |
+
+#### 2. SDE 采样：滑动窗口 vs 固定末尾
+
+两者都需要把确定性 ODE 转成随机 SDE 来获得可微的 $\log p$，但**加噪声的位置和方式完全不同**。
+
+**字节 Flow-GRPO**：SDE 滑动窗口
+
+```python
+# flux_pipeline_with_logprob_fast.py
+# 窗口在 [sde_window_range[0], sde_window_range[1]] 内随机选取
+start = randint(sde_window_range[0], sde_window_range[1] - sde_window_size)
+end = start + sde_window_size
+sde_window = (start, end)  # 例如 (2, 5)
+
+# 窗口前：纯 ODE（无噪声）
+# 窗口内：SDE（加噪声）
+# 窗口后：纯 ODE
+```
+
+为什么要随机窗口？因为图像生成有 ~50 步去噪步，不同步的噪声对生成质量影响不同。随机窗口让 RL 在**不同去噪阶段**都有探索机会。
+
+**SimWAM FlowGRPO**：固定在最后 3 步
+
+```python
+# src/simwam/trainer_grpo.py
+for k in range(10):  # 10 步欧拉积分
+    if k in [7, 8, 9]:  # 只在最后 3 步加 SDE 扰动
+        noise = self.compute_low_freq_noise(traj)  # 6 个余弦基
+        score_correction = self.compute_score_correction(traj, t)
+        traj = traj + sigma * noise + 0.5 * sigma**2 * score_correction
+```
+
+为什么固定在最后 3 步？因为轨迹生成只有 10 步，步数太少不能随机窗口。而且**靠近输出端的扰动对最终轨迹影响最直接**——早期扰动会被后续积分步骤衰减。
+
+| 维度 | 字节 Flow-GRPO | SimWAM FlowGRPO |
+|------|------|------|
+| 总去噪步数 | ~50 步 | 10 步 |
+| SDE 窗口位置 | 随机滑动 | 固定在最后 3 步 |
+| 窗口大小 | 可配置 | 3 步 |
+| 噪声类型 | 标准高斯 | **低频余弦基**（6 个基函数） |
+| Score correction | 标准 Fokker-Planck 逆推 | 同（标准公式） |
+
+#### 3. 噪声设计：高频探索 vs 低频探索
+
+**字节 Flow-GRPO**：标准高斯噪声
+
+```python
+# 标准 SDE：在 latent 空间加各向同性高斯噪声
+variance_noise = randn_tensor(latents.shape)
+prev_sample = prev_sample_mean + std_dev_t * sqrt(-dt) * variance_noise
+```
+
+图像 latent 是高维的（64×128×128），标准高斯噪声在每个维度上独立扰动，足以产生多样的图像变化。
+
+**SimWAM FlowGRPO**：低频余弦基噪声
+
+```python
+# 不是独立路点噪声，而是限制在 6 个余弦基上
+# 只在"整体偏左/偏右""整体加速/减速"这几个低维模态上探索
+noise = compute_low_freq_noise(traj)  # 6 个余弦基
+```
+
+为什么？因为轨迹只有 50 个路点 × 3 维 = 150 维，如果每个维度独立加噪声，会产生**高频抖动**——第 3 个路点突然左拐，第 4 个又右拐。这在物理上不可执行。余弦基把探索限制在低频模态上，生成的轨迹天然平滑。
+
+| 维度 | 字节 Flow-GRPO | SimWAM FlowGRPO |
+|------|------|------|
+| 噪声维度 | 全维度（64×128×128） | 低维（6 个余弦基） |
+| 频率特性 | 高频（独立维度） | **低频**（平滑基函数） |
+| 物理约束 | 无（图像无物理约束） | 有（轨迹必须平滑可执行） |
+| 噪声级别 | noise_level 可配置 | noise_level=0.1 |
+
+#### 4. ODE→SDE 转换的数学：殊途同归
+
+两者都需要把确定性 Flow ODE 转成 SDE，数学推导过程**完全一致**：
+
+**第一步：Fokker-Planck 逆推**
+
+$$f_{\text{SDE}} = v_t - \frac{\sigma_{\text{noise}}^2}{2}\nabla\log p_t(x)$$
+
+**第二步：Score identity（Rectified Flow 特有）**
+
+$$\nabla\log p_t(x) = -\frac{x}{t} - \frac{1-t}{t}\,v_t(x)$$
+
+**第三步：Euler-Maruyama 离散化**
+
+$$x_{t+\Delta t} = x_t + \left[v_\theta + \frac{\sigma_{\text{noise}}^2}{2t}\big(x_t + (1-t)v_\theta\big)\right]\Delta t + \sigma_{\text{noise}}\sqrt{-\Delta t}\,\epsilon$$
+
+**第四步：高斯 log_prob**
+
+$$\log p(x_{t+1}\mid x_t) = -\frac{\|x_{t+1}-\text{mean}_\theta\|^2}{2\sigma_{\text{noise}}^2(-\Delta t)} - \log\big(\sigma_{\text{noise}}\sqrt{-\Delta t}\big) - \log\sqrt{2\pi}$$
+
+唯一的差异是 $\sigma_{\text{noise}}$ 的具体数值（取决于 `noise_level` 和 $t$ 的关系），但**公式结构完全相同**。这说明 Flow-GRPO 的 ODE→SDE 框架是**通用的**——不管生成的是图像还是轨迹，只要底层是 Flow Matching，都能套用。
+
+#### 5. Loss 设计：有无 KL 惩罚
+
+**字节 Flow-GRPO**：PPO + KL 惩罚
+
+```python
+# 完整 loss = PPO policy loss + KL penalty
+policy_loss = torch.mean(torch.maximum(unclipped_loss, clipped_loss))
+
+# KL penalty：当前策略 vs 参考策略（关闭 LoRA 后的基座模型）
+with transformer.module.disable_adapter():  # 关闭 LoRA = 参考模型
+    _, _, prev_sample_mean_ref, _ = compute_log_prob(...)
+
+kl_loss = ((prev_sample_mean - prev_sample_mean_ref) ** 2).mean() / (2 * std_dev_t ** 2)
+loss = policy_loss + config.train.beta * kl_loss
+```
+
+为什么要 KL？因为图像生成空间大（12B 参数），RL 容易"跑偏"——生成高奖励但质量崩塌的图像。KL 惩罚让新策略别离参考策略太远。
+
+**SimWAM FlowGRPO**：纯 PPO，无 KL
+
+```python
+# SimWAM 只用 PPO clipped loss，没有 KL 项
+ratio = torch.exp(log_probs_new - rollout_batch.log_probs_old)
+surr1 = ratio * advantages
+surr2 = torch.clamp(ratio, 1 - self.ppo_clip_range, 1 + self.ppo_clip_range) * advantages
+loss = -torch.min(surr1, surr2).mean()
+```
+
+为什么不需要 KL？可能原因：
+1. ActionDiT 参数量小（相比 FLUX 12B），不需要 KL 约束
+2. LoRA 微调本身就有正则化效果（不改变原始权重）
+3. 奖励函数（PDM）比较稳定，不容易 hack
+
+| 维度 | 字节 Flow-GRPO | SimWAM FlowGRPO |
+|------|------|------|
+| Loss 结构 | PPO + KL 惩罚 | 纯 PPO |
+| KL 系数 β | 可配置（通常 0.01-0.1） | 无 |
+| 参考策略 | 关闭 LoRA 后的基座模型 | 不使用 |
+| 正则化来源 | KL + LoRA 约束 | 仅 LoRA 约束 |
+
+#### 6. LoRA 配置：大模型 vs 小模型
+
+**字节 Flow-GRPO**：大 rank、宽覆盖
+
+```python
+# FLUX 12B 模型，需要更大容量的 LoRA
+transformer_lora_config = LoraConfig(
+    r=64,              # rank=64
+    lora_alpha=128,    # alpha=128，scaling=2
+    target_modules=["attn.to_k", "attn.to_q", "attn.to_v", "attn.to_out.0", ...]
+)
+```
+
+**SimWAM FlowGRPO**：小 rank、窄覆盖
+
+```yaml
+# ActionDiT 参数量小，LoRA 也小
+lora:
+  r: 16              # rank=16（FLUX 的 1/4）
+  alpha: 32.0        # alpha=32，scaling=2（比例相同）
+  target_modules: [q, k, v, o]  # 只在注意力层
+```
+
+| 维度 | 字节 Flow-GRPO | SimWAM FlowGRPO |
+|------|------|------|
+| LoRA rank | 64 | 16 |
+| LoRA alpha | 128 | 32 |
+| Scaling (α/r) | 2 | 2（相同） |
+| 目标模块 | Q, K, V, Out, + MLP | Q, K, V, O |
+| 可训练参数占比 | ~5% | ~5% |
+
+比例相同（scaling=2），但绝对容量不同——图像生成需要更多可训练参数来编码复杂的视觉偏好。
+
+#### 7. EMA：有 vs 无
+
+**字节 Flow-GRPO**：使用 EMA 稳定评估
+
+```python
+# 每 8 步更新 EMA 参数
+ema_decay = 0.9
+ema_params = decay * ema_params + (1 - decay) * current_params
+
+# 训练用实时参数，评估/保存用 EMA 参数
+```
+
+**SimWAM FlowGRPO**：不使用 EMA
+
+训练完直接保存 LoRA checkpoint，评估时加载。
+
+| 维度 | 字节 Flow-GRPO | SimWAM FlowGRPO |
+|------|------|------|
+| EMA | 有（decay=0.9） | 无 |
+| 评估参数 | EMA 平滑参数 | 实时参数 |
+| 保存策略 | EMA checkpoint | LoRA checkpoint |
+
+#### 8. 核心流程对比图
+
+```
+字节 Flow-GRPO（图像生成）：
+  FLUX 12B → 采样图像 → 多维奖励打分 → 组内归一化 advantage
+  → PPO+KL loss → LoRA 更新 → EMA 平滑 → 下一轮
+
+SimWAM FlowGRPO（驾驶轨迹）：
+  ActionDiT → 采样 8 条轨迹 → PDM 奖励打分 → 组内归一化 advantage
+  → 纯 PPO loss → LoRA 更新 → 下一轮
+```
+
+#### 9. 总结：为什么同名但不同？
+
+| 本质差异 | 原因 |
+|------|------|
+| **生成空间不同** | 图像是高维 latent（128×128×64），轨迹是低维 waypoint（50×3） |
+| **物理约束不同** | 图像无物理约束，轨迹必须平滑可执行 |
+| **奖励函数不同** | 图像用多维质量打分，轨迹用规则 PDM 分数 |
+| **去噪步数不同** | 图像 ~50 步（需要滑动窗口），轨迹 10 步（固定末尾） |
+| **模型规模不同** | FLUX 12B 需要 KL+EMA，ActionDiT 小模型不需要 |
+
+**但核心数学框架完全相同**：Flow Matching → ODE→SDE 转换 → 高斯 log_prob → PPO clipped loss → 组内归一化 advantage。这说明 Flow-GRPO 是一个**通用的 RL 框架**，可以适配不同的生成任务——只要底层是 Flow Matching，换奖励函数就能用。
+
+---
+
+### 6. 闭环仍是短板
 
 和 Qwen-Drive-1.0 一样，SimWAM 在 AlpaSim 闭环上（0.30 at-fault score）还不如 Alpamayo-R1（0.58）。可能原因：
 - 非反应式仿真训练的轨迹在闭环交互场景下缺乏"反应式"调整
