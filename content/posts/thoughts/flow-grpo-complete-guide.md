@@ -257,7 +257,120 @@ pipeline.transformer = get_peft_model(pipeline.transformer, transformer_lora_con
 ```
 只有 LoRA 参数可训练，Flux 的原始权重全部冻结。
 
-**那到底在更新什么？（重要）**
+**那到底在更新什么？——LoRA 拆解（重要）**
+
+要理解 LoRA 在更新什么，先要搞清楚 DiT（Diffusion Transformer）里面有什么。
+
+#### DiT 的内部结构：每个 Block 长什么样？
+
+FLUX 的 DiT 有 ~19 层 Transformer Block，每个 Block 内部是这样的：
+
+```
+输入 x
+  │
+  ├──→ LayerNorm
+  │      │
+  │      ├──→ Self-Attention（Q, K, V 投影矩阵）──→ 输出 h1
+  │      │     "每个 token 看其他所有 token，更新自己"
+  │      │
+  │      ├──→ + 残差连接
+  │      │
+  │      ├──→ LayerNorm
+  │      │
+  │      ├──→ FFN（两层 MLP：gate_proj + up_proj → SiLU → down_proj）──→ 输出 h2
+  │      │     "对每个 token 独立做非线性变换，增强表达力"
+  │      │
+  │      └──→ + 残差连接
+  │
+  └──→ 输出（送入下一个 Block）
+```
+
+每个 Block 里有 **4 个可训练的投影矩阵**：
+
+| 矩阵 | 维度 | 作用 | 参数量 |
+|------|------|------|------|
+| $W_Q$ | $d \times d$ | 把输入投影成 Query | $d^2$ |
+| $W_K$ | $d \times d$ | 把输入投影成 Key | $d^2$ |
+| $W_V$ | $d \times d$ | 把输入投影成 Value | $d^2$ |
+| $W_O$ | $d \times d$ | 把 Attention 输出投影回来 | $d^2$ |
+| $W_{\text{gate}}$ | $d \times d_{\text{ff}}$ | FFN 第一层（门控） | $d \cdot d_{\text{ff}}$ |
+| $W_{\text{up}}$ | $d \times d_{\text{ff}}$ | FFN 第一层（上投影） | $d \cdot d_{\text{ff}}$ |
+| $W_{\text{down}}$ | $d_{\text{ff}} \times d$ | FFN 第二层（下投影） | $d_{\text{ff}} \cdot d$ |
+
+对于 FLUX，$d = 4096$（隐藏维度），$d_{\text{ff}} = 16384$（FFN 中间维度），所以每个 Block 有 ~125M 参数，19 层总计 ~2.4B（加上其他组件共 ~12B）。
+
+#### LoRA 注入到哪里？
+
+代码里 `target_modules` 指定了 LoRA 注入的目标：
+
+```python
+transformer_lora_config = LoraConfig(
+    r=64, lora_alpha=128,
+    target_modules=["attn.to_k", "attn.to_q", "attn.to_v", "attn.to_out.0",
+                     "ff.net.0.proj", "ff.net.2"]  # 所有 attention + FFN 层
+)
+```
+
+翻译成矩阵语言：
+
+| LoRA 注入位置 | 对应矩阵 | 为什么要微调它？ |
+|---|---|---|
+| `attn.to_q` | $W_Q$ | 改变"每个 token 关注哪些 token"的注意力模式 |
+| `attn.to_k` | $W_K$ | 同上 |
+| `attn.to_v` | $W_V$ | 改变"每个 token 从其他 token 读取什么信息" |
+| `attn.to_out.0` | $W_O$ | 改变"注意力输出如何映射回表示空间" |
+| `ff.net.0.proj` | $W_{\text{gate}}$ | 改变 FFN 的非线性变换（特征增强） |
+| `ff.net.2` | $W_{\text{down}}$ | 改变 FFN 的输出投影 |
+
+**每个矩阵都被替换成：**
+
+$$W' = W_0 + \frac{\alpha}{r} \cdot B \cdot A$$
+
+其中 $W_0$ 是冻结的原始权重（不变），$A \in \mathbb{R}^{r \times d}$、$B \in \mathbb{R}^{d \times r}$ 是新增的可训练矩阵。
+
+#### 参数量对比
+
+```
+原始矩阵 W₀：  d × d = 4096 × 4096 = 16,777,216 个参数（冻结，不变）
+LoRA A + B：    r × d + d × r = 64×4096 + 4096×64 = 524,288 个参数（可训练）
+压缩比：       16,777,216 / 524,288 = 32 倍
+```
+
+整个 FLUX 12B 中，LoRA 参数只有 ~60M（约 0.5%），原始权重 ~12B 全部冻结。
+
+#### 为什么 Attention + FFN 都要加 LoRA？
+
+**Attention（注意力层）负责"token 间交互"**：Self-Attention 决定"每个 patch 关注图像中的哪些其他 patch"。加 LoRA 后，注意力模式可以被调整——比如让模型更多关注文字区域（提升 OCR 奖励）或更关注构图美学（提升 PickScore）。
+
+**FFN（前馈层）负责"单 token 特征增强"**：FFN 对每个 token 独立做非线性变换，相当于"增强每个 patch 的表示"。加 LoRA 后，特征的增强方向可以被调整——比如让文字 patch 的表示更清晰、让美学特征更突出。
+
+**两者缺一不可**：只改 Attention 不改 FFN → 注意力模式变了但特征表示没跟上；只改 FFN 不改 Attention → 特征增强了但交互模式没变。需要两者配合才能有效调整速度场方向。
+
+#### 为什么 LoRA 能做到 GRPO 微调？——从参数到速度场的因果链
+
+关键在于理解"LoRA 参数变化"如何影响"生成的图片/轨迹"：
+
+```
+LoRA A/B 更新
+  → W' = W₀ + (α/r)·B·A 变化
+    → 每层 Block 的输出变化
+      → 整个 DiT 的输出（速度场 v_θ）变化
+        → ODE 积分路径变化
+          → 最终生成的图片/轨迹变化
+            → 奖励分数变化
+```
+
+**速度场 $v_\theta$ 是 DiT 的直接输出**——DiT 接收当前带噪的 latent $x_t$ 和时间步 $t$，输出"下一步该往哪走"的速度向量。LoRA 通过修改每层的 $W_Q, W_K, W_V, W_O$ 和 FFN 矩阵，间接但精确地调整了这个速度场的**方向**。
+
+打个比方：
+- 原始 $W_0$ = 一个已经会画画的画家的手（能画出合理的图）
+- LoRA 的 $B \cdot A$ = 在画家手上"绑了一个微调导线"
+- GRPO 的梯度 = 通过导线告诉画家"往左偏一点、颜色再亮一点"
+- 画家的手（$W_0$）没换，但画出来的东西（速度场 → 图片）慢慢变了
+
+**一句话总结**：LoRA 不是在"重新训练"模型，而是在**已有的速度场上叠加一个低秩的"微调偏移"**——GRPO 的梯度告诉这个偏移"往 reward 高的方向挪"，原始权重全程不动。
+
+**那到底在更新什么？**
 `train_flux_fast.py:383` 有一个前提：
 ```python
 pipeline.transformer.requires_grad_(not config.use_lora)   # use_lora=True → 全冻结
