@@ -178,7 +178,63 @@ JEPA 的训练就像一个精心设计的"填空游戏"：
 
 这就是自监督的威力：**不需要任何人工标注，就能从海量无标签数据中学到强大的表征**。JEPA 的训练数据可以是互联网上所有的图片——这是监督学习永远做不到的。
 
-> **JEPA = 不画像素、只猜"概念"的自监督学习**
+### 为什么 JEPA 叫"世界模型"？——它到底"世界"在哪？
+
+你可能会困惑：JEPA 不就是遮住一块然后预测吗？这跟"世界模型"有什么关系？哪里"世界"了？
+
+#### 先搞清楚：什么是"世界模型"？
+
+世界模型的核心定义是：
+
+> **给定当前状态和动作，预测下一个状态会怎样。**
+
+```
+世界模型 = 状态 sₜ + 动作 aₜ → 预测 → 状态 sₜ₊₁
+```
+
+人类每天都在用世界模型：
+- 你把球抛出去之前，脑子里已经"模拟"了球的飞行轨迹
+- 你踩刹车之前，已经"预测"了车会减速
+- 你推一个杯子，已经"想象"了杯子会滑动
+
+**关键：世界模型不需要"画出"未来的画面，只需要"理解"未来会变成什么样。**
+
+#### JEPA = 在表征空间里的世界模型
+
+JEPA 的训练目标恰恰就是"预测下一个状态的表征"：
+
+```
+JEPA：  上下文 sₓ + 位置条件 z → 预测 → 目标表征 ŝᵧ
+```
+
+在图像任务中，"上下文"是一张图的一部分，"目标"是被遮住的部分。但在**视频任务**中，这个框架自然扩展成：
+
+```
+V-JEPA（视频版）：
+  过去几帧的表征 sₜ + 动作 aₜ → 预测 → 未来帧的表征 sₜ₊₁
+```
+
+**这就是世界模型！** 它在做"给定当前状态（过去帧的表征）和动作（你的操作），预测未来状态（未来帧的表征）"——只是预测是在表征空间做的，不是在像素空间。
+
+#### 对比：三种"世界模型"的区别
+
+| | 像素世界模型（DriveDreamer） | JEPA 世界模型 | 人类大脑 |
+|---|---|---|---|
+| **预测什么** | 未来帧的像素 | 未来帧的**表征** | 未来会发生什么（抽象） |
+| **需要画出来？** | ✅ 必须生成视频 | ❌ 只输出一个向量 | ❌ 你不会在脑子里"渲染"画面 |
+| **计算量** | 巨大（要生成每个像素） | 小（只预测一个向量） | 小（直觉判断很快） |
+| **物理理解** | 弱（可能画出穿墙） | 强（表征编码物理规律） | 强 |
+
+**打个比方**：
+- 像素世界模型 = 你在脑子里**画出**未来每一帧画面（太慢了）
+- JEPA 世界模型 = 你在脑子里**直觉判断**"前面那车要减速了"（快，抽象）
+- 人类开车用的是后者——你不会在脑子里渲染高清视频，你只需要"感觉到"未来会怎样
+
+#### 一句话总结
+
+> **JEPA 之所以叫世界模型，是因为它在做世界模型最核心的事：预测未来。只不过它预测的不是像素（太贵），而是表征（高效且语义丰富）。**
+
+### JEPA 的公式：每个符号是什么意思？
 
 给它一张图的**大部分（上下文）**，让它去预测**被遮住那一块的抽象表征**——注意，不是把像素补出来，而是预测"那一块经过编码器后长什么样"。这种**在嵌入空间（embedding space）做预测**的思路，正是图灵奖得主 **Yann LeCun** 力推的通往自主智能（autonomous intelligence）的核心架构。
 
@@ -267,6 +323,162 @@ JEPA 由三件套组成。以图像版 **I-JEPA** 为例（结构如图 1 所示
 - **上下文要够信息丰富**（scale 0.85–1.0，但稀疏）：上下文要保留全局结构线索，又不能太密否则省不了算力。
 
 这条"**大目标 + 稀疏上下文**"的经验，是 I-JEPA 比早期掩码方法学到更语义化表征的直接原因。
+
+### 代码走一遍：JEPA 训练和推理到底在干什么？
+
+光看架构图还是抽象，下面用伪代码把训练和推理的**每一行**都拆开。
+
+#### 训练代码：一个 batch 的完整流程
+
+```python
+import torch
+import torch.nn as nn
+
+# ========== 第 0 步：定义三个组件 ==========
+
+# Context Encoder：把可见 patch 编码成表征（Student，有梯度）
+context_encoder = ViT(patch_size=16, embed_dim=1024, num_layers=12)
+
+# Target Encoder：把目标块编码成表征（Teacher，EMA 更新，无梯度）
+target_encoder = ViT(patch_size=16, embed_dim=1024, num_layers=12)
+
+# Predictor：接收上下文表征 + 位置 token，预测目标表征
+predictor = MLP(input_dim=1024 + pos_dim, hidden_dim=4096, output_dim=1024)
+
+# EMA 更新器：让 Teacher 缓慢追随 Student
+ema_momentum = 0.996  # 越大越慢，通常 0.99~0.999
+
+# ========== 第 1 步：准备数据 ==========
+
+# 一批图片，形状 (B, 3, 224, 224)，B=256
+images = load_batch()  # (256, 3, 224, 224)
+
+# 切成 patch：224/16 = 14，共 14×14=196 个 patch
+patches = patchify(images)  # (256, 196, 768)
+
+# 随机掩码：挖掉 75% 的 patch，留 25% 作上下文
+mask = generate_mask(num_patches=196, mask_ratio=0.75)  # (256, 196) bool
+# mask[i][j] = True 表示第 i 张图的第 j 个 patch 被挖掉
+
+context_patches = patches[~mask]  # 可见 patch（上下文）
+target_patches = patches[mask]    # 被挖掉的 patch（目标）
+
+# ========== 第 2 步：编码 ==========
+
+# 上下文编码（Student，有梯度）
+s_x = context_encoder(context_patches)  # (B, num_context, 1024)
+
+# 目标编码（Teacher，无梯度，EMA 更新）
+with torch.no_grad():  # ← stop-gradient！梯度不传给 Teacher
+    T_y = target_encoder(target_patches)  # (B, num_target, 1024)
+
+# ========== 第 3 步：预测 ==========
+
+# 给每个目标块加位置 token（告诉预测器"你要预测哪个位置"）
+pos_tokens = get_position_embeddings(target_positions)  # (B, num_target, pos_dim)
+
+# 预测器：输入 = 上下文表征（全局池化）+ 位置 token
+s_x_pooled = s_x.mean(dim=1)  # (B, 1024) 全局平均池化
+s_x_expanded = s_x_pooled.unsqueeze(1).expand(-1, num_target, -1)  # (B, num_target, 1024)
+
+predictor_input = torch.cat([s_x_expanded, pos_tokens], dim=-1)  # (B, num_target, 1024+pos_dim)
+s_y_pred = predictor(predictor_input)  # (B, num_target, 1024) 预测的目标表征
+
+# ========== 第 4 步：算 loss ==========
+
+# 只在表征空间算 MSE，不碰像素！
+loss = ((s_y_pred - T_y) ** 2).mean()
+
+# ========== 第 5 步：反向传播 ==========
+
+loss.backward()
+optimizer.step()  # 只更新 context_encoder + predictor
+optimizer.zero_grad()
+
+# ========== 第 6 步：EMA 更新 Teacher ==========
+
+# Teacher 不靠梯度，而是缓慢"抄"Student 的权重
+for param_t, param_s in zip(target_encoder.parameters(), 
+                             context_encoder.parameters()):
+    param_t.data = ema_momentum * param_t.data + (1 - ema_momentum) * param_s.data
+
+# 循环以上步骤，模型逐渐学会"根据上下文预测被遮部分的语义"
+```
+
+#### 逐行拆解：关键设计对应的代码
+
+| 代码行 | 对应的设计 | 为什么这么写 |
+|--------|----------|------------|
+| `with torch.no_grad()` | **stop-gradient** | 梯度不传给 Teacher，防止坍缩 |
+| `ema_momentum = 0.996` | **EMA 更新** | Teacher 变化很慢，Student 必须真正预测 |
+| `predictor` 是独立 MLP | **预测器和编码器分离** | 预测器可以很深（4层），但编码器不变 |
+| `mask_ratio=0.75` | **掩码 75%** | 上下文只有 25%，迫使模型学高级语义 |
+| `pos_tokens` | **位置 token** | 告诉预测器"预测哪个位置"，否则它不知道该猜哪 |
+| `loss = (pred - target)²` | **表征空间 MSE** | 不碰像素，只在抽象空间算差距 |
+
+#### 推理代码：训练好的 JEPA 怎么用？
+
+训练完成后，JEPA 有两种使用方式：
+
+**用法一：特征提取器（最常见）**
+
+```python
+# 训练完成后，只用 Context Encoder 当特征提取器
+# Target Encoder 和 Predictor 全部扔掉！
+
+# 输入一张新图片
+image = load_image("car_on_road.jpg")  # (3, 224, 224)
+
+# 用训练好的 Context Encoder 编码
+with torch.no_grad():
+    features = context_encoder(image)  # (1, num_patches, 1024)
+
+# features 就是这张图的"语义表征"
+# 可以直接喂给下游任务：
+# - 检测：features → 检测头 → 3D bbox
+# - 分类：features.mean() → 分类头 → 类别
+# - 规划：features → 规划头 → 轨迹
+```
+
+**用法二：世界模型预测（V-JEPA 2）**
+
+```python
+# 用 V-JEPA 2 做"预测未来"
+# 给定过去几帧 + 动作，预测未来帧的表征
+
+# 过去 4 帧的表征
+past_frames = [encoder(frame_t_i) for i in range(4)]  # 4 × (1, 1024)
+
+# 自车动作（方向盘、油门）
+action = torch.tensor([0.3, 0.5])  # 轻微左转 + 中等油门
+
+# 用预测器逐帧预测未来
+future_representations = []
+current_state = past_frames[-1]  # 最近一帧的表征
+
+for t in range(10):  # 预测未来 10 步
+    # 预测下一步的表征
+    next_state = predictor(current_state, action)  # (1, 1024)
+    future_representations.append(next_state)
+    current_state = next_state  # 自回归：把预测结果当输入
+
+# future_representations 就是"想象中"的未来 10 步表征
+# 可以用来：
+# - 选轨迹：rollout 多条动作，选未来表征最好的那条
+# - 安全检查：预测的表征是否包含"碰撞"概念
+# - 异常检测：预测表征和实际表征差距大 → 世界模型没预测到的情况
+```
+
+#### 训练 vs 推理的完整对比
+
+| | 训练时 | 推理时 |
+|---|---|---|
+| **用哪些组件** | Context Encoder + Target Encoder + Predictor | 只用 Context Encoder（+ Predictor 如果做世界模型） |
+| **输入** | 掩码后的图片（上下文 + 目标） | 完整图片（不需要掩码） |
+| **输出** | 预测的目标表征 ŝᵧ | 图片的语义表征 sₓ |
+| **算 loss？** | ✅ 和 Teacher 的输出比较 | ❌ 不算 loss |
+| **EMA 更新？** | ✅ 每步更新 Teacher | ❌ Teacher 不参与 |
+| **用途** | 学习表征 | 用表征做下游任务 |
 
 ---
 
