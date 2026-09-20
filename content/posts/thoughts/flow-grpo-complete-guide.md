@@ -280,6 +280,267 @@ GRPO 阶段：
 
 ---
 
+---
+
+## 前置知识：LLM 领域的 GRPO 是怎么做的？——离散 token 的 GRPO vs 连续 Flow Matching 的 GRPO
+
+> 在深入 Flow-GRPO 代码之前，先搞清楚一个关键问题：GRPO 最早是给 LLM（离散 token）设计的，Flow-GRPO 把它搬到了 Flow Matching（连续空间）上。这两者到底有什么区别？为什么要"搬"？搬的过程中遇到了什么困难？
+
+### GRPO 的起源：DeepSeek-R1 与 LLM 强化学习
+
+GRPO（Group Relative Policy Optimization）最早由 DeepSeek 在训练 DeepSeek-R1 时提出，用于**离散 token 的语言模型**。
+
+#### LLM 中的 GRPO 是怎么工作的？
+
+```
+LLM 的动作空间：离散 token（词汇表中的词）
+  例如：词汇表大小 = 128,000 个 token
+  模型输出：下一个 token 的概率分布 p(next_token | context)
+
+GRPO 流程：
+  1. 给定一个问题（prompt），让 LLM 生成一组回答（如 8 个）
+  2. 用奖励模型给每个回答打分
+  3. 组内归一化：advantage_i = (reward_i - mean) / std
+  4. 用 PPO 风格的 loss 更新模型
+```
+
+#### LLM GRPO 的数学：离散 token 的 log_prob
+
+LLM 中，一条轨迹（回答）的 log_prob 是**离散 token 概率的累加**：
+
+```
+回答 = [token_1, token_2, ..., token_T]
+
+log_prob(回答) = sum(log P(token_i | token_1, ..., token_{i-1}))
+
+其中 P(token_i | ...) 是模型输出的 softmax 概率分布
+```
+
+**关键特点**：
+- 每个 token 是离散的（整数编号）
+- 模型输出是概率分布（softmax over 词汇表）
+- log_prob 直接从 softmax 输出中取 log
+- 梯度通过 categorical cross-entropy 反传
+
+#### LLM GRPO 的训练代码（伪代码）
+
+```python
+# LLM GRPO 训练伪代码
+for batch in dataloader:
+    prompts = batch["prompts"]
+    
+    # 第 1 步：采样一组回答
+    with torch.no_grad():
+        responses = []
+        log_probs_old = []
+        for _ in range(G):  # G = 组大小，如 8
+            response, log_prob = llm.generate(prompt, return_log_prob=True)
+            responses.append(response)
+            log_probs_old.append(log_prob)
+    
+    # 第 2 步：打分
+    rewards = reward_model(responses)
+    
+    # 第 3 步：组内归一化
+    mean_r = rewards.mean()
+    std_r = rewards.std() + 1e-4
+    advantages = (rewards - mean_r) / std_r
+    
+    # 第 4 步：PPO 更新
+    for response, log_prob_old, advantage in zip(responses, log_probs_old, advantages):
+        # 重新计算当前模型下的 log_prob
+        log_prob_new = llm.forward(response)  # 前向传播，计算 log_prob
+        
+        # PPO ratio
+        ratio = torch.exp(log_prob_new - log_prob_old)
+        
+        # PPO loss
+        loss = -torch.min(ratio * advantage, 
+                         torch.clamp(ratio, 1-eps, 1+eps) * advantage)
+        
+        loss.backward()
+        optimizer.step()
+```
+
+### Flow-GRPO：把 GRPO 从离散 token 搬到连续 Flow Matching
+
+#### 为什么要"搬"？
+
+| | LLM（离散 token） | 图像/轨迹生成（连续空间） |
+|---|---|---|
+| **动作空间** | 离散 token（128K 个词） | 连续向量（如 16x96x96 的 latent） |
+| **模型输出** | softmax 概率分布 | 速度场 v_theta（连续向量） |
+| **生成过程** | 自回归逐 token 生成 | Flow Matching 逐步去噪 |
+| **log_prob** | 直接从 softmax 取 log | 需要高斯分布的 log_prob |
+| **梯度流** | categorical cross-entropy | 高斯 log_prob 对速度场求导 |
+
+**核心挑战**：LLM 的 GRPO 假设动作是离散的（token），但 Flow Matching 的"动作"是连续的（速度场/latent）。需要重新设计 log_prob 的计算方式。
+
+#### Flow-GRPO 的数学：连续空间的 log_prob
+
+Flow Matching 中，生成过程是**连续的 ODE/SDE 积分**：
+
+```
+生成过程：x_0 (噪声) -> x_1 (图片/轨迹)
+  中间状态：x_t = (1-t)*x_0 + t*x_1
+  速度场：v_theta(x_t, t) 网络预测
+```
+
+**关键区别**：Flow Matching 的生成是**连续的**，不能像 LLM 那样直接取 softmax log_prob。
+
+Flow-GRPO 的解法：**引入 SDE（随机微分方程）**，把确定性的 ODE 变成有随机性的 SDE，这样转移概率就是高斯分布，log_prob 可以直接算。
+
+```
+ODE（确定性）：dx = v_theta(x, t) dt
+  -> 没有随机性，log_prob 需要算 divergence（Jacobian 迹），很贵
+
+SDE（随机性）：dx = f(x, t) dt + sigma(t) dw
+  -> 有随机性，转移概率是高斯分布
+  -> log_prob = 高斯分布的 log_prob，直接可算
+```
+
+#### Flow-GRPO 的 log_prob 计算
+
+```
+SDE 一步的转移：
+  x_{t+1} = mean(x_t, v_theta) + sigma * epsilon
+  其中 epsilon ~ N(0, I)
+
+log_prob(x_{t+1} | x_t) = 高斯分布的 log_prob
+  = -||x_{t+1} - mean||^2 / (2*sigma^2) - log(sigma) - log(sqrt(2*pi))
+```
+
+**对应公式**：
+
+$$\log p(x_{t+1} | x_t) = -\frac{\|x_{t+1} - \text{mean}_\theta\|^2}{2\sigma_{\text{noise}}^2(-\Delta t)} - \log(\sigma_{\text{noise}}\sqrt{-\Delta t}) - \log\sqrt{2\pi}$$
+
+#### Flow-GRPO 的训练代码（伪代码）
+
+```python
+# Flow-GRPO 训练伪代码
+for batch in dataloader:
+    prompts = batch["prompts"]
+    
+    # 第 1 步：采样一组图片/轨迹（用 SDE 生成）
+    with torch.no_grad():
+        images = []
+        log_probs_old = []
+        latents_traj = []  # 存储中间 latent 轨迹
+        for _ in range(G):  # G = 组大小，如 24
+            image, log_prob, latents = flow_matching_sde_sample(
+                model, prompt, return_log_prob=True
+            )
+            images.append(image)
+            log_probs_old.append(log_prob)
+            latents_traj.append(latents)
+    
+    # 第 2 步：打分（用奖励模型）
+    rewards = reward_model(images, prompts)
+    
+    # 第 3 步：组内归一化（和 LLM GRPO 完全一样）
+    mean_r = rewards.mean()
+    std_r = rewards.std() + 1e-4
+    advantages = (rewards - mean_r) / std_r
+    
+    # 第 4 步：PPO 更新（关键区别在这里！）
+    for latent_traj, log_prob_old, advantage in zip(latents_traj, log_probs_old, advantages):
+        for j in range(num_train_timesteps):  # 遍历窗口内的每一步
+            # 重新计算当前模型下的 log_prob
+            # 关键：用当前模型的 v_theta 重新算 mean，但用旧轨迹的 x_{j+1}
+            mean_new = compute_sde_mean(model, latent_traj[j], t[j])
+            log_prob_new = gaussian_log_prob(latent_traj[j+1], mean_new, sigma)
+            
+            # PPO ratio（和 LLM GRPO 一样）
+            ratio = torch.exp(log_prob_new - log_prob_old[j])
+            
+            # PPO loss（和 LLM GRPO 一样）
+            loss = -torch.min(ratio * advantage, 
+                             torch.clamp(ratio, 1-eps, 1+eps) * advantage)
+            
+            loss.backward()  # 梯度只流到当前模型的 v_theta
+        optimizer.step()
+```
+
+### 核心对比：LLM GRPO vs Flow-GRPO
+
+| 维度 | LLM GRPO | Flow-GRPO |
+|------|----------|-----------|
+| **动作空间** | 离散 token（整数） | 连续 latent（浮点向量） |
+| **模型输出** | softmax 概率分布 | 速度场 v_theta |
+| **生成方式** | 自回归逐 token | Flow Matching 逐步去噪 |
+| **log_prob 计算** | 直接从 softmax 取 log | 高斯分布的 log_prob |
+| **log_prob 公式** | log P(token_i | context) | -\|x_{t+1} - mean\|^2 / (2*sigma^2) |
+| **梯度流** | categorical cross-entropy | 高斯 log_prob 对 v_theta 求导 |
+| **exploration** | temperature sampling | SDE 噪声注入 |
+| **advantage 计算** | 完全一样（组内归一化） | 完全一样（组内归一化） |
+| **PPO loss** | 完全一样（clip ratio） | 完全一样（clip ratio） |
+
+#### 什么是完全一样的？
+
+```
+GRPO 的核心思想（两者共享）：
+  1. 同一个 prompt 生成一组样本
+  2. 用奖励模型打分
+  3. 组内归一化算 advantage
+  4. 用 PPO 风格的 loss 更新
+
+advantage 计算：A_i = (r_i - mean) / std  -> 完全一样
+PPO loss：L = -min(ratio * A, clip(ratio) * A)  -> 完全一样
+```
+
+#### 什么是不同的？
+
+```
+log_prob 的计算方式（核心区别）：
+
+LLM GRPO：
+  模型输出 softmax 概率分布 -> 取 log -> log_prob
+  数学：log P(token | context) = log(softmax(logits)[token])
+  梯度：d(log_prob)/d(logits) = one_hot - softmax(logits)
+
+Flow-GRPO：
+  模型输出速度场 v_theta -> 算 SDE 均值 -> 高斯 log_prob
+  数学：log p(x_{t+1} | x_t) = -||x_{t+1} - mean||^2 / (2*sigma^2)
+  梯度：d(log_prob)/d(v_theta) = (x_{t+1} - mean) / sigma^2 * d(mean)/d(v_theta)
+```
+
+#### 为什么 Flow-GRPO 需要引入 SDE？
+
+这是最关键的工程创新。LLM 的 log_prob 天然可算（softmax），但 Flow Matching 的 ODE 是确定性的：
+
+```
+问题：
+  ODE：dx = v_theta(x, t) dt  （确定性）
+  -> 给定 x_t，x_{t+1} 是唯一确定的
+  -> 转移概率 p(x_{t+1} | x_t) 是 delta 函数
+  -> log_prob = -infinity（无法计算）
+
+解法：引入 SDE（随机性）
+  SDE：dx = f(x, t) dt + sigma(t) dw  （有随机性）
+  -> 给定 x_t，x_{t+1} 是高斯分布
+  -> 转移概率 p(x_{t+1} | x_t) 是高斯分布
+  -> log_prob = 高斯 log_prob，直接可算
+```
+
+#### Flow-GRPO 的梯度流
+
+```
+LLM GRPO 的梯度流：
+  loss -> log_prob -> softmax(logits) -> logits -> embedding
+  每一步都是离散的，梯度通过 one_hot 传
+
+Flow-GRPO 的梯度流：
+  loss -> log_prob -> mean_theta -> v_theta -> DiT 参数
+  关键：mean_theta 是 v_theta 的线性函数
+  所以 d(log_prob)/d(v_theta) 可以手推闭式解
+```
+
+### 一句话总结
+
+> **GRPO 的"组内竞争 + PPO loss"框架在 LLM 和 Flow Matching 中完全一样。核心区别在于 log_prob 的计算：LLM 直接从 softmax 取 log，Flow-GRPO 引入 SDE 把确定性 ODE 变成高斯转移，从而让 log_prob 可算。这就是 Flow-GRPO 的核心创新。**
+
+
+
 ## 先回答：Flow-GRPO 是什么？train_flux_fast.py 是什么？
 
 ### 这是一份可运行的代码仓库
