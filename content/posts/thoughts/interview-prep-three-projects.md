@@ -3,7 +3,7 @@ title: "自动驾驶面试深度复习：RiskField-VLA + TrustDrive-WAM + JEPA-D
 date: 2026-09-23
 draft: false
 categories: ["个人思考"]
-summary: "三大项目面试复习长文（3000+ 行）：第一部分逐术语定义+公式+代码复盘；第二部分 Flow Matching、Flow-GRPO、VLA 风险场、WAM 联合流、JEPA 三阶段完整伪代码；补章给出「你负责什么/Flow Matching/VLA/世界动作模型/JEPA 怎么做」五份 3-5 分钟口述稿（含算法代码）；第三部分 40 道压力面问答与追问链。"
+summary: "三大项目 + 比亚迪 Cosmos-3 MOT 世界模型面试复习长文（3000+ 行）：术语定义与公式；Flow Matching/Flow-GRPO/风险场 VLA/WAM/JEPA/MoT 双塔完整伪代码；「你负责什么 / FM / VLA / 世界动作模型 / JEPA / MOT」多份第一人称口述稿（含算法代码与追问链）；40 道压力面问答。"
 tags: ["面试", "自动驾驶", "Flow Matching", "GRPO", "VLA", "WAM", "JEPA", "NAVSIM"]
 math: true
 weight: 98
@@ -15,7 +15,8 @@ weight: 98
 
 1. **第一部分：知识点深度复盘** —— 所有概念、专有名词的定义、公式、代码示例。每个术语都按「定义 / 为什么需要 / 代码怎么体现 / 面试怎么答」四个角度展开。
 2. **第二部分：核心算法伪代码** —— 从概念到可运行伪代码，逐段注释。覆盖 Flow Matching、Flow-GRPO、风险场 VLA、WAM 联合流、JEPA 全流程。
-3. **第三部分：压力面问题与参考回答** —— 25+ 道真实面试题，含标准回答、加分回答、追问链。
+3. **第二部分补章：项目口述话术** —— Flow Matching / VLA / 世界动作模型 / JEPA / **比亚迪 Cosmos-3 MOT** / 「你负责什么」总述，每份含算法+代码的 3-5 分钟第一人称讲法。
+4. **第三部分：压力面问题与参考回答** —— 40 道题 + 追问链，含标准回答与加分回答。
 
 ---
 
@@ -2770,9 +2771,272 @@ def dense_paths_speeds(paths, speeds):
 
 ---
 
+## 话术 D+：比亚迪 Cosmos-3 MOT 世界模型 —— 「你在比亚迪的 MOT 世界模型具体怎么做的？」
+
+> 面试官在比亚迪这段经历上最爱追问的就是 **MOT（Mixture-of-Transformers）世界模型架构**。本节给一份可直接口述的第一人称完整讲法：先 30 秒接住问题，再讲我负责什么、整条 pipeline、核心算法与代码、为什么这样设计，最后是追问预案。括号内是可略过的深水细节，对方感兴趣再展开。
+
+### D+.0 30 秒电梯版（先接住问题）
+
+> 在比亚迪我做的是基于 **NVIDIA Cosmos-3 双塔 MoT** 改造的**车载世界模型**。一句话说清楚架构：**MoT 把 token 分成理解（Reasoner / und）和生成（Generator / gen）两条路径——同一层 Transformer 里两套独立的 QKV/FFN 权重，靠 `moe_gen_mask` 分发；理解侧做因果自回归读场景和指令，生成侧做双向注意力 + Rectified Flow 出连续轨迹/视频 latent；gen 每层还能 cross-attend und 的语义，且 `detach` 防止生成噪声污染理解塔。** 我在这条链路上负责 **MoT 双路径注意力与序列打包的工程落地、DCAE 视频 token 化接口、以及 Generator 侧连续轨迹 Flow Head 的接入与训练**，目标是让车端能「读懂场景 + 想象下一步 + 出连续轨迹」在一个模型里闭环。
+
+### D+.1 我负责什么（划清 ownership，面试必问）
+
+> 我负责的是 **Cosmos-3 骨干之上的「MOT 落地 + 生成侧动作接口」**，具体三块：
+>
+> 1. **MoT 双塔前向与序列打包**：实现/改通 `PackedAttentionMoT` / `MoTDecoderLayer` 的 und/gen 分发——`moe_gen_mask` 怎么从 packing 阶段生成、causal vs full attention 怎么在同一条 packed 序列上共存、gen→und 的 cross-attn 梯度要不要 `detach`；对齐 NVIDIA `cosmos-framework` 源码语义并做车载数据管线适配（多相机 token、自车状态 token 拼进 und 侧）。
+> 2. **DCAE / tokenizer 接口**：把环视多路视频压进 DCAE latent（时间 /4、空间 /32 的因果 VAE），保证编码器**只看过去不偷看未来**；打通「视频 → latent → MoT → latent → 解码/评」的数据通路，以及驾驶场景下 latent 通道与分辨率的配置选型。
+> 3. **Generator 侧连续轨迹 Flow Head**：在 gen token hidden 上挂 Flow Head，用 Rectified Flow（就是直线速度场那套）一次生成完整轨迹块 `A_t = {a_{t+1},...,a_{t+T}}`；后面可选接 Flow-GRPO 做组内相对优势微调。Reasoner 侧通常冻结或极小 lr，避免 RL/动作监督把多模态理解打坏。
+>
+> 骨干权重、Tokenizer 预训练、集群调度不是我这边的 ownership——我消费他们交付的 checkpoint 和 latent 接口。
+
+### D+.2 整体 pipeline（按数据流讲，面试官最爱听这个）
+
+> 一次「多模态输入 → 世界模型 → 轨迹/未来」的完整数据流，我按顺序讲：
+>
+> **第一步，输入 token 化。** 四类输入：视觉观测（环视/BEV 相关帧）、语言指令（导航/任务）、自车状态、场景目标。文本走 BPE；图像/视频走 DCAE 空间/时空因果 VAE；状态走连续 embedding（低维连续值先 Fourier/MLP 升维再进序列——直接丢 (x,y,yaw) 表达能力不够）。全部映射到同一 hidden space，但**按模态保留各自统计特性**——这是「同一表征空间、不同编码策略」。
+>
+> **第二步，序列打包（Sequence Packing）。** 把 und token 和 gen token 拼成**一条**序列，并打上布尔 mask：哪些位置是理解路径，哪些是生成路径。und 段在前（或按 packing 策略交错），gen 段（噪声 latent / 动作 token）在后。`moe_gen_mask` 形状 `(B*L,)`，**整个前向不变**——这条 mask 是 MoT 能否跑起来的工程关键，pack 错了会静默训崩。
+>
+> **第三步，MoT 双塔前向（架构心脏）。** 每一层 `MoTDecoderLayer`：
+> - 用 mask 把 hidden 拆成 `und_h` 和 `gen_h`；
+> - **各走各的 LayerNorm**：`input_layernorm` vs `input_layernorm_moe_gen`，`torch.where(mask, gen_normed, und_normed)` 选出来；
+> - **各走各的 QKV/O**：理解侧 `q/k/v/o_proj`，生成侧 `q/k/v/o_proj_moe_gen`，权重独立、初始化独立、优化器里也是两组参数；
+> - **注意力模式不同**：und = **causal**（只能看前面，适合 next-token 理解）；gen = **full bidirectional**（噪声轨迹/视频 token 互相全看，适合流匹配/扩散去噪）；
+> - **gen→und cross-attention**：生成侧用 gen 的 Q 去查 und 的 K/V，相当于「动作专家回头看语义方案」；实现里对 `und_h.detach()`，**梯度不反传进理解塔**（和 π₀ 的 `no_grad` 同思想，粒度更细——只断 cross 分支，und 自己的 CE 梯度还在）；
+> - `gen_out = self_attn(gen) + cross_attn(gen, und)` 再过 gen 侧 FFN；und 过 und 侧 FFN；残差汇回同一个 `hidden_states` 张量。
+>
+> **第四步，双头出口。** 理解 token 出 `lm_head` 做 next-token CE；生成 token 出 **diffusion/Flow head** 预测向量场（或轨迹速度）。训练 loss = `CE(und) + λ * MSE(gen_rectified_flow)`。
+>
+> **第五步，生成与闭环推理。** gen 侧从 `A0 ~ N(0, I)` 出发，Rectified Flow 多步积分（或 UniPC 调度）得到轨迹块/视频 latent；**只执行前 K 步**，拿新观测重新打包、重新 Reasoner、重新生成——滚动闭环，而不是一次吐全剧本站死。
+>
+> **第六步（可选后训练）。** Flow-GRPO：同场景采 G 条轨迹，组内 advantage，PPO-clip 更新 **Flow Head + Generator Router（若挂了 MoE）+ 被激活 gen experts**；Reasoner 冻结或保守微调。
+
+### D+.3 核心算法 + 代码（MOT 这段面试可直接对着讲）
+
+```python
+# ========= MoT 核心: 一份输入, 两套权重, mask 分发 =========
+class PackedAttentionMoT(nn.Module):
+    def __init__(self, hidden, n_heads, n_kv_heads):
+        super().__init__()
+        # --- und 路径 (Reasoner, causal) ---
+        self.q_proj = nn.Linear(hidden, n_heads * head_dim)
+        self.k_proj = nn.Linear(hidden, n_kv_heads * head_dim)  # GQA
+        self.v_proj = nn.Linear(hidden, n_kv_heads * head_dim)
+        self.o_proj = nn.Linear(n_heads * head_dim, hidden)
+        self.q_norm = RMSNorm(head_dim)
+        self.k_norm = RMSNorm(head_dim)
+
+        # --- gen 路径 (Generator, full attn) 权重完全独立 ---
+        self.q_proj_gen = nn.Linear(hidden, n_heads * head_dim)
+        self.k_proj_gen = nn.Linear(hidden, n_kv_heads * head_dim)
+        self.v_proj_gen = nn.Linear(hidden, n_kv_heads * head_dim)
+        self.o_proj_gen = nn.Linear(n_heads * head_dim, hidden)
+        self.q_norm_gen = RMSNorm(head_dim)
+        self.k_norm_gen = RMSNorm(head_dim)
+        # 专供 gen->und cross-attn 的 K norm (统计量可能和 und 自用不同)
+        self.k_norm_und_for_gen = RMSNorm(head_dim)
+
+    def forward(self, h, moe_gen_mask):
+        """
+        h: (B, L, D)  打包后的整段序列
+        moe_gen_mask: (B, L) True = gen 路径, False = und 路径
+        """
+        und_mask = ~moe_gen_mask
+        und_h = h[und_mask]          # (N_und, D)
+        gen_h = h[moe_gen_mask]      # (N_gen, D)
+
+        # 1) und: causal self-attn  (只看左边, 理解/自回归)
+        uq = self.q_norm(self.q_proj(und_h))
+        uk = self.k_norm(self.k_proj(und_h))
+        uv = self.v_proj(und_h)
+        und_out = sdpa(uq, uk, uv, is_causal=True)
+
+        # 2) gen: full self-attn  (全双向, 流/扩散去噪要互相看)
+        gq = self.q_norm_gen(self.q_proj_gen(gen_h))
+        gk = self.k_norm_gen(self.k_proj_gen(gen_h))
+        gv = self.v_proj_gen(gen_h)
+        gen_self = sdpa(gq, gk, gv, is_causal=False)
+
+        # 3) gen -> und cross-attn: 动作/视频查语义
+        #    detach: 生成噪声的梯度不污染 Reasoner
+        uk_for_gen = self.k_norm_und_for_gen(self.k_proj(und_h.detach()))
+        uv_for_gen = uv.detach()
+        gen_cross = sdpa(gq, uk_for_gen, uv_for_gen, is_causal=False)
+
+        gen_out = self.o_proj_gen(gen_self + gen_cross)
+        und_out = self.o_proj(und_out)
+
+        out = torch.zeros_like(h)
+        out[und_mask] = und_out
+        out[moe_gen_mask] = gen_out
+        return out
+
+
+class MoTDecoderLayer(nn.Module):
+    """一层 = 双 LN + 双路径 attn + 双 LN + 双 FFN, 残差共享同一 hidden"""
+    def forward(self, h, moe_gen_mask):
+        resid = h
+        h_n = torch.where(
+            moe_gen_mask.unsqueeze(-1),
+            self.ln_gen(h),          # gen 专属 norm
+            self.ln_und(h),          # und 专属 norm
+        )
+        h = resid + self.attn(h_n, moe_gen_mask)
+
+        resid = h
+        h_n = torch.where(
+            moe_gen_mask.unsqueeze(-1),
+            self.post_ln_gen(h),
+            self.post_ln_und(h),
+        )
+        ff = torch.where(
+            moe_gen_mask.unsqueeze(-1),
+            self.mlp_gen(h_n),       # 生成侧 FFN
+            self.mlp_und(h_n),       # 理解侧 FFN
+        )
+        return resid + ff
+```
+
+**双头 + 双 loss（总装层概念）：**
+
+```python
+class OmniMoTForCausalLM(nn.Module):
+    def forward(self, input_ids, moe_gen_mask, labels=None, flow_target=None):
+        hidden = self.backbone(input_ids, moe_gen_mask)   # (B,L,D)
+
+        # 理解头: next-token CE  (Reasoner)
+        und_logits = self.lm_head(hidden[~moe_gen_mask])
+        loss_und = cross_entropy(und_logits, labels)
+
+        # 生成头: Rectified Flow 速度场 MSE  (Generator)
+        # flow_target = x1 - x0, 网络在 x_t=(1-t)x0+t*x1 上回归
+        gen_h = hidden[moe_gen_mask]
+        v_pred = self.flow_head(gen_h, t)                 # 向量场
+        loss_gen = F.mse_loss(v_pred, flow_target)
+
+        return loss_und + self.lambda_gen * loss_gen
+```
+
+**序列打包与 mask（工程最常问）：**
+
+```python
+def pack_und_gen(und_tokens, gen_tokens):
+    """
+    und: 文本/状态/指令  -> False
+    gen: 噪声 latent / 动作 token -> True
+    拼成一条序列, 返回 ids + moe_gen_mask + attention 布局
+    """
+    input_ids = torch.cat([und_tokens, gen_tokens], dim=1)          # (B, Lu+Lg)
+    moe_gen_mask = torch.cat([
+        torch.zeros_like(und_tokens, dtype=torch.bool),
+        torch.ones_like(gen_tokens, dtype=torch.bool),
+    ], dim=1)                                                       # (B, Lu+Lg)
+    # und 段: causal mask; gen 段: full mask; 另有 gen 可看 und 的 cross 布局
+    attn_mask = build_mot_attention_mask(
+        len_und=und_tokens.size(1),
+        len_gen=gen_tokens.size(1),
+        und_causal=True,
+        gen_bidirectional=True,
+        gen_attend_und=True,
+    )
+    return input_ids, moe_gen_mask, attn_mask
+```
+
+**DCAE 角口（为什么先压缩再进 MoT）：**
+
+```python
+# 视频 (B,T,H,W,3) -> latent (B, C, T//4, H//32, W//32)
+# 因果: 编码第 t 帧时 padding 只允许用 <=t 的帧, 不许偷看未来
+# 否则世界模型「预测未来」时 tokenizer 已经泄题, 评测全虚高
+latent = dc_ae_encoder.encode(video, causal=True)   # 训练/推理同构
+# MoT gen 路径吃的就是这个 latent 展平后的 token
+```
+
+**Rectified Flow 与前面话术 A 的关系（主动串起来，显示体系化）：**
+
+```text
+x0 ~ N(0,I),  x1 = 真实轨迹/latent
+x_t = (1-t) x0 + t x1
+v_target = x1 - x0
+loss_gen = || flow_head(gen_hidden, t) - v_target ||^2
+推理: 从噪声 Euler/UniPC 积分到 t=1 -> 轨迹块或视频
+```
+
+> 我会主动说：**话术 A 里的 Flow Matching 就是我们 Generator 头的生成范式**；Cosmos-3 里叫 Rectified Flow，数学上是同一族直线流。这样面试官会感觉你把「比亚迪 MOT」和「后面项目 FM/GRPO」串成一条技术线，而不是三段无关经历。
+
+### D+.4 为什么这样设计（四个「为什么」，比 MoE/MHA/双塔对比）
+
+**Q：为什么 MoT 双塔，而不是「一个大稠密 Transformer 硬吃所有 token」？**
+
+> 五模态统计特性差太远：语言离散稠密语义、视频连续强空间冗余、动作连续低维强因果。硬塞进一套 QKV/FFN 会互相稀释——语言梯度把感知带跑，或动作 token 被视频 token 淹没。MoT 的哲学是 **该分开的分开（每层两套投影 + 两套 FFN + 两套 LN），该共享的共享（同一个 hidden 张量、残差、层深、打包序列）**。和稠密单塔比：模态冲突低、可按需只激活一塔、加新模态不用重训整个骨架。
+
+**Q：MoT 和 MoE 什么区别？（必被问，很多人混）**
+
+> **粒度不同，是正交的两层路由：**
+> - **MoT**：决定 token 走 **Reasoner 还是 Generator**——模态/角色级，两条路径，mask 在 packing 时就定了，训练中基本不变；
+> - **MoE**：决定 token 进了某一塔之后，**由哪些专家 FFN 处理**——expert 级，router 每 step 学 top-k，共享专家 + 稀疏路由专家（DeepSeek-style）。
+>
+> 用公司打比方：MoT 是「进研发部还是产品部」，MoE 是「进了研发部后进哪几个项目组」。我们在方案里可以 **MoT 底座 + 每塔内部再加 Sparse MoE**——Reasoner 专家池偏空间关系/语言指令/对象交互，Generator 专家池偏轨迹结构/时间一致性/连续运动。参数总量上去，每个 token 激活量不上去。
+
+**Q：为什么 und causal、gen bidirectional？**
+
+> und 是理解/自回归任务——读指令、读历史观测，本质是 next-token，causal 才和 LM 预训练目标对齐，也才方便 KV cache 推理。gen 是流匹配/扩散——去噪时整段轨迹/整个 latent 需要互相一致（第 10 步刹车和第 1 步方向盘要同一驾驶意图），必须 full attention。硬统一成一种 mask，要么理解泄漏未来（作弊），要么生成互相看不见（轨迹前后打架）。
+
+**Q：为什么 gen→und cross-attn 还要 `detach`？**
+
+> 两个原因：一是 **保护 Reasoner**——轨迹/视频噪声很大，若梯度自由打回理解塔，CE 预训练能力会被生成任务的杂梯度冲垮（π₀ 冻 VLM 同理）；二是 **训练信号纯度**——und 的梯度只来自 next-token，gen 的梯度只来自 Flow MSE，边界清晰、日志好查。若要端到端联调，可以给 cross 分支一个带 scaler 的小梯度，但默认车载方案是 detach + Reasoner 冻结。
+
+**Q：DCAE 为什么必须因果？**
+
+> 世界模型的卖点是**预测未来**。若 encoder 编第 t 帧时用了第 t+1 帧，等于 tokenizer 先看了答案，后面 Flow 再「预测」就是泄题——开环分数虚高，上车必崩。因果卷积 padding 是把「不许偷看未来」焊进结构里，而不只是靠数据管线自律。
+
+**Q：为什么轨迹不自回归吐 token，而用 Flow 一次出块？**
+
+> 自回归离散动作：步间误差累积、时序连续性靠 token 化硬拼、难保持整条轨迹平滑。Flow 一次生成 `T` 步轨迹块：块内联合建模连续性，天然多峰（换初始噪声），部署时 **execute first K steps → 新观测再生成**（receding horizon），比「生成全部再执行」闭环得多。和 π₀ / Diffusion Planner 的动机一致。
+
+### D+.5 和面试官可能的深挖链（第一人称短答）
+
+**链 1：MoT 细节**
+1. mask 从哪来？→ packing 阶段烧进 `moe_gen_mask`，前向只读不改。
+2. 两套权重怎么优化？→ 两个 param group；可 und/gen 不同 lr（und 更小）。
+3. GQA 为什么 KV head 少？→ 长序列 KV cache 省显存，车载多相机序列长，收益大。
+4. QK RMSNorm 干嘛？→ 稳 attention logits，防爆——DeepSeek 验证过的技巧。
+
+**链 2：和 π₀ / 单塔 VLA 对比**
+1. 和 π₀ 差在哪？→ π₀ 是「冻结 VLM + 独立 300M 动作专家 cross-attn 读 KV cache」，动作专家是外挂子网络；MoT 是**每层双投影双 FFN 的一体骨架**，und/gen 深度交织，不是末端挂头。
+2. 和「单塔多模态 LLM 直接回归动作」比？→ 单塔无专用生成注意力/无流头，连续动作质量和多峰性差；MoT 把生成注意力模式和 LM 理解模式真正分开。
+
+**链 3：训练与部署**
+1. Stage 怎么排？→ (1) 继承 Cosmos-3 预训练；(2) 若加 MoE：dense FFN 换 shared+routed，router 预热；(3) SFT 式 Flow 轨迹监督；(4) 可选 Flow-GRPO。
+2. 车端跑得动吗？→ Nano 级 backbone（十几 B）+ 只激活 gen 头出轨迹时可以；完整视频世界模型在云端做数据/仿真，车端可蒸馏到更小 Flow 策略——分工是「云端想象、车端执行」。
+3. 推理几条流步？→ 轨迹块 8~32 步量级；视频生成侧可用 UniPC 加速。轨迹短、维低，步数可压。
+
+**链 4：你在比亚迪具体碰过哪些坑？（务必准备 2 个真细节）**
+
+> 准备稿 A——**pack 与 attention mask 不一致**：`moe_gen_mask` 和 causal/full 布局差一个位置，und 看到了 gen 噪声，表现为 CE 不降、Flow 却在降。排查手段：打印每层 und 位置的 attention 熵、可视化 mask 矩阵、单 batch overfit 回归。
+>
+> 准备稿 B——**cross-attn 忘了 detach（或误 detach 了 und 自己的 CE 路径）**：要么 Reasoner 梯度爆炸被 Flow loss 主导，要么 und 完全学不动。修复：只在 `k_proj(und_h.detach())` / `v.detach()` 的 cross 分支切断；用 `grad_norm` 分桶监控两塔。
+>
+> 准备稿 C——**DCAE 非因果/训练推理增强不一致**：开环视频指标好、闭环一跑就漂。修复：encoder 全因果 padding；训练/推理同一套 temporal jitter；用「遮未来帧」的单元测试断言 latent 不依赖未来。
+
+### D+.6 效果与边界（诚实版，避免吹穿帮）
+
+> **我这样收尾（若被问指标/结果）：**
+> 架构侧我交付的是 MOT 前向、pack、Flow Head 接入和可复现的训练配置；指标上关注三类：理解侧任务 CE/下游理解分不掉点（证明没伤 Reasoner）、生成侧轨迹/仿真指标相对单塔或外挂专家基线的增益、以及推理延迟与显存（双路径分发的 overhead）。完整量产指标属于部门口径，我讲我模块内的消融：**有无 gen→und cross、有无双套 LN/FFN、detach 开关** 对生成质量与理解分的 trade-off。
+>
+> **主动划边界：** Cosmos-3 是我们的底座（NVIDIA 开源权重/框架），我们的贡献是**车载场景下的 MOT 工程化、多传感器 token 接入、连续轨迹生成头与训练闭环**——不是从零发明 MoT。面试里说清「底座 vs 我的改造」比含糊地说「我设计了 Cosmos」更可信，也防住「那你讲讲原论文细节」的偷袭。
+
+### D+.7 90 秒连贯口述稿（可直接背）
+
+> 「比亚迪这段我做 Cosmos-3 世界模型的 MOT 落地。MoT 的核心是：同一层 Transformer 里准备 und/gen 两套 QKV、O、FFN、LayerNorm，用序列打包阶段生成的 `moe_gen_mask` 把 token 分发到两条路径。Reasoner 走 causal attention，做 next-token 理解；Generator 走 full attention，做 Rectified Flow 连续生成。每层 gen 还会 cross-attend und 的语义，这条分支上对 und 做 detach，避免生成梯度打坏预训练理解。视频先用因果 DCAE 压到 latent，时间除 4、空间除 32，保证编码不偷看未来。我负责 pack/mask 与双路径前向的正确性、多传感器 token 接入，以及 gen 头上的轨迹 Flow Head——输入场景和指令，一次生成未来 T 步轨迹块，执行前 K 步再滚动重规划。和后面项目的联系是：Flow Head 用的就是直线流匹配；若上 RL，就是同一套 Flow-GRPO。和 π₀ 比，我们不是外挂动作专家，而是每层双塔交织。我踩过的坑主要是 pack 和 attention mask 不一致、以及 cross-attn 的 detach 边界——都有单测和分桶 grad_norm 监控兜住。」
+
 ## 话术 E：「你负责什么？」总述版（开场 1 分钟，三项目通用模板）
 
-> 我三个项目是一条递进线，都围绕**端到端自动驾驶的「感知-预测-生成-评估」闭环**：
+> 先补充一段比亚迪经历（很多面试官会先问这段）：
+>
+> **在比亚迪我做基于 Cosmos-3 的 MOT 双塔世界模型落地**——Reasoner/Generator 每层两套投影，理解用因果 LM，生成用 Rectified Flow 出连续轨迹，视频走因果 DCAE，gen cross-attn 读语义且 detach。这段让我把「多模态理解 + 连续生成」的底座架构打穿了，后面三个项目都是这条线上的深挖。
+>
+> 然后是我主责的三个递进项目，都围绕**端到端自动驾驶的「感知-预测-生成-评估」闭环**：
 >
 > **第一个项目 RiskField-VLA**，我负责风险建模和轨迹生成后训练——从 128 个 object query 聚出时空风险场，条件化 Flow Matching 双专家生成轨迹，再用 Flow-GRPO（SDE 化 + PPO-clip + LoRA）对齐 NAVSIM PDMS，最后 **0.8713**。
 >
@@ -3023,6 +3287,13 @@ def dense_paths_speeds(paths, speeds):
 - [ ] 开环 NAVSIM 和闭环上车的 gap 怎么答？
 - [ ] GRPO 训崩的 debug 顺序？
 - [ ] π₀ 原版有没有 FAST？RDT-2 推理走不走 RVQ？
+- [ ] MoT vs MoE 路由粒度各是什么？
+- [ ] und 为什么 causal、gen 为什么 bidirectional？
+- [ ] gen→und cross-attn 为何 detach？只断 cross 还是断整个 und？
+- [ ] moe_gen_mask 何时生成、前向中能否改？
+- [ ] DCAE 压缩比与为何必须因果？
+- [ ] 比亚迪 MOT 90 秒口述稿能否顺下来？
+- [ ] 你在 MOT 落地踩过的 2 个坑（pack/mask、detach 边界）？
 
 ---
 
