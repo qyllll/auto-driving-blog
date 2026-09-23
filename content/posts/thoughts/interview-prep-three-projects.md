@@ -3,7 +3,7 @@ title: "自动驾驶面试深度复习：RiskField-VLA + TrustDrive-WAM + JEPA-D
 date: 2026-09-23
 draft: false
 categories: ["个人思考"]
-summary: "三大项目 + 比亚迪 Cosmos-3 MOT 世界模型面试复习长文（3000+ 行）：术语定义与公式；Flow Matching/Flow-GRPO/风险场 VLA/WAM/JEPA/MoT 双塔完整伪代码；「你负责什么 / FM / VLA / 世界动作模型 / JEPA / MOT」多份第一人称口述稿（含算法代码与追问链）；40 道压力面问答。"
+summary: "四大项目 + 比亚迪 Cosmos-3 MOT 面试复习长文（4000+ 行）：名词/公式/代码复盘；FM、Flow-GRPO、风险场 VLA、WAM、JEPA、MoT 伪代码；多份第一人称口述稿；预训练与后训练（SFT/DPO/GRPO）全解；具身智能与 VLA 工程师岗位准备指南（知识树、设计题、2-4 周计划）；40+ 压力面问答。"
 tags: ["面试", "自动驾驶", "Flow Matching", "GRPO", "VLA", "WAM", "JEPA", "NAVSIM"]
 math: true
 weight: 98
@@ -17,6 +17,8 @@ weight: 98
 2. **第二部分：核心算法伪代码** —— 从概念到可运行伪代码，逐段注释。覆盖 Flow Matching、Flow-GRPO、风险场 VLA、WAM 联合流、JEPA 全流程。
 3. **第二部分补章：项目口述话术** —— Flow Matching / VLA / 世界动作模型 / JEPA / **比亚迪 Cosmos-3 MOT** / 「你负责什么」总述，每份含算法+代码的 3-5 分钟第一人称讲法。
 4. **第三部分：压力面问题与参考回答** —— 40 道题 + 追问链，含标准回答与加分回答。
+5. **第四部分：预训练与后训练全解** —— 自监督目标、数据配方、SFT→RL 流水线、DPO/PPO/GRPO 对比、工程清单与 Q&A。
+6. **第五部分：具身智能 / VLA 工程师岗位指南** —— JD 黑话翻译、知识树、动作表示、从 0 设计 VLA、八股与手写题、2-4 周冲刺计划。
 
 ---
 
@@ -3327,3 +3329,678 @@ loss_gen = || flow_head(gen_hidden, t) - v_target ||^2
 ---
 
 *复习路径建议：先读第一部分把名词打成常识 -> 对着第二部分手写一遍 FM 和 GRPO 的训练步 -> 用第二补章的四份话术各录 3 分钟自述 -> 第三部分自问自答并过一遍追问链。*
+
+---
+
+# 第四部分：预训练与后训练全解（面试高频）
+
+> 大厂/创业公司问「你做过预训练吗」「SFT 和 RL 怎么接」「为什么先 SFT 再 GRPO」几乎是标配。本部分把**预训练 → SFT → RL 后训练**整条链讲透，并和我们三个项目 + 比亚迪 MOT 对齐。
+
+---
+
+## 1. 名词总表（预训练/后训练）
+
+| 术语 | 全称 | 一句话定义 |
+|------|------|------------|
+| Pretraining | 预训练 | 在大规模通用数据上以自监督目标学通用表征/能力，不绑定单一下游任务 |
+| Post-training | 后训练 | 预训练之后，用更窄但更「对齐」的数据（指令、偏好、奖励）把模型调到可用/安全 |
+| SFT | Supervised Fine-Tuning | 监督微调：用「输入-标准输出」配对做交叉熵/回归，教格式与任务行为 |
+| RLHF | RL from Human Feedback | 人类偏好训练奖励模型，再 PPO 优化策略（InstructGPT 路线） |
+| RLAIF | RL from AI Feedback | 用 AI 裁判代替人类标注偏好 |
+| DPO | Direct Preference Optimization | 跳过显式 RM，用偏好对直接改策略的闭式 loss |
+| GRPO | Group Relative Policy Optimization | 同 prompt 采一组，组内相对优势，无 critic |
+| PPO | Proximal Policy Optimization | critic + clip/KL 的经典策略梯度 |
+| Reward Model | 奖励模型 | 把输出映射为标量分数的模型 |
+| Preference Pair | 偏好对 | (win, lose) 一对，DPO/RLHF 的原子样本 |
+| Rejection Sampling | 拒绝采样 | 采多条，按规则/RM 只留最好的当 SFT 数据 |
+| CoT | Chain-of-Thought | 思维链：先推理再给答案 |
+| Distillation | 蒸馏 | 大模型（teacher）的分布/logits 教小模型（student） |
+| Curriculum | 课程学习 | 数据由易到难组织 |
+| Hard Negative Mining | 难负例挖掘 | 挑模型易错样本加权训练 |
+| EMA | Exponential Moving Average | 权重滑动平均，评测/稳定性常用 |
+| Checkpoint Averaging | 权重平均 | 多 checkpoint 平均，常提泛化 |
+| Data Mixing | 数据配比 | 多源数据比例（文本/视觉/动作/仿真） |
+| Dedup | 去重 | 近重复数据剔除，防记忆化与过拟合 |
+| Safety Alignment | 安全对齐 | 有害内容拒答、价值观约束 |
+| Red-teaming | 红队测试 | 专门找漏洞/越狱的对抗测试 |
+| Scaling Law | 缩放定律 | loss 随参数/数据/算力的幂律关系 |
+| Token Budget | token 预算 | 序列长度与 batch 的算力规划 |
+| MoE Router | 专家路由器 | 决定 token 激活哪些专家 |
+| Load Balancing Loss | 负载均衡 loss | 防 router 坍缩到少数专家 |
+| Zero/One/Few-shot | 0/1/少样本 | 不给/给一/给几个示例就推理 |
+| In-context Learning | 上下文学习 | 不更新权重，靠 prompt 示例学会任务 |
+| Catastrophic Forgetting | 灾难性遗忘 | 微调后丢掉预训练通用能力 |
+| Elastic Weight Consolidation 等正则 | 权重锚定 | 用 KL/锚点参数防遗忘 |
+| Offline RL | 离线 RL | 只在固定数据集上优化，不在线交互 |
+| Online RL | 在线 RL | 策略实时与环境交互采样 |
+| Off-policy / On-policy | 同/异策略 | 数据来自旧策略 vs 当前策略 |
+| Importance Sampling | 重要性采样 | 用 ratio 纠正新旧策略分布差 |
+| World Model Rollout | 世界模型推演 | 用 WM 替代真实环境做虚拟交互 |
+| Sim-to-Real | 仿真到现实 | 仿真训练、实车/真机部署的迁移 |
+| Domain Randomization | 域随机化 | 随机化纹理/光照/物理参数提升鲁棒 |
+| Action Chunking | 动作块 | 一次预测多步动作，降频、稳 |
+| Teleoperation | 遥操作 | 人遥控机器人收集演示 |
+| DAgger | - | 在策略状态上收集专家标签 |
+| Human-in-the-loop | 人在环 | 关键节点人工审核/纠正 |
+| RLAIF Safety | - | AI 裁判做安全维度 reward |
+
+---
+
+## 2. 预训练 Pretraining：到底在学什么
+
+### 2.1 三种主流自监督目标
+
+```text
+(1) 自回归语言建模 (Causal LM)
+    目标:  P(x_t | x_{<t})   交叉熵
+    学到:  语法、世界知识、指令跟随的底子
+    例子:  GPT 系、Reasoner 塔的 und 路径
+
+(2) 掩码重建 (MLM / MAE / BERT 风)
+    目标:  被 mask 的单元 (词/patch) 重建
+    学到:  双向上下文表征
+    例子:  BERT, MAE
+
+(3) 对比 / 联合嵌入预测 (SimCLR, JEPA)
+    目标:  同增广对齐, 或 表征空间预测未来/被遮块
+    学到:  不变性 + 时序动力学
+    例子:  CLBYOL, I-JEPA, V-JEPA, 我们的 JEPA-DRIVE Stage1
+```
+
+**代码级对照（自回归 CE vs JEPA MSE vs Flow MSE）：**
+
+```python
+# A. 自回归 LM (Reasoner / und)
+logits = lm_head(hidden[:, :-1])              # 预测下一个 token
+loss_lm = F.cross_entropy(
+    logits.reshape(-1, vocab),
+    labels[:, 1:].reshape(-1),
+    ignore_index=pad_id,
+)
+
+# B. JEPA (表征预测)
+with torch.no_grad():
+    z_tgt = target_encoder(masked_patches)
+z_pred = predictor(context_encoder(visible), pos)
+loss_jepa = F.mse_loss(z_pred, z_tgt)
+
+# C. Rectified Flow / FM (Generator / gen)
+x_t = (1 - t) * x0 + t * x1
+v   = flow_head(gen_hidden, t)
+loss_fm = F.mse_loss(v, x1 - x0)
+
+total = loss_lm + w_j * loss_jepa + w_f * loss_fm  # 多任务预训练常见加权
+```
+
+### 2.2 驾驶/具身预训练的特有维度
+
+| 维度 | 文本 LLM | 驾驶/具身预训练 |
+|------|----------|-----------------|
+| Token | BPE 词 | 视频 patch、BEV 格、轨迹点、状态向量、指令 |
+| 时间 | 一维序 | 三维 mRoPE（T,H,W）或因果时序 |
+| 目标 | 下一词 | 下一帧表征 / 速度场 / 动作块 / 检测 |
+| 数据 | 网页文 | 多相机日志、仿真、遥操作、Omniverse 合成 |
+| 对齐难题 | 指令-回答 | 视觉-语言-动作三模态时间对齐 |
+| 安全 | 有害话术 | 碰撞、压线、失效降级 |
+
+### 2.3 数据工程（预训练成败一半在数据）
+
+```text
+1. 采集: 实车日志 / 遥操作演示 / 仿真合成 (Cosmos+Omniverse 风格)
+2. 清洗: 时间戳对齐、传感器标定、烂帧丢弃、车道级轨迹质量过滤
+3. 去重: 感知哈希 + embedding 近邻去重, 防「10 万帧都是同一路口」
+4. 打标: 可自动的 (碰撞检测、PDMS、红绿灯) + 人工抽检
+5. 配比: 真实:仿真:合成 = ? ; 常规:长尾 = ?  (我们项目约 8:2 再难例上采样)
+6. 增广: 光照、天气、镜头污损、轨迹扰动 (给「偏了还能救」的标签)
+7. 混合课程: 先短 horizon 简单路, 后长 horizon 交互
+```
+
+**面试金句**：
+> 预训练不是「把数据丢进 dataloader」——配比和去重对驾驶模型的收益经常大于改结构。长尾不足就用仿真和难例挖掘，而不是无脑堆常规高速片段。
+
+### 2.4 Scaling 与结构选择（会被问「为什么这个规模」）
+
+```text
+小模型 (1-4B):  车端实时, 容量受序列长度和模态数限制
+中模型 (10-20B): Cosmos Nano 级, 云端/域控, 我们 MOT 常讨论的档
+大模型 (60B+):  云端世界模型/教师, 蒸馏给车端
+
+选择原则:
+  - 输入 token 数 (多相机视频 >> 文本)
+  - 推理频率 (规划 10Hz vs 视频评 1Hz)
+  - 是否要在线 RL (采样贵, 模型不能过大)
+  - 是否当 teacher (大) 还是 deploy (小)
+```
+
+### 2.5 预训练常见坑（第一人称可背）
+
+1. **模态坍缩到语言**：文本 token 多，共享骨干被 CE 主导——塔间/模态均衡 loss 或分塔隔离（MoT 动机之一）。
+2. **视频 encoder 偷看未来**：DCAE 非因果 → 预测任务泄题。
+3. **位置编码错**：T/H/W 混用 1D RoPE，模型分不清帧序和空间序。
+4. **pad 泄漏**：attention 没屏蔽 pad，学到「永远看最后一个」。
+5. **LR 过大伤预训练权重**：后训练阶段应用小 lr + 只训 adapter。
+
+---
+
+## 3. 后训练 Post-training：SFT → RL 的完整地图
+
+### 3.1 后训练为什么必要
+
+```text
+预训练学到的是「像训练分布」，不是「按你的意图和安全约束行动」。
+后训练三件事:
+  A. 格式与能力:  按 schema 出轨迹/JSON, 会 CoT, 会拒答
+  B. 价值与安全:  不编造、不危险、不越权
+  C. 任务性能:    PDMS/成功率/延迟 等硬指标拉齐
+```
+
+### 3.2 典型流水线（自驾/具身版）
+
+```text
+Stage 0  预训练 backbone
+         语言 CE + 视觉/视频 JEPA 或对比 + (可选) Flow 初训
+
+Stage 1  SFT / 行为克隆 BC
+         数据: 人类演示 / 高分轨迹 / 高质量指令-响应
+         目标: 会按任务出合法轨迹; 会听导航指令
+         形式: Flow MSE 到演示轨迹, 或 LM CE 到动作 token
+
+Stage 2  Rejection Sampling / DPO (可选)
+         采多条 -> 规则过滤 -> 留下的当正样本
+         或偏好对: (安全轨迹胜, 危险轨迹负) -> DPO
+
+Stage 3  RL 后训练 (GRPO / PPO / Flow-GRPO)
+         奖励: PDM / 成功率 / 舒适 / 进度
+         目标: 冲长尾、修 SFT 分布外的失败
+
+Stage 4  蒸馏与部署压缩
+         大 teacher -> 小 student; 量化; 步数蒸馏 (32->4)
+```
+
+**我们项目的对应关系（面试串讲）：**
+
+| Stage | RiskField-VLA | TrustDrive-WAM | JEPA-DRIVE | 比亚迪 MOT |
+|-------|---------------|----------------|------------|------------|
+| 预训练 | VLM/BEV 主干 | 世界模型时序编码 | Stage1 JEPA | Cosmos-3 双塔 |
+| SFT/BC | 轨迹 Flow SFT | 联合流轨迹分量 | Stage2/3 评分头 | 轨迹 Flow Head SFT |
+| RL | Flow-GRPO 0.8713 | 可信路由+可选 GRPO | 计划中 | 可选 Flow-GRPO |
+| 压缩 | LoRA 已很小 | fallback 降级 | 隐空间评分省算力 | Nano 车端 |
+
+### 3.3 SFT 细节（常问「你的 SFT 数据怎么来的」）
+
+```python
+# 轨迹任务的 SFT = Flow Matching 到演示分布
+def sft_step(batch):
+    x1 = batch['expert_traj']          # 人类/过滤后的演示
+    x0 = torch.randn_like(x1)
+    t  = torch.rand(B)
+    xt = (1-t)*x0 + t*x1
+    v  = model(xt, t, batch['cond'])
+    return F.mse_loss(v, x1 - x0)
+
+# 拒绝采样版: 同场景采 8 条 -> PDM 过滤 -> 只留 top-1 再 SFT
+def rejection_sft(model, scenes):
+    for sc in scenes:
+        cands = model.sample(sc, K=8)
+        scores = pdms(cands, sc)
+        best = cands[scores.argmax()]
+        if scores.max() > thresh:
+            buffer.append(best)
+    train_on(buffer)
+```
+
+**SFT 数据质量 > 数量**：1 万条高质量、低碰撞、舒适轨迹，好过 100 万条平庸刹车点头数据。
+
+**SFT 常见失败**：
+
+- 只学会「平均保守」→ 长尾全靠 RL 修
+- 指令不敏感（left/right 说啥都直行）→ 对比指令增广
+- 动作抖动（jerk 大）→ 舒适度加权或对控制量导数惩罚
+
+### 3.4 DPO vs PPO/GRPO（高频对比题）
+
+| 维度 | DPO | PPO | GRPO / Flow-GRPO |
+|------|-----|-----|------------------|
+| 需要 RM？ | 不显式要，偏好对内化 | 要 value 或 reward | 要标量 reward |
+| 在线采样？ | 否，离线偏好 | 是 | 是（组采样） |
+| critic | 无 | 有，贵 | 无 |
+| 主要风险 | 偏好分布偏、过拟合 pair | 不稳定、reward hacking | 组内方差、KL 漂移 |
+| 适合 | 格式/风格/安全偏好 | 通用 | 有明确可计算奖励（PDMS） |
+
+```python
+# DPO 核心 loss (对比参考, 我们主用 GRPO)
+def dpo_loss(pi_logp_w, pi_logp_l, ref_logp_w, ref_logp_l, beta=0.1):
+    # w=win, l=lose
+    ratio = beta * (
+        (pi_logp_w - ref_logp_w) - (pi_logp_l - ref_logp_l)
+    )
+    return -F.logsigmoid(ratio).mean()
+```
+
+**为什么我们轨迹用 GRPO 不用 DPO**：PDMS 是**可计算的环境奖励**，不需要人类标注偏好对；组内相对优势直接利用「同场景 24 条谁更好」，比构造 win/lose 对更省标注、信号更密。
+
+### 3.5 RL 后训练工程清单（被问「你怎么训的 GRPO」按这个扫）
+
+```text
+1. 采样:  组大小 G, 步数 T, 温度/噪声水平, 种子固定可复现
+2. 打分:  奖励函数版本号, 单位, clip 范围
+3. 优势:  组内归一, clamp, 剔除 std=0 组
+4. 更新:  inner epochs, clip ε, KL β, lr, warmup, grad clip
+5. 参考:  ref = 同 base 关 adapter, 定期对拍 logits
+6. 参数:  LoRA rank/α/dropout; 哪些模块可训 (Flow head/gen router)
+7. 监控:  reward, KL, clip比, entropy/std, grad_norm, 各 PDMS 子项
+8. 防hack: EP 防不动, 打分器红队, 人工看轨迹视频
+9. 评测:  留出场景集 + 长尾子集 + 开销 (延迟/显存)
+10. 回滚:  每 N step 存 ckpt, 指标回退即回滚
+```
+
+### 3.6 预训练 vs 后训练：面试标准对比话术
+
+> **预训练**解决「模型懂不懂世界」——大规模自监督，目标是通用表征（语言 CE、视频 JEPA、Flow 初训），数据脏一点也能学，容量和配比是关键。
+>
+> **后训练**解决「模型听不听话、强不强」——SFT 给格式和基线能力，RL/DPO 对齐奖励与安全。后训练数据少而精，对 KL/clip/参考策略更敏感。
+>
+> 我们三个项目和 MOT 都是这条流水线的不同切面：MOT/JEPA 偏预训练底座，VLA/WAM 的 Flow SFT 是 BC，Flow-GRPO 是 RL 后训练。面试官问任何一段，我都能指回这条链上的位置。
+
+### 3.7 压力面：预训练/后训练 Q&A 补充
+
+**Q：你做过预训练吗？从零还是继续训？**
+> **标准**：按事实答——若主要是加载 Cosmos/VLM/视频骨干做领域适配，就说「预训练权重 + 领域继续预训练/中期训练 + 任务后训练」，不要吹成从零 pretrain trillion token。
+> **加分**：能说出继续预训练时的配比、lr 量级（通常比从零低 1-2 个数量级）、以及如何用小规模 proxy 验证数据配方。
+
+**Q：SFT 和 RL 先后顺序能反过来吗？**
+> **标准**：一般 SFT→RL：SFT 先把输出拉进合理空间，RL 在此基础上探索；直接 RL 从随机策略探索驾驶轨迹效率极低。
+> **加分**：例外是已有强 BC 策略时可跳过大量 SFT；以及 rejection sampling 其实是「用 RL 思想产 SFT 数据」的中间态。
+
+**Q：灾难性遗忘怎么防？**
+> **标准**：小 lr、少 epoch、LoRA/Adapter、KL 锚 ref、混一部分预训练数据回放（replay）。
+> **加分**：监控 held-out 通用任务分；MOT 场景就是「Reasoner CE 分不掉、只提升生成头」的分模块遗忘监控。
+
+**Q：奖励稀疏怎么办？**
+> **标准**：过程奖励 shaping（离障碍裕度）、分层奖励（子目标）、难例保证有信号、组内相对化把绝对稀疏变相对稠密。
+> **加分**：警惕 shaping 引入 hacking——主项仍是终局 PDMS。
+
+**Q：数据不足怎么后训练？**
+> **标准**：仿真增广、拒绝采样自我提升、蒸馏大模型/规则专家、DPO 用少量偏好、迁移其他城市/车型。
+> **加分**：先查是不是数据质量问题而不是量的问题；长尾 21% 上采样好过继续堆 79%。
+
+**Q：在线 RL 和世界模型 rollout 怎么选？**
+> **标准**：真仿真贵 → 用 WM/开环打分器当廉价环境；WM 不可信时 fallback 或只在支持域内 rollout。
+> **加分**：我们 WAM 的可信路由正是「WM 只在支持域当环境」的安全版 model-based RL；NAVSIM 开环打分也是低成本 reward oracle。
+
+**Q：LoRA 和全参在后训练各自何时用？**
+> **标准**：探索/对齐/多任务切换 → LoRA；数据极多、要榨干容量、最终一版定妆 → 可全参小 lr。
+> **加分**：后训练常用「生成头全参 + 主干 LoRA/冻结」的混合，和 MOT 的「Flow Head 训、Reasoner 冻」一致。
+
+**Q：为什么 GRPO 不用 critic？你的 reward 是学习的还是规则的？**
+> **标准**：组均值当 baseline，省 critic；我们主 reward 是规则 PDM/PDMS，可复现、难 hack 方向明确。
+> **加分**：若以后上偏好/主观舒适，可加学习 RM，需与规则项加权并做红队。
+
+---
+
+# 第五部分：具身智能算法工程师 / VLA 工程师 岗位准备指南
+
+> 面向 JD 高频出现的 **具身智能算法工程师**、**VLA 算法工程师**（有时叫「机器人学习」「端到端大模型」）。分五块：岗位到底要什么、知识树、项目怎么讲、代码/八股清单、面试轮次与准备计划。
+
+---
+
+## 1. 岗位拆解：JD 里的黑话翻译
+
+### 1.1 常见 JD 条目 → 实际在考什么
+
+| JD 原话 | 面试真正在考 |
+|---------|--------------|
+| 熟悉 Transformer/多模态大模型 | Attention 手推、VLM 结构、训练目标 |
+| 熟悉扩散/Flow 生成模型 | DDPM vs FM、采样步数、log-prob |
+| 熟悉 VLA（π₀/OpenVLA/RDT） | 动作表示、离散 vs 连续、动作专家 |
+| 熟悉强化学习（PPO/GRPO） | advantage、clip、KL、reward 设计 |
+| 熟悉世界模型 | p(s'|s,a)、WM 类型、与预测网络区别 |
+| 具身数据采集与遥操作 | 演示质量、DAgger、sim2real |
+| 仿真环境（Isaac/MuJoCo/Genesis） | 物理、域随机、闭环评测 |
+| 车端部署/量化 | 延迟、INT8、算子、传感器同步 |
+| 论文复现/开源贡献 | 动手能力、读代码、消融设计 |
+| 与硬件/标定/控制联调 | 坐标系、时间同步、接口 |
+
+### 1.2 两类岗位的微妙差别
+
+**VLA 算法工程师（偏模型）**
+
+```text
+核心产出:  VLA 模型结构、动作解码、指令跟随、多任务
+高频技术:  VLM backbone, Flow/Diffusion action head,
+           action chunk, cross-attn, 多相机 token
+评测:      指令成功率, 操作任务成功率, 导航到达率
+我方优势:  FM/Flow Head、MoT、风险条件化、GRPO 后训练
+```
+
+**具身智能算法工程师（偏系统+学习）**
+
+```text
+核心产出:  感知-决策-控制闭环, 数据闭环, 仿真到真机
+高频技术:  策略学习(BC/RL), 世界模型, 状态估计,
+           遥操作数据, 域随机, 安全约束
+评测:      任务成功率, 鲁棒性, 实时性, 失败恢复
+我方优势:  三项目闭环叙事 + 可信路由/安全 + NAVSIM 经验
+```
+
+**面试一句话定位（建议背）**：
+> 「我更偏 **VLA/世界模型的模型侧**，但有完整自驾闭环和后训练经验——从多模态理解（MOT/JEPA）到连续动作生成（Flow）到奖励优化（GRPO）到安全接口（可信域）。如果岗位需要更多真机/仿真，我的迁移路径是：轨迹=低维 action chunk，PDMS=task reward，开环评测=仿真 rollout。」
+
+---
+
+## 2. 知识树：VLA/具身工程师要准备的模块
+
+### 2.1 模块一：VLM 与多模态基础（必会）
+
+```text
+- ViT patchify, CLIP 双塔, 纯 VLM (LLaVA 式: 视觉 token 进 LLM)
+- Cross-attention 注入 vs 拼接注入
+- 位置编码: 1D RoPE vs 2D/sRoPE vs mRoPE(T,H,W)
+- 指令微调: LLaVA-NeXT / Qwen-VL 级结构直觉
+- KV cache, GQA, 前向延迟从哪来
+必会代码:  写一个 mini LLaVA 前向 (vision tower -> projector -> LLM)
+```
+
+### 2.2 模块二：动作表示与解码（VLA 核心差异点）
+
+| 方案 | 表示 | 解码 | 代表 | 面试考点 |
+|------|------|------|------|----------|
+| 离散 token | 动作量化成词表 | 自回归 softmax | OpenVLA | 码本大小、精度损失 |
+| 回归头 | 直接 μ | 一步 MLP | BC-Z 风格 | 多峰坍缩 |
+| 扩散 | 噪声->动作 | DDPM 20-50 步 | RDT | 步数、条件 |
+| 流匹配 | 噪声->动作 | FM 5-32 步 | π₀, 我们 | 速度场、SDE/GRPO |
+| 混合 | RVQ 离散辅助 | 训练 CE 推理连续 | RDT-2 | 训推不一致 |
+| FAST | 动作->文本码 | AR | π₀-FAST | 与原版 π₀ 区分 |
+
+**动作块 Action Chunk 细节**：
+
+```text
+输出 T=16/32 步, 不是 1 步:
+  - 降低决策频率依赖, 时间上更平滑
+  - 错误会「锁」T 步 -> 需要 replan 策略 (执行前 K 步)
+  - 与 Flow 一次生成整块天然契合
+维度例:  机械臂 (x,y,z,rx,ry,rz,gripper) 或 车 (x,y,yaw) / (steer,accel)
+```
+
+### 2.3 模块三：生成模型（和我们 FM 部分打通）
+
+```text
+必须能白板:
+  1. DDPM 前向反向, 为何多步
+  2. FM 直线路径, loss, Euler
+  3. 两者 log-prob / score 关系 (为 GRPO 铺垫)
+  4. CFG:  v = v_uncond + s*(v_cond - v_uncond)
+  5. 步数蒸馏直觉
+可选加分:
+  - Rectified Flow / SD3 / FLUX 训练细节
+  - 一致性模型
+  - 在 1D 轨迹 vs 2D 图像上的差异 (轨迹维低, 步数可少)
+```
+
+### 2.4 模块四：强化学习与后训练（岗位 JD 高频）
+
+按第四部分复习，另补具身特有：
+
+```text
+- 奖励设计: 稀疏成功 0/1 vs 中间 shaped
+- 安全 RL: 约束 MDP, 惩罚项, 可信域/后备策略 (我们的 TrustRouter)
+- SimRL: 在 Isaac/MuJoCo rollout, 域随机
+- 离线到在线: 先 BC 再 PPO/GRPO (Decision Transformer 知道即可)
+- 探索: 噪声动作、熵奖励、Curiosity (能聊即可)
+```
+
+### 2.5 模块五：世界模型与仿真
+
+```text
+- 定义 p(s'|s,a); 像素 vs 表征 vs 几何
+- 用途: (a) 想象 rollout 做 RL  (b) 合成数据  (c) 评测
+- 与我方: JEPA 表征 WM, WAM 联合动作后果, MOT 全模态 WM
+- 仿真栈: Isaac Sim/Lab, MuJoCo, Genesis, CARLA, NAVSIM
+- 关键: 物理真实性, 渲染 gap, 随机化
+```
+
+### 2.6 模块六：数据与遥操作（具身 JD 几乎必问）
+
+```text
+- 遥操作设备: 力反馈手柄, 外骨骼, 手套, 主从臂
+- 演示质量: 成功率、多样性、纠正率、段长
+- 标注: 自动切段、失败标记、语言指令生成 (VLM 可自动生成指令)
+- DAgger: 在机器人自己的失误状态问专家「这时该怎样」
+- 数据效率: 10 条好演示 vs 100 条烂演示; 视觉增广
+- Sim 数据:  procedural 域随机, 真机 fine-tune
+我方可迁移故事: NAVSIM 长尾筛选 ≈ 具身失败案例挖掘
+```
+
+### 2.7 模块七：部署与实时（工程向加分）
+
+```text
+- 延迟预算: 感知 30ms + 策略 20ms @ 20-50Hz 控制
+- FP16/INT8, TensorRT, 量化对 Flow 步数敏感点
+- 多传感器时间同步、外参、自车运动补偿
+- 失败模式: 传感器掉线 -> 模态 dropout 预训练 (MOT/Cosmos 也讲这个)
+- 安全监控: 输出限幅、可行性检查、看门狗
+```
+
+### 2.8 必读论文/开源（VLA 面试弹药，各 30 秒能讲）
+
+| 类别 | 材料 | 你的一句话 |
+|------|------|------------|
+| VLA | OpenVLA | 离散动作 + 开源基线 |
+| VLA | π₀ / π₀-FAST | FM 动作专家；FAST 是另一变体 |
+| VLA | RDT / RDT-2 | 扩散/混合动作，RVQ 训推差异 |
+| 生成 | Flow Matching 论文 | 直线路径与 CFM |
+| RL | PPO, GRPO/DeepSeek-R1 | clip；组相对优势 |
+| 世界模型 | Dreamer 系, V-JEPA | latent rollout；表征预测 |
+| 端到端 | UniAD/VAD, NAVSIM | 模块端到端；开环 PDMS |
+| 具身 | ACT, Diffusion Policy | 动作块；扩散策略 |
+| 架构 | MoT/Cosmos-3, DeepSeekMoE | 双塔；稀疏专家 |
+
+**Diffusion Policy / ACT 一定要会**（具身面试比自驾更爱问）：
+
+```text
+Diffusion Policy:  观察历史 obs -> 条件扩散出 action chunk
+                    与图像扩散同构, 条件是 obs
+ACT (Aloha):      CVAE + Transformer, 预测动作块, 低延迟真机常用
+对比:  Diffusion 多峰强; ACT 快; 我们 FM 折中且可接 GRPO
+```
+
+---
+
+## 3. 项目怎么讲（具身/VLA 面试版 60 秒 x N）
+
+### 3.1 通用公式
+
+```text
+[问题] 场景里什么不行 -> [我] 负责哪三块 ->
+[方法] 结构/训练/奖励一句黑话 ->
+[结果] 数字或消融 -> [迁移] 对贵司具身/VLA 的价值
+```
+
+### 3.2 比亚迪 MOT 60 秒（偏 VLA 岗）
+
+> 「我做 Cosmos-3 MoT 车载世界模型：每层 und/gen 双投影，理解因果、生成双向流，视频走因果 DCAE，gen cross-attn 读语义并 detach。我负责 pack/mask、传感器 token 接入和轨迹 Flow Head。这和 VLA 岗位的同构是：**VLM=Tower und，action head=gen+Flow**，π₀ 是外挂专家，我们是一体双塔。」
+
+### 3.3 RiskField-VLA 60 秒（偏 VLA 岗）
+
+> 「多相机+导航 VLA，128 query 出时空风险场，风险熵门控 Base/LTE，Risk-Init 的 FM 出 8 条候选，Flow-GRPO 后训练，NAVSIM 0.8713。对操作类 VLA：风险场=安全性条件，action chunk=我们的轨迹块，PDMS=你们的任务 reward+安全项。」
+
+### 3.4 TrustDrive-WAM 60 秒（偏具身/系统岗）
+
+> 「动作和后果同一联合流生成，双层可信路由，OOD 就回退经典规划。具身里对应：世界模型想象 rollout 的可信边界、安全监控和 fallback——这是真机上比刷成功率更硬的工程能力。」
+
+### 3.5 JEPA-DRIVE 60 秒（偏研究/世界模型岗）
+
+> 「无像素重建的世界模型三阶段：JEPA 帧间预训练、冻结后排序评分头、端到端。防坍缩 EMA+stopgrad+VICReg。对具身就是廉价 imagination 和 demo 增广的基础表征。」
+
+---
+
+## 4. 代码与八股清单（VLA/具身版）
+
+### 4.1 必须能手写（白板/共享屏幕）
+
+```text
+1. Multi-head / cross-attention  (10 行级)
+2. Flow Matching train step + Euler sample
+3. PPO-clip loss + ratio
+4. GRPO 组内 advantage
+5. LoRA 前向
+6. JEPA EMA update + stopgrad loss
+7. Action chunk 拼接与执行前 K 步 replan 伪代码
+8. 简单 BC: obs->action MLP/MSE
+```
+
+### 4.2 必背八股（分层）
+
+**第一层（答得干脆）**
+- Transformer 复杂度、为什么 LN、为什么残差
+- GQA/MHA 区别
+- ReLU/GELU、学习率 warmup
+- 过拟合怎么查（train/val gap、数据污染）
+
+**第二层（拉开差距）**
+- FM vs DDPM、DPO vs GRPO、MoT vs MoE
+- 扩散多峰 vs 回归均值
+- 世界模型 vs 预测网络
+- 灾难性遗忘、reward hacking 案例
+
+**第三层（显示深度）**
+- 确定性 ODE 无 log_prob，SDE 化保边际
+- JEPA 坍缩机理
+- PDMS 乘积与长尾
+- 支持域与可信路由、开环闭环 gap
+
+### 4.3 系统/实验素养（研究岗+工程岗都加分）
+
+```text
+- 消融表怎么设计: 一次只动一个变量
+- 随机种子: 至少 3 seed 报 mean±std
+- 复现: 固定 cudnn deterministic, 记录 commit+config
+- 调试顺序: overfit 一个 batch -> 小数据 -> 全量
+- 日志: loss 分项、grad norm 分桶、定性轨迹视频
+```
+
+---
+
+## 5. 面试轮次与 2-4 周准备计划
+
+### 5.1 典型轮次
+
+```text
+轮 1  简历深挖 + 项目 30 分钟     -> 话术 A-D+, E, F
+轮 2  基础: ML/深度学习/数据结构  -> 八股第一层 + 手写 attention
+轮 3  专业: VLA/生成/RL/世界模型  -> 话术 + 第三部分 Q&A + 第四部分
+轮 4  系统设计: 从0设计一个VLA     -> 见 5.2 模板
+轮 5  HR/主管: 动机、论文、反问    -> 见 5.3
+```
+
+### 5.2 「从 0 设计一个 VLA 系统」答题模板（高概率）
+
+```text
+1. 任务与接口:  输入(多相机+语言+本体), 输出(action chunk / 轨迹), 频率, 延迟预算
+2. 模态编码:    ViT/VLM, 时间窗, 位置编码, 同步
+3. 融合:        拼接 / cross-attn / BEV; 语言如何注入
+4. 动作头:      FM vs 扩散 vs 离散; chunk 长度; 多峰
+5. 训练数据:    演示来源, 配比, 长尾, 质量过滤
+6. 训练流程:    预训练 -> SFT/BC -> (可选) GRPO; 冻结策略
+7. 安全:        输出限幅, fallback, 支持域/OOD 检测, 看门狗
+8. 评测:        仿真成功率, 关键指标, 回归测试集
+9. 部署:        量化, 步数, 监控, 日志回流闭环
+10. 迭代:       哪里最可能是瓶颈(数据/奖励/结构), 如何消融
+```
+
+**收尾金句**：
+> 「我会把 **安全路由和评测集** 和模型第一周一起建，而不是上线前才补——自驾和具身的失败都长在长尾和分布外。」
+
+### 5.3 反问面试官（准备 3 个）
+
+```text
+1. 团队当前瓶颈是数据、奖励设计还是真机/仿真吞吐？
+2. VLA 是自研骨干还是站在开源 π₀/OpenVLA 上改？后训练用 RL 吗？
+3. 成功率之外如何定义安全与失败恢复？有没有闭环评测？
+```
+
+### 5.4 2-4 周冲刺表（可直接执行）
+
+**Week 1 — 项目焊死**
+- [ ] 话术 A/B/C/C+/D/D+/E/F 各录 3 遍，卡壳处改稿
+- [ ] 默写 FM、GRPO、attention、JEPA 四段代码
+- [ ] 准备 2 个 MOT 踩坑 + 1 个 GRPO debug 故事
+
+**Week 2 — 专业深度**
+- [ ] 第三部分 40 题过两遍（自问自答出声）
+- [ ] 第四部分预训练/后训练表全部能讲
+- [ ] 对比表：DPO/PPO/GRPO、DDPM/FM、MoT/MoE、I-JEPA/V-JEPA
+
+**Week 3 — 岗位对齐**
+- [ ] 精读目标公司 3 个 JD，把黑话映射到知识树
+- [ ] 读 2 篇 VLA 论文（π₀ + Diffusion Policy 或 ACT）各写 30 秒
+- [ ] 做一次「从 0 设计 VLA」模拟 20 分钟
+
+**Week 4 — 模拟与查漏**
+- [ ] 找人 mock 2 次：一次深挖简历，一次八股+手写
+- [ ] 手写题限时：attention / FM step / PPO clip
+- [ ] 准备反问、薪资、到岗时间
+- [ ] 通读本文自测清单，勾选为 0 的项突击
+
+---
+
+## 6. 给「VLA 工程师」的差异化加分项（在众多只会背论文的人里出头）
+
+1. **训推一致意识**：RDT-2 RVQ 训推差异、DCAE 因果、Risk-Init 必须进训练——说明你踩过「评测虚高」的坑。
+2. **奖励可计算**：PDMS 规则奖励 + shaping + 防 hack，不是空谈 RLHF。
+3. **安全接口**：可信域、fallback、模态 dropout——真机/量产最缺的人不是会调扩散的，是会让模型「知道自己不知道」的。
+4. **效率**：Flow 步数、LoRA、隐空间评分 65536 轨迹、推理只激活需要的头——讲得出 ms 和显存的人更可信。
+5. **数据直觉**：长尾 21%、难例挖掘、仿真配比——具身团队 50% 时间在数据上。
+6. **完整链路**：MOT/JEPA（表征）+ FM（生成）+ GRPO（优化）+ 路由（安全）四个词能串成一句职业故事。
+
+---
+
+## 7. 岗位向压力面试题补充（具身/VLA）
+
+**Q：Diffusion Policy 和你们 Flow 轨迹有什么异同？**
+> 同：条件生成 action chunk，多峰，迭代采样。异：目标函数（ε/v）、步数调度、你们条件里多了风险场/导航/可信信号，且后接 GRPO；Diffusion Policy 原版多是纯 BC。
+
+**Q：ACT 和 Diffusion Policy 怎么选？**
+> 看延迟与多峰：真机高频控制优先 ACT/流少步；强多峰、多模演示优先扩散/FM 多采样。可以蒸馏扩散到少步给部署。
+
+**Q：真机 RL 你怎么做？环境交互太贵怎么办？**
+> 先 BC 起步；仿真大规模 RL + 域随机；真机只做短程 fine-tune 和安全约束校验；世界模型 rollout 做廉价 candidate 筛选——和我们 WAM 路由一致。
+
+**Q：没有人类偏好标注，怎么做对齐？**
+> 规则奖励（成功、安全、时间）+ AI judge + 拒绝采样；驾驶里 PDMS 就是天然 RM。主观「自然度」才更需要人类。
+
+**Q：指令有歧义/冲突（「加速」但前方有人）优先级？**
+> 安全约束硬屏蔽 > 任务指令；结构上可用安全头/fallback 覆盖，而不是指望 LM 自己领悟——对应可信路由分层。
+
+**Q：多任务 VLA 怎么防任务混淆？**
+> 任务 token/语言显式条件、数据按任务配比、per-task adapter 或专家、评测分任务回归。
+
+**Q：你们的模型怎么上真车/真机的延迟？**
+> 给预算表：编码 xx ms + MoT/策略 xx ms + Flow K 步 xx ms；再讲量化与步数蒸馏、异步感知、执行前 K 步。
+
+**Q：如果让你重新做，数据会怎么设计？**
+> 长尾导向的主动采集/仿真、失败案例回放池、指令多样性、多车多城去重、自动质量分——从「有多少采多少」变成「缺什么造什么」。
+
+---
+
+## 8. 本部分自测清单
+
+- [ ] 预训练三大自监督目标能各写一行 loss？
+- [ ] 后训练 Stage0-4 流水线和三项目对照表？
+- [ ] SFT 数据从哪来？拒绝采样流程？
+- [ ] DPO/PPO/GRPO 对比表能否不看稿说全？
+- [ ] 为什么轨迹选 GRPO 不选 DPO？
+- [ ] RL 工程 10 条清单（采样-奖励-优势-更新-监控）？
+- [ ] 灾难性遗忘 / reward hacking 各一个具体解法？
+- [ ] VLA 动作表示 6 种方案表？
+- [ ] Action chunk 为什么、执行前 K 步？
+- [ ] Diffusion Policy vs ACT vs FM 一句话差异？
+- [ ] MoT vs MoE；π₀ vs 我们的 MOT？
+- [ ] 从 0 设计 VLA 的 10 步模板？
+- [ ] 数据/遥操作/DAgger 能聊 2 分钟？
+- [ ] 具身 vs VLA 岗位定位一句话？
+- [ ] 2-4 周计划是否写进日历？
+
+---
+
+*全文复习建议顺序：第一部分名词 -> 第二部分手写 FM/GRPO -> 补章话术（含比亚迪 MOT）出声背 -> 第四部分预训练/后训练 -> 第五部分岗位对齐与 mock -> 第三部分 40 题查漏。*
