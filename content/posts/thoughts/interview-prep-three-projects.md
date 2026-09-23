@@ -3,7 +3,7 @@ title: "自动驾驶面试深度复习：RiskField-VLA + TrustDrive-WAM + JEPA-D
 date: 2026-09-23
 draft: false
 categories: ["个人思考"]
-summary: "VLA/WM/WAM + 四大项目面试复习长文（4400+ 行）：名词与公式；FM/GRPO/风险场/JEPA/MoT 伪代码；第一人称口述稿（含比亚迪 MOT）；VLA 统一建模四层、世界模型、世界动作模型原理精讲；预训练/后训练全解；具身与 VLA 工程师岗位指南；40+ 压力面问答。"
+summary: "VLA/WM/WAM + 比亚迪MOT + 四项目面试全书（5300+ 行）：原理与伪代码；第一人称口述；预训练后训练；具身/VLA岗位指南；ML八股/概率/手写题/论文；按真实被问原题整理的实战包（自我介绍、手撕FM、yaw、RL数据单位、离职与反问、自驾vs具身迁移）。"
 tags: ["面试", "自动驾驶", "Flow Matching", "GRPO", "VLA", "WAM", "JEPA", "NAVSIM"]
 math: true
 weight: 98
@@ -20,6 +20,8 @@ weight: 98
 5. **第四部分：预训练与后训练全解** —— 自监督目标、数据配方、SFT→RL 流水线、DPO/PPO/GRPO 对比、工程清单与 Q&A。
 6. **第五部分：具身智能 / VLA 工程师岗位指南** —— JD 黑话翻译、知识树、动作表示、从 0 设计 VLA、八股与手写题、2-4 周冲刺计划。
 7. **第六部分：VLA / WM / WAM 原理精讲（第一人称）** —— 统一建模四层、世界模型定义与三形态、世界动作模型四支柱、对比表、口述稿与追问链。
+8. **第七部分：基础补强** —— ML 八股（反传/LN/优化器/过拟合）、数学概率（高斯/KL/MLE/重要性采样）、手写题（FM 必背 + LRU/滑窗等）、π₀/OpenVLA/Diffusion Policy 论文 60 秒、行业与基模话术。
+9. **第八部分：真实面试实战包** —— 自我介绍、比亚迪 ownership 与手撕 Flow Matching、yaw 角、RL 数据计量、数据处理、MOT+FM+自回归+锚点 query、离职原因、自驾 vs 具身迁移、反问与 7 天计划。
 
 ---
 
@@ -4412,3 +4414,957 @@ def unpack(z):
 ---
 
 *本部分与第二补章话术互补：话术管「怎么开口」，本部分管「原理讲多深」。面试若只给 1 分钟，用各节 30/90 秒稿；若给 3 分钟以上，按四层/三用途/四支柱展开，并主动抛对比表和加塞例子。*
+
+---
+
+# 第七部分：基础补强 —— ML 八股 / 数学概率 / 手写题 / 论文深挖
+
+> 按「1–2 轮几乎必问」到「看目标」排序。自驾/具身技术面很少纯 LeetCode Hard，但 **ML 基础 + 概率** 几乎每场都有；手写题准备**高频中等**即可。
+
+---
+
+## 1. ML 基础八股（1–2 轮几乎必问）
+
+### 1.1 反向传播（必考，建议能口述链式法则）
+
+**一句话**：前向算 loss，反向用链式法则把 `∂L/∂θ` 一路乘回去，再用优化器更新 `θ`。
+
+```text
+例: y = Wx + b, L = (y - t)^2
+前向:  z = Wx + b,  L = (z-t)^2
+反向:
+  dL/dz = 2(z-t)
+  dL/dW = dL/dz * x          # 矩阵形状: 外积
+  dL/db = dL/dz
+  dL/dx = dL/dz * W          # 继续传给上一层
+更新:  W = W - lr * dL/dW
+```
+
+**面试常追问：**
+- 为什么需要激活函数？→ 不加则多层线性仍等价一层线性，没有非线性拟合能力。
+- 梯度消失/爆炸？→ 深层连乘：激活导数 <1 或权重过大时指数衰减/放大；解法：ReLU 系、残差、LN、合理初始化、梯度裁剪。
+- 梯度裁剪为什么常用 `clip_grad_norm` 而不是 value？→ 按范数整体缩放，保持方向，对 Transformer/RL 更稳。
+
+### 1.2 归一化：BN vs LN vs RMSNorm（VLM/Transformer 必问）
+
+| | BatchNorm | LayerNorm | RMSNorm |
+|---|-----------|-----------|---------|
+| 沿哪维归一 | batch 维 (N,H,W…) | 特征维 (C 或 D) | 特征维 |
+| 依赖 batch？ | **是**（推理用 running 统计） | 否 | 否 |
+| 适合 | CNN、大 batch | RNN/Transformer | LLaMA 系、省算力 |
+| 推理训练一致？ | 需 eval 模式 | 一致 | 一致 |
+
+```python
+# LayerNorm: 对每个样本的 D 维做标准化再仿射
+def layer_norm(x, gamma, beta, eps=1e-5):
+    mu = x.mean(-1, keepdim=True)
+    var = x.var(-1, keepdim=True, unbiased=False)
+    x_hat = (x - mu) / torch.sqrt(var + eps)
+    return gamma * x_hat + beta
+
+# RMSNorm: 去掉均值中心化，只除 RMS，更快
+def rms_norm(x, gamma, eps=1e-6):
+    ms = x.pow(2).mean(-1, keepdim=True)
+    return x * torch.rsqrt(ms + eps) * gamma
+```
+
+**为什么 Transformer 用 LN 不用 BN？** 序列长度不齐、batch 间 token 分布不稳；BN 会把不同样本的同一位置混在一起统计，破坏序列独立性。LN/RMSNorm 只看当前 token 自己的特征维。
+
+**Pre-LN vs Post-LN**：Pre-LN（先 LN 再 attn/mlp，残差更干净）训练更稳、是现代默认；Post-LN 原始 Transformer 需要 warmup。MOT 的 `MoTDecoderLayer` 是 Pre-LN 风格。
+
+### 1.3 优化器（SGD → Adam → AdamW）
+
+```text
+SGD:   θ = θ - lr * g
+Momentum:  v = β v + g ;  θ = θ - lr * v     # 冲量, 抗噪声
+Adam:  同时估一阶动量 m 和二阶动量 v_t
+       m = β1 m + (1-β1) g
+       v = β2 v + (1-β2) g^2
+       m̂ = m/(1-β1^t), v̂ = v/(1-β2^t)        # 偏差修正
+       θ = θ - lr * m̂ / (sqrt(v̂)+eps)
+AdamW: 权重衰减从梯度里拆出来直接作用在 θ 上
+       θ = θ - lr * (m̂/(sqrt(v̂)+eps) + λθ)  # 解耦衰减, 比 L2 更对
+```
+
+| 超参 | 常见值 | 作用 |
+|------|--------|------|
+| lr | pretrain 1e-4~3e-4; SFT 稍小; RL 更小 1e-5 级 | 步长 |
+| β1, β2 | 0.9, 0.95 或 0.999 | 动量时间尺度 |
+| weight decay | 0.01~0.1 | 防过拟合 |
+| warmup | 1%~3% steps | 防早期大梯度打飞 |
+| grad clip | 1.0 | 防爆 |
+
+**为什么 RL 后训练 lr 要更小、常要 warmup？** 组内采样 already  off-policy + KL 约束，大 lr 容易 KL 爆、clip 比例飙升。
+
+### 1.4 过拟合 / 欠拟合 / 正则（几乎必问）
+
+```text
+症状:
+  train 高 val 低  -> 过拟合
+  train val 都低   -> 欠拟合 (容量不够/没训够/特征差)
+
+过拟合手段 (按性价比):
+  1. 加数据 / 数据增强 / 去重防记答案
+  2. 早停 (early stopping), 监控 val 曲线
+  3. Dropout (Transformer 里常 0.0~0.1, LLM 预训练常 0)
+  4. Weight decay / label smoothing
+  5. 减容量: 少层/窄 hidden/低 rank (LoRA r 调小反了是更小容量)
+  6. 数据配比: 防止单源刷爆
+  7. EMA 权重做评测
+
+欠拟合手段:
+  加容量、加训练步数、调 lr、检查 label 是否对齐、检查 mask/pad 泄漏
+```
+
+**诊断三件套**（面试可背）：画 train/val 分项 loss；固定 seed 过拟合 1 个 batch 看能否到 0（管线通不通）；查数据（标签错位、重复、pad）。
+
+### 1.5 损失函数速查
+
+| 损失 | 公式直觉 | 用在哪 |
+|------|----------|--------|
+| MSE | `(pred-gt)^2` | 轨迹回归、Flow 速度场、JEPA |
+| MAE/L1 | 绝对值 | 对 outlier 更稳 |
+| CE | `-log p(correct)` | 语言 token、分类 |
+| Focal | `(1-p)^γ * CE` | 极端正负样本不均 |
+| Contrastive | 拉近正、推远负 | SimCLR/CLIP |
+| Huber | 平滑 L1/L2 | 轨迹含噪声时 |
+| Ranking/Listwise | 对齐序而非绝对值 | 我们 PDMS 评分头 |
+| PPO clip | `-min(ratio A, clip A)` | GRPO 后训练 |
+
+**为什么轨迹有时用 Huber 不用 MSE？** 少数离群标注（打滑、定位跳）在 MSE 下梯度过大，Huber 尾部线性更稳。
+
+### 1.6 Dropout / Label Smoothing / 激活
+
+```text
+Dropout:  训练随机置零, 集成多种子网络; 推理关闭并 scale
+Label smoothing: 把 one-hot -> (1-ε) + ε/K, 防对错过度自信, LLM 常 0.1
+ReLU: max(0,x), 会死神经元;  GELU/SiLU 平滑版, 现代 LLM/DiT 常用
+SwiGLU: LLaMA FFN 用, 门控, 比 GELU 略强但参数结构不同
+```
+
+### 1.7 Dropout 和「训练/推理不一致」检查清单
+
+```text
+[ ] model.train() / model.eval() 切对了吗
+[ ] BN 的 running stats 更新了吗
+[ ] 扩散/流采样步数 train 和 eval 一致吗
+[ ] 数据增强 eval 是否误开
+[ ] dropout 在 RL inner epoch 是否造成 log_prob 噪声过大
+```
+
+### 1.8 梯度检查点 / 混合精度 / 显存（工程加分）
+
+```text
+AMP/FP16/BF16:  前向反向低精度, master 权重 FP32 更新
+BF16 比 FP16 少溢出问题, A100/H100 上 LLM 常用
+Gradient checkpointing: 前向只存边界激活, 反传重算, 省显存换时间
+梯度累积:  小 batch 模拟大 batch
+梯度同步:  DDP 每 step all-reduce; FSDP 分片参数
+```
+
+---
+
+## 2. 数学 / 概率（研究岗 + 大厂基础轮）
+
+### 2.1 期望方差与协方差
+
+```text
+E[X] = sum p(x) x          离散;  积分连续
+Var(X) = E[(X-μ)^2] = E[X^2] - μ^2
+Std = sqrt(Var)
+Cov(X,Y) = E[(X-μx)(Y-μy)]
+Corr = Cov/(σx σy)  in [-1,1]
+
+和的期望: E[X+Y]=E[X]+E[Y]
+独立时和的方差: Var(X+Y)=Var(X)+Var(Y)
+线性: E[aX+b]=aE[X]+b;  Var(aX+b)=a^2 Var(X)
+```
+
+**和我们的联系**：GRPO 组内 advantage 用均值方差归一化——本质是把 reward 变成组内标准化随机变量，期望 0 方差 1，稳定不同场景量纲。
+
+### 2.2 高斯分布（Flow/GRPO 的地基）
+
+```text
+一元:  N(μ,σ²),  pdf = 1/sqrt(2πσ²) * exp(-(x-μ)²/(2σ²))
+log pdf = -0.5*log(2π) - log σ - (x-μ)²/(2σ²)
+
+多元对角:  N(μ, Σ),  Σ=diag(σ²)
+log N(x) = -0.5 * sum_i [(x_i-μ_i)²/σ_i² + log σ_i²] + const
+
+采样:  x = μ + σ ⊙ ε,  ε~N(0,I)   (重参数化, 可反传)
+N(0,I) + 线性变换 = 高斯
+两个高斯乘积仍是高斯 (共轭), 条件高斯有闭式
+```
+
+**手写题预警**：面试可能让你写高斯 log-prob 或采样——见 Flow-GRPO 代码段。
+
+### 2.3 MLE / MAP / CE 的关系（研究岗爱问）
+
+```text
+MLE:  θ* = argmax log p(D|θ)
+     等价于最小化负对数似然
+分类 softmax+CE = 多项分布的 MLE
+MSE  = 高斯噪声假设下的 MLE (方差固定)
+
+MAP:  argmax log p(D|θ)+log p(θ)
+     先验项 -> 等价正则 (L2 <-> 高斯先验)
+
+生成模型两大类:
+  似然法:  自回归、VAE、流 (可算 bound/似然)
+  非似然/得分法:  扩散/对比, 学 score 或速度场
+Flow Matching 属于学向量场连接两端分布, 直观上是"把概率质量搬运的最优路径回归"
+```
+
+**一句话**：「CE 是分类的 MLE；MSE 是高斯噪声下的 MLE；我们 Flow 的 MSE 是速度场回归，不是直接对数据似然最大化。」
+
+### 2.4 KL 散度 / 交叉熵 / 总变差
+
+```text
+KL(p||q) = sum p log(p/q) = E_p[log p - log q]
+  非负, 不对称;  KL=0 iff p=q
+  上界相关: KL >= 0,  Pinsker: TV² <= KL/2
+
+交叉熵 H(p,q) = -sum p log q = H(p) + KL(p||q)
+  最小化 CE 等价最小化 KL (p 固定时)
+
+应用:
+  RL 的 KL 惩罚:  防 π 远离 π_ref
+  JEPA/VICReg: 不直接用 KL 但思想是约束分布形状
+  DPO: 隐式 reward = β log π/π_ref
+```
+
+**和 L2 的区别**：L2 比数值差；KL 比分布形状，对「把概率放到 p 几乎为 0 的地方」惩罚更狠——RL 防乱飘用 KL 更有理论感。
+
+### 2.5 梯度与链式法则（口述版）
+
+```text
+方向导数最大方向 = 梯度方向
+SGD 沿负梯度
+多元链式:  ∂L/∂x = ∂L/∂y * ∂y/∂x
+雅可比矩阵 J = ∂y/∂x, 反传是 J^T 乘上游梯度
+Hessian 与曲率: 牛顿法用, 深度学习一般不用全 Hessian
+```
+
+### 2.6 概率不等式/估计（加分）
+
+```text
+大数定律:  样本均值 -> 期望
+中心极限:  独立同分布和趋向正态
+蒙特卡洛:  用采样估计期望 (RL reward 平均、FM loss 都是 MC)
+重要性采样:  E_p[f] = E_q[(p/q) f]  -> PPO ratio 的来源
+偏差-方差分解:  泛化误差 = 偏差² + 方差 + 噪声
+```
+
+**重要性采样和 PPO 串讲**（高价值答案）：
+> 「PPO 的 ratio 就是重要性采样权重：数据来自 π_old，却要优化 π_new 的期望，乘 `π_new/π_old` 校正分布；clip 是方差控制，防止比值极端样本主导梯度。」
+
+### 2.7 信息论与正则（一句带过）
+
+```text
+互信息 I(X;Y)=H(X)-H(X|Y)
+最大互信息 -> 学有判别力的表征 (对比学习与之呼应)
+MDL/压缩视角: 好表征短描述长度 -> VICReg 防冗余维度
+```
+
+### 2.8 线性代数快问快答
+
+```text
+矩阵乘法结合律有, 交换律一般没有
+特征分解 A v = λ v;  对称阵可正交对角化
+SVD:  A = U Σ V^T;  低秩近似 = 只留大奇异值  -> LoRA 低秩动机
+范数:  Frobenius / L2 权重范数与 weight decay
+数值稳定:  softmax 先减 max;  log-sum-exp 技巧
+```
+
+---
+
+## 3. 手写题 / LeetCode 中高频（看公司，准备 10 道级别）
+
+> 自驾/具身公司算法轮常见：**数组字符串、链表、二叉树、栈队列、哈希、双指针、滑动窗口、LRU、简单 DP**。Hard 图论/并发题较少；**更常见的是手写模型片段**（见下）。
+
+### 3.1 模型手写（比 LC 更可能！优先准备）
+
+```text
+1. scaled dot-product attention + 多头拆分
+2. Flow Matching 训练 step + Euler 推理   [你已被考过]
+3. PPO-clip loss
+4. GRPO 组内 advantage
+5. LoRA 前向
+6. 高斯 log-prob
+7. softmax / LN 手写数值稳定版
+8. BEV 简单投影或 IoU 计算
+```
+
+**Flow Matching 训练+推理（你被手撕过的标准答案，请背到肌肉记忆）：**
+
+```python
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+
+class VelocityNet(nn.Module):
+    def __init__(self, dim=2, d=128):
+        super().__init__()
+        self.net = nn.Sequential(
+            nn.Linear(dim + 1, d), nn.GELU(),
+            nn.Linear(d, d), nn.GELU(),
+            nn.Linear(d, dim),
+        )
+
+    def forward(self, x, t):
+        # x: (B, L, 2), t: (B,)
+        h = torch.cat([x, t.view(-1, 1, 1).expand_as(x[..., :1])], dim=-1)
+        return self.net(h)
+
+def fm_train_step(model, opt, x1):
+    """
+    x1: (B, L, 2) 真实轨迹
+    """
+    model.train()
+    B = x1.shape[0]
+    x0 = torch.randn_like(x1)                 # 噪声端
+    t = torch.rand(B, device=x1.device)       # 时间
+    tb = t.view(B, 1, 1)
+    xt = (1 - tb) * x0 + tb * x1              # 直线插值
+    v = model(xt, t)                          # 预测速度
+    target = x1 - x0                          # 目标速度
+    loss = F.mse_loss(v, target)
+    opt.zero_grad()
+    loss.backward()
+    opt.step()
+    return loss.item()
+
+@torch.no_grad()
+def fm_sample(model, B, L=30, steps=20):
+    model.eval()
+    x = torch.randn(B, L, 2)
+    dt = 1.0 / steps
+    for i in range(steps):
+        t = torch.full((B,), i / steps, device=x.device)
+        v = model(x, t)
+        x = x + v * dt                        # Euler
+    return x                                  # 生成轨迹
+```
+
+**追问准备**：为何 target 是 `x1-x0`？（直线求导）；steps 为何 20？（精度 vs 延迟）；如何加条件？（cat/cross-attn 条件进 net）；多模态怎么保？（随机 x0 + 行为 token）。
+
+### 3.2 LC 高频清单（各备 15 分钟思路即可）
+
+**滑动窗口 —— 无重复最长子串**
+```python
+def length_of_longest_substr(s: str) -> int:
+    seen, left, ans = set(), 0, 0
+    for right, ch in enumerate(s):
+        while ch in seen:
+            seen.remove(s[left]); left += 1
+        seen.add(ch)
+        ans = max(ans, right - left + 1)
+    return ans
+```
+
+**双指针 —— 两数之和（有序数组）/ 移除元素**
+```python
+def two_sum_sorted(nums, target):
+    i, j = 0, len(nums) - 1
+    while i < j:
+        s = nums[i] + nums[j]
+        if s == target: return [i, j]
+        if s < target: i += 1
+        else: j -= 1
+    return []
+```
+
+**哈希 —— 两数之和（无序）**
+```python
+def two_sum(nums, target):
+    pos = {}
+    for i, x in enumerate(nums):
+        if target - x in pos: return [pos[target - x], i]
+        pos[x] = i
+    return []
+```
+
+**链表 —— 反转 / 环 / 合并两个有序链表**
+```python
+class ListNode:
+    def __init__(self, val=0, next=None):
+        self.val, self.next = val, next
+
+def reverse_list(head):
+    prev = None
+    while head:
+        head.next, prev, head = prev, head, head.next
+    return prev
+
+def has_cycle(head):
+    slow = fast = head
+    while fast and fast.next:
+        slow = slow.next
+        fast = fast.next.next
+        if slow is fast: return True
+    return False
+```
+
+**LRU（必考级）**
+```python
+from collections import OrderedDict
+
+class LRUCache:
+    def __init__(self, capacity: int):
+        self.cap = capacity
+        self.d = OrderedDict()   # 保插入顺序
+
+    def get(self, key):
+        if key not in self.d: return -1
+        self.d.move_to_end(key)  # 访问移到队尾
+        return self.d[key]
+
+    def put(self, key, value):
+        if key in self.d:
+            self.d.move_to_end(key)
+        self.d[key] = value
+        if len(self.d) > self.cap:
+            self.d.popitem(last=False)  # 淘汰队首
+```
+
+**手写 OrderedDict 原理追问**：哈希表 O(1) 查找 + 双向链表维护新旧；Python 标准库 `OrderedDict` 近似；面试可主动说「自己实现就是 dict + doubly linked list」。
+
+**栈 —— 有效括号 / 最小栈**
+```python
+def is_valid_brackets(s):
+    mp = {')': '(', ']': '[', '}': '{'}
+    st = []
+    for ch in s:
+        if ch in '([{': st.append(ch)
+        else:
+            if not st or st[-1] != mp[ch]: return False
+            st.pop()
+    return not st
+```
+
+**二叉树 —— 层序遍历 / 最大深度**
+```python
+from collections import deque
+
+def level_order(root):
+    if not root: return []
+    q, out = deque([root]), []
+    while q:
+        level = []
+        for _ in range(len(q)):
+            n = q.popleft(); level.append(n.val)
+            if n.left: q.append(n.left)
+            if n.right: q.append(n.right)
+        out.append(level)
+    return out
+
+def max_depth(root):
+    if not root: return 0
+    return 1 + max(max_depth(root.left), max_depth(root.right))
+```
+
+**简单 DP —— 爬楼梯 / 最长递增子序列 O(n log n)**
+```python
+def climb(n):
+    a, b = 1, 1   # dp0, dp1
+    for _ in range(n - 1):
+        a, b = b, a + b
+    return b
+
+import bisect
+def lis(nums):
+    tails = []
+    for x in nums:
+        i = bisect.bisect_left(tails, x)
+        if i == len(tails): tails.append(x)
+        else: tails[i] = x
+    return len(tails)
+```
+
+**区间/贪心 —— 合并区间**
+```python
+def merge_intervals(intervals):
+    intervals.sort(key=lambda x: x[0])
+    out = [intervals[0]]
+    for s, e in intervals[1:]:
+        if s <= out[-1][1]: out[-1][1] = max(out[-1][1], e)
+        else: out.append([s, e])
+    return out
+```
+
+### 3.3 手写题考场策略
+
+```text
+1. 先复述+问边界 (空、重复、规模、有序否)
+2. 先说暴力, 再优化到 O(n)/O(n log n)
+3. 边写边说不变量
+4. 用例: 空、单元素、全相同、负数、极长
+5. 如果卡住: 降级讲思路/复杂度, 别硬憋
+6. 模型题: 先说训练目标和张量 shape 再写
+```
+
+### 3.4 时间预算
+
+```text
+算法轮 60 分钟典型:
+  5min 自我介绍/项目钩子
+  10min 一道中等 LC (或直接模型题)
+  20min 项目深挖 (MOT/WAM/FM)
+  10min ML 八股
+  10min 反问
+模型手写题通常直接替掉 LC。
+```
+
+---
+
+## 4. 论文深挖（π₀ / OpenVLA / Diffusion Policy 等，各 60 秒 + 追问）
+
+### 4.1 π₀（必准备，你项目直系亲属）
+
+**60 秒：**
+> 「π₀ 是 Physical Intelligence 的 VLA：冻结/半冻结 VLM 做多模态理解，动作不走 LLM 自回归 token，而是 **Flow Matching 动作专家**——一个小一些的 transformer 通过 **cross-attention 读 VLM 的 KV cache**，从噪声迭代出连续动作块。设计动机是：动作要连续、低延迟、多峰；LLM 离散 token 精度和实时性不够。**π₀ 原版没有 FAST**；FAST 是另一条离散化动作的变体。」
+
+**结构要点：**
+```text
+输入: 图像 + 语言 + 机器人状态
+VLM:  编码成 KV
+动作专家: 初始噪声动作块, T 步 FM, cross-attn 条件在 KV 上
+输出: action chunk (多关节连续值)
+训练: 演示上 Flow MSE; 可再 RL (π₀ 家族后续工作)
+```
+
+**追问：**
+1. 和我们比亚迪 MOT 差在哪？→ π₀ 动作专家是**外挂子网 + 末端 cross-attn**；MOT 是**每层双套 QKV/FFN 分路径**，交织更深；我们 gen 还双向自注意 + 可接风险/可信条件。
+2. 为什么冻结 VLM？→ 保护语言/视觉能力，动作梯度杂；我们 Reasoner detach 同理。
+3. 步数多少？→ 动作块短，个位数到几十步可调；延迟用步数和蒸馏权衡。
+4. 和 Diffusion Policy 关系？→ 同属条件动作生成；π₀ 强在大规模 VLM 条件与语言泛化。
+
+### 4.2 OpenVLA
+
+**60 秒：**
+> 「OpenVLA 是开源 VLA 基线：视觉编码器 + LLM，把**动作量化成离散 token**，用 next-token prediction 自回归吐动作。优点是结构简单、复用 LLM 生态、开源权重大；缺点是量化损失、逐 token 延迟、多峰靠采样温度硬撑。我一般拿它当『离散动作路线』的对照物。」
+
+**追问：** 动作怎么量化？→ 各维均匀 bins 或学习码本；bin 太少精度差，太多词表大。和 π₀ 选型：要连续丝滑选 FM/扩散，要极致复用 LLM 训练设施可选离散。
+
+### 4.3 RDT / RDT-2（你简历里有，防深挖）
+
+**RDT**：双臂/多任务大扩散动作模型，条件含语言和本体，动作用扩散生成多峰。
+
+**RDT-2**：训练上引入 **RVQ 残差量化**，让 VLM 用 CE 学离散动作（监督稳）；**推理不再走 RVQ 解码**，而是连续动作头/流——训练离散、推理连续。面试若问「推理用不用 RVQ」答：**不用**，RVQ 主要服务训练阶段的语义对齐。
+
+### 4.4 Diffusion Policy（具身岗高频）
+
+**60 秒：**
+> 「Diffusion Policy 把视觉条件下的机器人动作当成扩散生成问题：观测历史编码成条件，用 DDPM/一致性方式从噪声生成 **action chunk**。核心卖点是**多峰动作分布**（擦桌子可以左绕右绕）和比单纯回归更稳的成功率；代价是采样步数。ACT 则是 CVAE+Transformer，更快偏单峰；我项目用的 Flow Matching 可看成这条线上更直线、更易接 RL 的点。」
+
+**追问：**
+1. 为什么 chunk？→ 平滑、降决策频率、和扩散多模一次生成匹配。
+2. 观测怎么进？→ CNN/ViT 编码历史帧 + 机器人状态，作为空间/时间条件（FiLM 或拼接）。
+3. 推理步数？→ 原版可到 100；实际 10–50 或蒸馏到 1–4。
+4. 和 π₀ 比？→ DP 专注操作、条件较小；π₀ 挂大 VLM 语言泛化强。
+
+### 4.5 ACT（Aloha 系，具身常问）
+
+**60 秒：**
+> 「ACT = Action Transformer with CVAE：编码观测，隐变量 z 吸收多模态，解码动作块；训练时 KL 约束 z，推理可 z=0 或采样。特点是**快、适合真机高频**，在 Aloha 双臂上很成功。和扩散比：单步快、多峰靠 CVAE 不如扩散强，但部署友好。」
+
+### 4.6 其他扫盲名单（被点名能接住即可）
+
+| 论文/系统 | 一句话 |
+|-----------|--------|
+| CLIP | 图文对比对齐，零样本分类 |
+| LLaVA | 视觉特征投影进 LLM 做指令微调 |
+| V-JEPA | 视频表征预测未来，世界模型向 |
+| Dreamer | latent 世界模型 + 想象中训策略 |
+| Decision Transformer | 用 RL �Return 当条件的序列建模 |
+| Diffusion Transformer (DiT) | patch token + 时空注意力的扩散骨干 |
+| FLUX/SD3 | 图像 FM 主流，工程参考 |
+| DeepSeekMoE | 共享专家 + 细粒度路由专家 |
+| DAgger | 在策略状态收集专家标签 |
+| ACT/Aloha | 真机低延迟动作块 |
+
+### 4.7 「基模大家都怎么做」+「自动驾驶到什么程度」（你被问过，标准话术）
+
+**基模（通用模型）三条路线：**
+```text
+1. 单一大模型吃所有模态 (稠密):  一个 Transformer 硬融合 -> 简单但模态互相稀释
+2. 混合专家 MoE / MoT:            参数分片, 激活稀疏 -> Cosmos-3 MoT, DeepSeekMoE
+3. 模块基座 + 统一接口:            各域最强骨干 + 对齐层/动作头 (很多车厂现实选择)
+
+我合作的比亚迪侧: 路线 2+3 —— Cosmos-3 MoT 双塔当底座,
+Reasoner 继续多模态理解, Generator 挂 Flow 动作专家 (FM + 自回归 + 锚点 query 工程变体)
+```
+
+**自动驾驶现在什么程度（客观叙事，防吹防黑）：**
+```text
+能力:
+  - 高速/城市 NOA 已量产, 头部能处理大部分常规交互
+  - 端到端 + 世界模型成为主流研发方向, 数据闭环比模型结构更像护城河
+  - 开环榜 (NAVSIM 等) 分数内卷, 与真闭环仍有 gap
+局限:
+  - 长尾 corner case、施工、恶劣天气、博弈仍要大量兜底规则
+  - 传感器+算力成本、法规责任、接管率是量产瓶颈
+  - 严格 L4 运营设计域仍窄
+
+我的判断 (面试可说):
+  下一阶段胜负手是 [数据闭环 + 世界模型想象 + 安全可信接口],
+  不是单一网络结构; 这也是我从自驾往具身迁的逻辑 —— 技能同构, 数据形态不同
+```
+
+**为何比亚迪自驾不如华为/理想（高危题，答法=只讲结构差异不贬低）：**
+```text
+不要说: 组织/谁不行 (显得幼稚且有风险)
+要讲客观结构因素:
+  1. 战略重心: 车型矩阵宽、电动化三电投入极重, 智驾资源被摊薄 vs 全栈软件公司
+  2. 全栈自研深度: 华为有芯片+车云+ADS 全链, 理想重仓智驾研发与数据闭环时间早
+  3. 数据与量产闭环: 头部城市 NOA 量、接管数据回流规模存在先发积累
+  4. 生态: 昇腾算力/工具链自研 vs 采购适配的迭代速度差
+
+高情商收尾:
+  「差距更多在全栈投入节奏和数据闭环规模, 不是某一层算法不可逾越;
+   我们用开放底座 (Cosmos 等) + 场景化 WAM/安全层, 是成本结构下的理性路线;
+   算法点上 FM/联合流这些我是一线做过的, 迁移速度不差。」
+```
+
+---
+
+# 第八部分：真实面试实战包（按你被问过的原题准备）
+
+> 依据你回忆的现场：自我介绍、比亚迪负责什么、手撕 FM、yaw 角、RL 数据单位、数据怎么处理、MOT+FM+自回归+锚点 query、离华为理想差距、自驾 VLA/WM vs 具身、迁移、行业阶段、基模、反问、离职原因。**全部第一人称可背。**
+
+---
+
+## 1. 自我介绍（1 分钟 / 2 分钟两版）
+
+### 1.1 一分钟版（技术面开场）
+
+> 「您好，我叫 XXX，目前在比亚迪（清华背景合作公司）做**自动驾驶世界模型与端到端策略**，主要和比亚迪侧联合攻关 **MOT 架构的世界模型 + Flow Matching 动作专家**。
+>
+> 我的技术主线是三块：
+> **1) 统一建模底座**——Cosmos-3 双塔 MoT，Reasoner 理解、Generator 生成，序列打包和双路径注意力是我落地的；
+> **2) 连续动作生成**——动作专家用 Flow Matching，训过训练步和 Euler 推理，也接过自回归与锚点 query 的工程变体；
+> **3) 世界动作联合**——WAM：动作与后果同一条流，加可信路由。
+>
+> 在此之外我独立推进过风险场 VLA + Flow-GRPO（NAVSIM 0.87）、JEPA 表征世界模型等项目。我接下来想投**具身智能/VLA**，因为自驾的多模态条件生成、动作块、后训练和安全接口，和机械臂/移动机器人是同构问题，我希望把这套闭环搬到真机上。」
+
+### 1.2 两分钟版（可插数字与公司合作点）
+
+在 1 分钟版基础上加：
+> 「和比亚迪的合作形态是**联合项目**：我这边出模型结构与训练框架（MOT 前向、Flow 动作专家、WAM 联合损失），车端数据与场景由业务侧提供。交付上我负责关键代码路径和消融，例如动/静锚点 query 对长尾切入的成功率、动作专家 FM vs 自回归的延迟对比。我更擅长把论文级结构落到可训练可监控的代码上，而不只是调包。」
+
+### 1.3 自我介绍公式（记不住长稿就用这个）
+
+```text
+身份一句话 -> 主项目(MOT+FM 合作) -> 技能三条(底座/动作/后训练或安全) ->
+一个数字 -> 迁移动机(具身) -> 停, 等对方接话
+切忌: 流水账教育经历、与岗位无关的课设
+```
+
+---
+
+## 2. 「你在比亚迪主要负责什么」+ 手撕 Flow Matching 预案
+
+### 2.1 标准回答（先 ownership 再细节）
+
+> 「我在比亚迪合作项目里，主线是 **MOT 架构下的动作专家与世界模型训练**，具体三块：
+>
+> **第一，Flow Matching 动作专家。** 在 Generator 侧/动作头上实现条件流匹配：轨迹/关节动作块从噪声直线路径回归速度场，我写过并能默写**训练 step 和 Euler 推理**；也做过与**自回归动作头**的对比（离散 token 稳、好复用 LM 设施；FM 连续、多峰、延迟可控），以及**锚点 query** 驱动的动作槽位初始化。
+>
+> **第二，MOT 双塔前向。** und/gen 两套投影、causal vs bidirectional、gen→und cross-attn 与 detach 边界、序列打包 mask。
+>
+> **第三，WAM 联合与训练闭环。** 动作与后果同一联合流，逆一致、风险/支持域分量、可信路由；后训练侧接组相对策略优化。
+>
+> 数据侧我参与多相机 token 对齐、演示/仿真轨迹清洗和质量过滤。手撕的话我从 FM 训练和推理写起都可以。」
+
+### 2.2 手撕 FM：考场 5 分钟脚本（你说被要求写 train + sample）
+
+**Step0 黑板公式（30 秒）**  
+`x_t=(1-t)x0+t x1`，`v*=x1-x0`，`loss=MSE(v_θ,v*)`，推理 `x←x+vΔt`。
+
+**Step1 写模块**（VelocityNet，shape 注释清楚）  
+**Step2 写 train_step**（采 x0、采 t、插值、预测、MSE、backward）  
+**Step3 写 sample**（randn、for steps、Euler、no_grad）  
+**Step4 主动补 3 个 bullet 加分**：
+- 条件怎么进：`cond` 拼进特征或 cross-attn；
+- 步数与 Heun 二阶；
+- 若接 GRPO：确定性 ODE 无 log_prob，采样改 SDE。
+
+**易错点（写之前默念）：**
+```text
+[ ] t 广播 (B,1,1) 不是 (B,)
+[ ] target 是 x1-x0 不是 x1
+[ ] sample 里 model.eval + no_grad
+[ ] 训练/推理同一归一化空间
+[ ] dt = 1/steps, t = i/steps 对齐
+```
+
+**若被追问「自回归和 FM 你们怎么选」：**
+```text
+自回归:  动作离散化, 复用 CE/KV cache, 精度受 bin, 逐步误差累积
+FM:      连续块一次出, 多峰好, 步数换延迟, 易接 GRPO
+锚点 query: 给动作头一组可学习槽位, 从场景里 cross-attn 取目标位置
+          再在锚点附近流式细化 —— 相当于 DETR anchor 对连续动作的类比,
+          收敛更快、多目标/多假设好挂
+最终选择看: 延迟预算、演示是否多峰、是否要 RL
+```
+
+### 2.3 若突然改考「写 attention / PPO」快速入口
+
+同第七部分清单；PPO 一定写 `ratio=exp(new-old)` + `min` + `clip`。
+
+---
+
+## 3. 高频场景题（你被问过的原题）
+
+### 3.1 「为什么自动驾驶要 yaw 角？不是输出 x,y 就行吗？」
+
+> 「因为车是**非完整约束（non-horizon）的刚体**，不是质点。
+>
+> 1. **状态可定义**：只给 (x,y) 无法区分车头朝东还是朝北，同一位置不同朝向，下一步可行域完全不同；
+> 2. **运动学**：自行车模型 `ẋ=v cosψ, ẏ=v sinψ, ψ̇=v/L tanδ`——yaw ψ 是状态转移核心变量，缺了无法积分轨迹；
+> 3. **几何占据**：碰撞检测是**有向包围盒**，长度宽度沿 yaw 展开；两个车中心重合判断不了，必须朝向；
+> 4. **控制接口**：横摆角速度、航向跟踪、曲率 κ≈Δψ/Δs 都直接用 yaw；
+> 5. **多模态表示**：换道/掉头在 (x,y) 下轨迹交叉纠缠，在 (x,y,ψ) 下方向语义清晰。
+>
+> 所以我们轨迹常见输出是 **(x, y, yaw)** 三维（或再加 v、曲率、加速度）；若输出世界系速度矢量，也要能等价反出 yaw。2D 只存在于把车当质点的极简规划玩具里。」
+
+**加分一句**：「SE(2) 位姿 = 平移 2 维 + 旋转 1 维 = yaw 正是那个旋转自由度。」
+
+### 3.2 「强化学习的数据集计量单位是什么？」
+
+> 「我一般按**三层单位**讲，避免只答一个词：
+>
+> **1) 单条数据 —— transition / step**：`(s_t, a_t, r_t, s_{t+1})` 一条时序步，有的库叫 `timestep` 或 `t`；
+> **2) 一段数据 —— episode / clip / trajectory**：从初始到终止（或时长上限）的一段；机器人/视频 RL 常用 **clip**（固定秒数或固定帧的片段），自驾日志常用 **scenario / log segment**；
+> **3) 数据集规模 —— 常见四种并报**：
+> - `num_steps`（总 transition 数，百万/千万 step）；
+> - `num_episodes`（多少段）；
+> - `num_envs × num_steps`（并行环境步）；
+> - 若是演示/离线数据集：**hours / hours of teleop** 或 **clips × fps × 时长**。
+>
+> 例：『我们离线池约 2e6 steps / 5 万 clips；GRPO 每更新采样 G=24 条轨迹 × T=32 步 = 768 个 RL step/场景，再组内归一。』
+>
+> 若对方指的是**监督视频/VLA 预训练**，则常用：**frames、clips、hours、episodes、keyframes、camera-hours**（多相机还要乘 N_cam）。我们 MOT 训练说的 **clips + frames + 相机数** 就是这个口径。」
+
+**你上次说 T、clips 是对的**——这次补上 transition/step 和「总步数 vs 段数 vs 小时数」三件套即可显得更专业。
+
+### 3.3 「数据怎么处理？」（训练数据管线，通用+我们的）
+
+```text
+自驾/MOT/WAM/VLA 通用七步:
+1. 采集与同步:  多传感器时间对齐, 外参标定, 丢包检测
+2. 抽段:        按场景切 clip (变道/无保护左转/加塞...), 固定时长或事件驱动
+3. 清洗:
+   - 轨迹质量: 定位跳变、急刹尖峰、人为接管段剔除或降权
+   - 重复: 感知哈希 + embedding 去重
+   - 错误标: 规则碰撞误报、车道线错
+4. 标签/条件:  自车轨迹重采样到统一 T, 归一化到 ego 系;
+              导航指令、红绿灯、他车未来 (预测用), 风险标签可自动算
+5. 编码:        图像-> DCAE/BEV token; 文本-> BPE; 动作-> 归一化数值
+              (归一化均值方差或按轴 max scale, 否则 FM 各维尺度失衡)
+6. 配比与增广:  常规:长尾≈8:2 再难例上采样; 天气/光照/噪声增广;
+              模态 dropout (掉一路相机仍能训)
+7. 打包:        变长 padding 或 sequence packing; 烧 moe_gen_mask
+              训练/验证按场景切分防泄漏 (同 clip 不能跨集合)
+```
+
+**面试金句**：「处理数据我会先问三件事：**对齐单位、归一化空间、长尾怎么进 batch**——这三件错了，结构再花也白训。」
+
+### 3.4 「你们的 VLA / 世界动作模型具体怎么做的？」（合并总答）
+
+> **VLA（RiskField-VLA / MOT 动作侧）：**
+> 输入多相机 + 导航 + 自车状态；MOT/VLM 统一编码；条件里拼**时空风险场**；动作头 **Flow Matching** 出 T 步轨迹块，双专家 Base/LTE 软门控，Risk-Init 初始化噪声；推理产 K 条用 PDM 类分数选；后训练 **Flow-GRPO**（SDE 采样 log_prob + PPO clip + LoRA）。
+>
+> **WAM：**
+> 不把『出招』和『算招’拆开。联合向量 `z=[轨迹|后果|风险|可信]` 同一条直线流积分；加**逆一致**逼着用动作；推理读支持域与风险做**双层可信路由**，不可信就回退经典规划。这样生成中途就知道代价，而不是事后 filter。
+>
+> **和纯 WM 差别**：纯 JEPA 只预测 `z_{t+1}` 不决策；WAM 是 `p(a,后果,风险,可信|c)`。
+
+### 3.5 「MOT + Flow Matching + 自回归 + 锚点 query」关系（合作项目核心题）
+
+```text
+我按「谁负责什么」讲:
+1. MOT:        底座. 每层 und/gen 双路径, 理解用因果+CE, 生成用双向+流/扩散
+2. 动作专家:    Generator 侧条件生成 action chunk
+   - FM 路线:     连续多峰, 我们主力, 能手撕 train/sample
+   - 自回归路线:   动作离散 token, 复用 LM, 便于与语言指令交织
+   - 二者常做 A/B: 延迟、成功率、多峰多样性
+3. 锚点 query:  可学习/场景生成的动作槽位 (DETR anchor 类比)
+                先 cross-attn 初定位/初朝向, 再 FM 在锚点邻域细化
+                收敛快, 多假设 (直行/变道) 可挂多锚点
+4. 训练:        SFT 演示 + 可选 GRPO; Reasoner 冻结或 detach
+一句话: MOT 是双塔公路, 锚点 query 是匝道口, FM/自回归是两种发动机, 动作 chunk 是货
+```
+
+### 3.6 「自驾的 VLA/世界模型 vs 具身的有什么区别？怎么迁移？」
+
+**60 秒标准答案：**
+
+> 「**本质同构，差在五处维度**——我会先讲同构建立信心，再讲差异显示懂行。
+>
+> **同构（可迁移的 80%）：**
+> 1. 都是 `p(动作块|视觉,语言,本体状态)` 的条件生成；
+> 2. 都用 Flow/扩散做多峰动作，chunk + 执行前 K 步 replan；
+> 3. 都要预训练-BC-SFT-RL 后训练，奖励设计、组内优势、LoRA 逻辑相同；
+> 4. 都要世界模型做想象与安全，支持域/OOD 思想相同；
+> 5. 多模态 token 化、注意力、EMA 防坍缩同一套。
+>
+> **差异（迁移要改的 20%）：**
+>
+> | 维度 | 自动驾驶 | 具身操作/移动 |
+> |------|----------|----------------|
+> | 输出维 | 低维 SE(2)：x,y,yaw,(v) | 机械臂 7-DoF×双臂 + 夹爪，维更高 |
+> | 时域 | 3–8s 轨迹，2–10Hz 规划 | 动作块 0.5–2s，控制 10–50Hz+ |
+> | 状态 | 开环/弱闭环车路 | **强接触物理**，力/柔顺/打滑 |
+> | 传感器 | 环视+定位，外参稳 | 手眼相机近距遮挡，频繁动 |
+> | 环境 | 公共道路，法规约束 | 桌面/室内，任务奖励更稀疏或人工 |
+> | 数据 | 车队日志 clip 小时 | 遥操作 episode 短、采集贵 |
+> | 失效 | 碰撞/接管，可 fallback 慢 | 摔机损坏，安全项更硬 |
+> | 指标 | PDMS/接管率 | 成功率、完成时间、鲁棒性 |
+>
+> **迁移路径我会直接说：**
+> 1. **动作头重参**：轨迹(x,y,yaw) → 关节流形，锚点 query 换成末端位姿/关节 anchor；
+> 2. **条件替换**：风险场→任务与接触风险；导航语言→操作指令；
+> 3. **奖励替换**：PDMS 乘积 → 成功率+时间+力约束，仍可用组相对 RL；
+> 4. **世界模型换模态**：DCAE 视频/表征 WM 保留，rollout 加接触物理可用仿真补；
+> 5. **频率与安全**：缩短 horizon、提高 replan，fallback 从『靠边停车』改成『冻结/回初始位』。
+>
+> 所以我不是跨行从零，是**把条件生成 + 后训练 + 可信接口这套方法论换 payload**。」
+
+**相似之处可再补 5 条（有时间就抛）：**
+```text
+- 都有多相机/多视角 token 与时序对齐
+- 都有『指令敏感性』问题 (左转 vs 加速 / 拧开 vs 关上)
+- 都有长尾数据问题 -> 拒绝采样/仿真合成
+- 都有开环评测虚高、闭环才见真章
+- 都需要模态 dropout 防传感器单点故障 (一路相机/一个关节编码器)
+```
+
+### 3.7 「离职原因」（你在比亚迪，这题必准备，勿说前东家坏话）
+
+> **推荐结构（真诚 + 向前看 + 岗位匹配）：**
+>
+> 「我在比亚迪这段收获很大——**MOT 底座、Flow 动作专家、WAM 联合建模**都是能进到生产级训练管线的工作，公司对世界模型方向也很支持。
+>
+> 我看新机会主要是三个原因：
+> 1. **方向聚焦**：我想更纯粹地做 **VLA/具身智能**，从『车上低维轨迹』走向『真机高维动作+接触物理』，贵司这个岗位和我的技术债几乎 1:1 对齐；
+> 2. **闭环深度**：我希望更多在**真机/仿真闭环**里打转，而不仅是开环日志评测——这是我想补的能力面；
+> 3. **成长曲线**：在现有合作里我已把 FM/MOT/WAM 主路径打通，下一步需要更大规模的数据闭环和更强的基座去碰撞，我判断贵司这边平台更合适。
+>
+> 所以不是对现状不满，而是**下一阶段的技能栈和贵司岗位更匹配**。」
+
+**避雷：**
+```text
+不要: 加班、领导、工资低、比亚迪不如华为、学不到东西
+可以微调: 「联合项目协作模式上，我更希望在产品-算法更紧的团队里端到端负责」
+若追问具体矛盾: 只谈工作方式/技术路线偏好, 不谈人事
+```
+
+**变体 —— 「为什么从自动驾驶转具身」：**
+> 「不是转赛道，是同一技术栈换载体：条件生成、动作块、RL 后训练、世界模型、安全路由全部复用；具身的强闭环和任务奖励反而更能验证我这些方法。」
+
+### 3.8 「职业规划」（HR/主管）
+
+```text
+1 年:  在贵司 VLA/具身把真机成功率与数据闭环打穿, 独立扛一条任务线
+3 年:  能定义动作基座(生成+后训练+安全)标准, 带小方向
+长期:  世界模型驱动的通用操作/移动智能体 —— 和我现在 WAM 路线连续
+避免: 「转管理」「创业」「读博再说」与岗位冲突的回答
+```
+
+### 3.9 优缺点（技术人安全版）
+
+```text
+优点:  能把论文结构落到可训练代码 (MOT/FM 一线); 习惯分模块消融与监控
+缺点:  有时过早抠实现细节; 正在练习先对齐目标再深潜 —— 举一次被 mentor 拉回来的例子
+```
+
+---
+
+## 4. 反问清单（你被要求反问，准备 6 选 3）
+
+### 4.1 技术深挖型（显水平）
+
+```text
+1. 团队 VLA 是自研基座还是站在 π₀/OpenVLA/自研 VLM 上改? 动作头更偏 FM 还是自回归?
+2. 后训练用 GRPO/PPO/DPO 吗? 奖励是规则任务成功还是学习 RM? 防 hack 怎么做?
+3. 真机与仿真比例? 域随机和 sim2real 瓶颈卡在渲染还是动力学?
+4. 世界模型是服务想象 RL、数据增广还是评测? 和策略是分开训还是一体?
+5. 安全上除了成功率, 有没有支持域/OOD、fallback、看门狗这类硬约束?
+```
+
+### 4.2 团队与成长型（HR 轮）
+
+```text
+6. 这个岗位前三个月最希望我解决的具体问题是什么?
+7. 团队现在最大瓶颈是数据吞吐、奖励设计还是真机时间?
+8. 算法从论文到上机的决策链是怎样的? 消融文化如何?
+```
+
+### 4.3 业务型（终面/主管）
+
+```text
+9. 产品侧第一阶段的成功率/延迟/成本红线分别是?
+10. 对「自驾经验迁移具身」的候选人, 你们最担心哪一环? 我可以怎么证明?
+```
+
+**模板**：技术面反问 1+2+5；HR 反问 6+7；终面 9+10。
+
+---
+
+## 5. 现场快答卡（30 秒级，防突然袭击）
+
+| 问题 | 30 秒骨架 |
+|------|-----------|
+| yaw 为什么需要 | 非完整约束 + 运动学 + 有向框碰撞 + 控制曲率 |
+| RL 数据单位 | transition/step；episode/clip；总 steps 或 hours 一起报 |
+| 数据怎么处理 | 同步→抽段→清洗→归一→配比→增广→packing |
+| FM 怎么训练 | x0,t,插值,MSE 到 x1-x0 |
+| FM 怎么推理 | randn + Euler T 步 |
+| FM vs AR | 连续多峰低延迟 vs 离散复用 LM；锚点 query 做初值 |
+| VLA 是什么 | `p(a|o,l)` 条件动作块生成 |
+| WM 是什么 | `p(s'|s,a)` 只预测不决策 |
+| WAM 是什么 | `p(a,后果,风险,可信\|c)` 联合流+路由 |
+| MOT vs MoE | 塔/路径级两条 vs FFN 专家级 top-k |
+| 比亚迪合作 | MOT 底座 + FM 动作专家 + WAM 联合，我负结构与训练 |
+| 为何离职 | 方向聚焦真机闭环 + 岗位技术债匹配，不贬低现司 |
+| 自驾 vs 具身 | 同构条件生成/后训练；差在动作维、频率、接触、奖励、数据 |
+| 自驾到啥程度 | NOA 量产成熟，胜负手转数据+WM+安全，开环闭环仍有 gap |
+| 基模怎么做 | 稠密统一 / MoE-MoT / 模块基座；我们是 MoT+动作头 |
+
+---
+
+## 6. 本部分自测清单
+
+- [ ] 1 分钟自我介绍能顺完不超时？
+- [ ] 比亚迪 ownership 三块 + 手撕 FM train/sample 8 分钟内写完？
+- [ ] FM vs 自回归 vs 锚点 query 关系能否 1 分钟讲清？
+- [ ] yaw 角四点理由？
+- [ ] RL 数据三层单位 + 一个带数字例句？
+- [ ] 数据处理七步？
+- [ ] 离职原因不踩雷版本？
+- [ ] 自驾 vs 具身对比表 + 迁移五步？
+- [ ] 离华为理想差距的高情商结构？
+- [ ] 行业阶段 + 基模三路线？
+- [ ] 反问 3 个已选好？
+- [ ] LRU / 滑动窗口 / 树层序 / 高斯 log prob 能限时写？
+- [ ] π₀、Diffusion Policy、ACT 各 60 秒？
+- [ ] KL vs CE、MLE、重要性采样与 PPO 能串讲？
+
+---
+
+## 7. 全文最终复习优先级（如果只剩 7 天）
+
+```text
+Day1  自我介绍 + 比亚迪 ownership + 手撕 FM (抄 5 遍默 2 遍)
+Day2  话术: MOT / VLA / WAM / JEPA 出声录屏回听
+Day3  第六部分 VLA/WM/WAM 原理 + 第三部分 40 题前 20
+Day4  yaw / RL 数据单位 / 数据处理 / FM vs AR vs 锚点 (本部分 3)
+Day5  ML 八股 LN-Adam-过拟合 + 概率 KL-MLE-高斯
+Day6  离职/规划/反问 + 自驾vs具身 + 行业与基模
+Day7  LRU+滑窗+attention 手写 + π₀/DP/ACT 60 秒 + 模拟一轮 60min
+```
+
+---
+
+*到此，本文覆盖：领域原理与四项目代码、第一人称话术、预训练后训练、岗位指南、VLA/WM/WAM 精讲、ML/数学/手写/论文基础、以及按你真实被问原题整理的实战包。吃透后优先保证「说得出、写得出手撕、答得体面离职与反问」——这三件比再堆冷门论文分高。*
