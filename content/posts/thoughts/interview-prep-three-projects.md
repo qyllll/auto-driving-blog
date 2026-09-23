@@ -3,463 +3,1267 @@ title: "自动驾驶面试深度复习：RiskField-VLA + TrustDrive-WAM + JEPA-D
 date: 2026-09-23
 draft: false
 categories: ["个人思考"]
-summary: "覆盖三大项目的完整面试复习文档：第一部分深度复盘所有知识点和专有名词，第二部分给出 Flow Matching、Flow-GRPO、VLA、WAM、JEPA 等核心算法的伪代码实现，第三部分附面试官压力面问题与参考回答。一篇搞定所有面试准备。"
+summary: "三大项目面试复习长文（3000+ 行）：第一部分逐术语定义+公式+代码复盘；第二部分 Flow Matching、Flow-GRPO、VLA 风险场、WAM 联合流、JEPA 三阶段完整伪代码；补章给出「你负责什么/Flow Matching/VLA/世界动作模型/JEPA 怎么做」五份 3-5 分钟口述稿（含算法代码）；第三部分 40 道压力面问答与追问链。"
 tags: ["面试", "自动驾驶", "Flow Matching", "GRPO", "VLA", "WAM", "JEPA", "NAVSIM"]
 math: true
 weight: 98
 ---
 
+# 使用说明
+
+本文档分三大部分，建议复习顺序：
+
+1. **第一部分：知识点深度复盘** —— 所有概念、专有名词的定义、公式、代码示例。每个术语都按「定义 / 为什么需要 / 代码怎么体现 / 面试怎么答」四个角度展开。
+2. **第二部分：核心算法伪代码** —— 从概念到可运行伪代码，逐段注释。覆盖 Flow Matching、Flow-GRPO、风险场 VLA、WAM 联合流、JEPA 全流程。
+3. **第三部分：压力面问题与参考回答** —— 25+ 道真实面试题，含标准回答、加分回答、追问链。
+
+---
+
 # 第一部分：知识点深度复盘
 
-> 这一部分覆盖三大项目涉及的所有概念、算法、专有名词。每个概念从"是什么 → 为什么 → 怎么用"三个角度讲清楚，小白也能看懂。
+> 本部分覆盖三大项目涉及的所有概念。每个小节先给「一句话定义」，再展开「为什么需要」「数学/代码细节」「面试答题模板」。
 
 ---
 
 ## 1. 自动驾驶大背景：为什么需要端到端？
 
-### 1.1 传统自动驾驶 vs 端到端
+### 1.1 专有名词表（本节）
 
-**传统方案（模块化）**：
+| 术语 | 全称 | 一句话定义 |
+|------|------|------------|
+| E2E | End-to-End | 从传感器输入到轨迹/控制输出，中间不依赖人工设计接口的单一可学习系统 |
+| 模块化 | Modular Pipeline | 感知、预测、规划、控制分开训练，用固定格式接口串联 |
+| Corner Case | - | 长尾危险场景，出现频率低但一旦出事后果严重 |
+| 误差累积 | Error Propagation | 上游模块的小误差被下游放大（感知偏 0.1 米，规划可能偏 1 米） |
+| 有损传递 | Lossy Interface | 模块间只传结构化结果（框、轨迹），丢掉原始特征里的语义 |
 
-```
-摄像头/LiDAR → 感知(检测/跟踪/预测) → 规划(规则/优化) → 控制
-    每个模块独立训练，中间传递的是"人工设计的接口"
-```
+### 1.2 传统自动驾驶 vs 端到端
 
-问题：
-- 信息在模块间传递时**有损**（感知输出的是框，丢了纹理、语义）
-- 模块间**误差累积**（感知错一点，规划就错很多）
-- 规则-based 规划在长尾场景（corner case）**写不完规则**
+**传统方案（模块化）的流水线**：
 
-**端到端方案（E2E）**：
-
-```
-摄像头/LiDAR → 单一神经网络 → 轨迹/动作
-    从传感器到轨迹，一个网络搞定
-```
-
-优势：
-- 信息**无损传递**（中间用特征向量，不是人工接口）
-- **数据驱动**：给什么数据学什么，上限更高
-- **泛化能力强**：见过的场景模式能迁移
-
-### 1.2 NAVSIM 评测基准
-
-**NAVSIM** 是目前自动驾驶端到端算法的主流评测基准。
-
-**核心指标 PDMS（Pilot-Driving Metric Score）**：
-
-```
-PDMS = 各项子指标的加权乘积
-
-子指标包括：
-- NC (No at-fault Collision)：无责碰撞
-- DAC (Drivable Area Compliance)：可行驶区域合规
-- TTC (Time-to-Collision)：碰撞时间（越安全越高）
-- Comfort：舒适度（加速度、jerk）
-- EP (Ego Progress)：自车进度（别停下来不动）
-- Speed Limit Compliance：限速合规
+```text
+传感器输入
+  -> 感知 Perception: 检测(检测框) / 跟踪(目标ID) / 预测(未来轨迹)
+  -> 规划 Planning: 规则引擎 或 优化求解器 生成自车轨迹
+  -> 控制 Control: PID / MPC 把轨迹变成方向盘/油门/刹车
 ```
 
-**为什么 PDMS 重要**：它是**乘积**，不是加权和。任何一项为 0，总分就为 0。这就是为什么长尾高危场景（碰撞、越界）会让分数趋近于 0——论文里说的"约 21% 长尾高危交互 Corner-Case 极易发生碰撞、违规、分数趋近于 0"就是这个意思。
+每个模块独立训练，中间传递的是「人工设计的接口」（bounding box、lane id、规则配置……）。
 
-**NAVSIM v1 vs v2**：v1 是基础版，v2 增加了更多长尾场景和更严格的评测协议。我们的项目分别达到 0.8713（RiskField-VLA）、0.8012（TrustDrive-WAM）、0.7285（JEPA-DRIVE）。
+模块化三大问题（面试高频）：
+
+1. **信息有损**：感知只输出 3D 框，框里丢掉了外观纹理、姿态语义、遮挡关系；下游规划拿不到这些。
+2. **误差累积**：感知 3% 的漏检率，到规划层可能变成「对静止障碍物完全无感知」；误差不是线性传递而是被放大。
+3. **规则写不完**：无保护左转、加塞博弈、施工区借道……corner case 数量无限，if-else 永远覆盖不全。
+
+**端到端方案**：
+
+```text
+传感器输入
+  -> 单一神经网络(感知特征 + 语义理解 + 轨迹生成一体)
+  -> 输出: 未来 T 步的自车轨迹 [[x0,y0], [x1,y1], ...]
+```
+
+端到端优势：
+
+1. **无损传递**：中间用特征向量（feature map / embedding），不是人工接口，下游能「看到」上游的全部信息。
+2. **数据驱动**：给什么分布的数据学什么分布，上限取决于数据和算力，不取决于规则工程师数量。
+3. **联合优化**：感知和规划的 loss 可以一起反传，感知会学「对规划有用」的特征，而不是「检测框 IoU 高」的特征。
+
+**端到端的代价**（面试必被追问）：
+
+- 黑盒，难调试、难验证安全。
+- 需要大量高质量轨迹数据（或奖励信号）。
+- 分布偏移（distribution shift）：开环训练、闭环执行时误差会累积，自己造成的误差成为新的输入（DAgger 论文经典问题）。
+
+### 1.3 NAVSIM 评测基准与 PDMS 详解
+
+**NAVSIM** 是当前端到端自动驾驶的主流开环（open-loop）评测基准，不用真车，用高精地图 + 仿真器回放，速度快、可复现。
+
+**PDMS（Pilot-Driving Metric Score）公式化理解**：
+
+```text
+PDMS = NC * DAC * Comfort * (0.5 * TTC + 0.5 * EP_comfort_adj) * ... 
+（具体权重随 NAVSIM 版本略有差异，核心是"乘积"结构）
+```
+
+子指标逐个解释：
+
+| 缩写 | 全称 | 中文 | 评价什么 | 为 0 的情况 |
+|------|------|------|----------|-------------|
+| NC | No at-fault Collision | 无责碰撞 | 自车是否发生有责碰撞 | 撞了就是 0 |
+| DAC | Drivable Area Compliance | 可行驶区域合规 | 是否压实体线、出路面 | 出路就是 0 |
+| TTC | Time-to-Collision | 碰撞时间 | 与前车/障碍物的最小碰撞时间 | 足够安全才给分 |
+| Comfort | - | 舒适度 | 加速度、jerk（加加速度）是否平稳 | 急刹急转扣分 |
+| EP | Ego Progress | 自车进度 | 相对合理路线前进了多少 | 站着不动接近 0 |
+| SLC | Speed Limit Compliance | 限速合规 | 是否超速 | 超速扣分/归零 |
+
+**为什么是乘积不是加权和**（面试经典追问）：
+
+```text
+加权和: 0.0*0.4 + 1.0*0.6 = 0.6   # 碰撞了还能拿 0.6 分，不合理
+乘积:   0.0 * 1.0 * ... = 0.0     # 一票否决，碰撞直接归零
+```
+
+乘积结构表达了安全的「不可交易性」：不能用舒适度去补偿碰撞。这也是为什么 21% 的长尾场景分数趋近于 0——只要 NC 或 DAC 挂了，整条轨迹的分数就塌了。
+
+**NC / DAC 等指标在代码层面怎么算**（概念级伪代码）：
+
+```python
+def pdms_single_trajectory(traj, scenario):
+    # traj: (T, 2) 或 (T, 3) 自车未来轨迹
+    # scenario: 含障碍物轨迹、车道多边形、限速的场景包
+
+    nc = 1.0
+    for obs in scenario.obstacles:
+        if check_collision(traj, obs.future_bbox):  # 有责碰撞检测
+            nc = 0.0
+            break
+
+    dac = 1.0
+    if not inside_drivable_area(traj, scenario.drivable_polygon):
+        dac = 0.0
+
+    ttc = compute_ttc(traj, scenario.nearest_lead)   # 越大越安全，clip 后映射 [0,1]
+    comfort = comfort_score(traj)                     # 基于 a, jerk 的分段函数
+    ep = progress_score(traj, scenario.route)         # 沿路线前进比例，惩罚磨蹭
+    slc = speed_limit_score(traj, scenario.speed_limit)
+
+    # 乘积结构：任何一项为 0，总分为 0
+    pdms = nc * dac * comfort * ttc * ep * slc
+    return pdms
+```
+
+**我们三个项目的分数对照**：
+
+| 项目 | 核心技术 | PDMS |
+|------|----------|------|
+| RiskField-VLA | 风险场 + Flow Matching + Flow-GRPO | 0.8713 |
+| TrustDrive-WAM | 世界动作模型 + 可信路由 | 0.8012 |
+| JEPA-DRIVE | JEPA 隐空间世界模型（无标注） | 0.7285 |
+
+**NAVSIM v1 vs v2**：v2 增加更多长尾交互、更严的评测协议（更多失败模式一票否决），基线分数普遍比 v1 低。
+
+**面试答题模板（NAVSIM）**：
+
+> NAVSIM 是开环评测基准，核心指标 PDMS 是子指标的乘积——碰撞或压线直接归零，所以优化重点是把长尾场景从 0 分拉回正数，而不是在常规场景刷小数点。我们的方案分别达到 0.87 / 0.80 / 0.73，提升主要来自 corner case 的修复。
+
+### 1.4 更多背景名词
+
+**开环 vs 闭环**：
+
+```text
+开环 Open-loop: 播放录制场景，模型只输出轨迹，不真正驱动仿真车。
+  优点: 快、可复现、无 compounding error
+  缺点: 不能评价"我走了这步之后世界怎么变"
+
+闭环 Closed-loop: 模型输出控制仿真车前进，场景实时演化。
+  优点: 真实反映部署问题
+  缺点: 慢、方差大、训练时难用（需要可微仿真或 RL）
+```
+
+**规控（Planning & Control）**：规划出轨迹（一串时空点），控制把轨迹变成执行器指令。
+
+**高精地图 HD Map**：厘米级车道线、拓扑、限速信息；端到端趋势是少依赖甚至无图（mapless）。
+
+**多模态融合 Multi-modal Fusion**：摄像头 + LiDAR + Radar 特征对齐到同一空间（常见 BEV）再联合推理。
 
 ---
 
 ## 2. VLA（Vision-Language-Action）模型
 
-### 2.1 什么是 VLA？
+### 2.1 专有名词表（本节）
 
-VLA = 视觉 + 语言 + 动作 三模态融合模型。
+| 术语 | 全称 | 一句话定义 |
+|------|------|------------|
+| VLA | Vision-Language-Action | 视觉 + 语言指令作为输入，动作/轨迹作为输出的大模型 |
+| LLM | Large Language Model | 以 token 序列建模的大语言模型，可作 VLA 的「大脑」 |
+| Action Chunk | - | 一次输出的一段未来动作序列（不是单步），减少误差累积 |
+| Token | - | 模型处理的最小离散单元；视觉 patch、文字词、动作码都可以是 token |
+| Cross-Attention | 交叉注意力 | Query 来自一模态，Key/Value 来自另一模态，实现信息查询 |
+| Self-Attention | 自注意力 | Q/K/V 都来自同一序列，建模序列内部依赖 |
+| Embedding | 嵌入 | 把离散符号映射为连续向量 |
+| Prompt | - | 给模型的输入指令/上下文（语言 prompt、视觉 prompt） |
 
-```
-输入：图像（视觉）+ 自然语言指令（语言）
-输出：机器人/车辆的动作（轨迹、关节角度等）
+### 2.2 什么是 VLA？
 
-类比：你看到路况 + 听到"前方左转" → 你打出方向盘
-```
+**一句话定义**：VLA 把「看见的图像」「听到/读到的语言指令」融合后，直接输出「动作」（轨迹、关节角、底盘指令）的模型。
 
-**代表工作**：
-- OpenVLA：开源 VLA，用 LLM 输出离散动作 token
-- RDT：用扩散模型生成连续动作
-- π₀：用 Flow Matching 生成连续动作
+```text
+输入:  image(s) + language instruction
+输出:  action / trajectory
 
-### 2.2 VLA 在自动驾驶中的角色
-
-在 RiskField-VLA 项目中，VLA 负责：
-1. **理解场景语义**：从图像中识别交通参与者、车道线、交通标志
-2. **理解风险**：识别哪些交互是高危的
-3. **生成轨迹**：输出自车应该走的轨迹
-
-### 2.3 关键组件
-
-**Object Query**：
-```
-可学习的查询向量，每个 query 负责"关注"场景中的一个目标。
-128 组 object query = 128 个"注意力槽位"，从特征图中提取 128 个目标的特征。
-类比：128 个侦察兵，每人负责盯一个方向/目标。
+例:  图像(前方路口) + "在下一个路口左转"  ->  左转轨迹
 ```
 
-**BEV（Bird's Eye View，鸟瞰图）**：
-```
-把多路相机的图像投影到俯视平面，得到"上帝视角"的特征图。
-好处：统一的空间坐标系，方便做规划。
+**代表工作对比**（面试常问「你看过哪些 VLA」）：
+
+| 工作 | 动作表示 | 生成方式 | 特点 |
+|------|----------|----------|------|
+| OpenVLA | 离散动作 token | LLM 自回归 softmax | 简单，但离散化损失精度 |
+| RDT | 连续动作 | 扩散模型 DDPM | 多模态动作分布，采样步数多 |
+| RDT-2 | RVQ 码 + 连续 | Stage1 离散 CE，推理连续 Flow | 训练用离散监督，推理不用离散 |
+| π₀ | 连续动作 | Flow Matching + 动作专家 | VLM KV cache + 300M 动作专家 cross-attn |
+| π₀-FAST | FAST 编码动作 | 自回归 | π₀ 的变体，不是 π₀ 原版 |
+
+**重要纠偏（面试防坑）**：π₀ 原版没有 FAST；FAST 是单独变体。π₀ 原版 = Flow Matching + 独立动作专家通过 cross-attention 读 VLM 的 KV cache。RDT-2 的 RVQ 只在训练 Stage 1 用（VLM 学 CE），推理是连续 Flow Matching，不跑 RVQ 解码。
+
+### 2.3 Attention 机制：从公式到代码
+
+**Self-Attention**：
+
+```python
+import torch
+import torch.nn.functional as F
+
+def self_attention(x, num_heads=8):
+    """
+    x: (B, L, D)  序列特征, L=token 数, D=维度
+    return: (B, L, D)
+    """
+    B, L, D = x.shape
+    head_dim = D // num_heads
+
+    # 线性投影得到 Q, K, V  (每个头独立投影)
+    q = x.view(B, L, num_heads, head_dim).transpose(1, 2)  # (B, H, L, hd)
+    k = x.view(B, L, num_heads, head_dim).transpose(1, 2)
+    v = x.view(B, L, num_heads, head_dim).transpose(1, 2)
+
+    # 缩放点积注意力
+    # scores[i,j] = q_i · k_j / sqrt(hd)  表示位置 i 对位置 j 的关注程度
+    scores = (q @ k.transpose(-2, -1)) / (head_dim ** 0.5)  # (B, H, L, L)
+
+    # softmax 把分数变成概率分布（每行和为 1）
+    attn = F.softmax(scores, dim=-1)                          # (B, H, L, L)
+
+    # 用注意力权重加权求和 V
+    out = attn @ v                                            # (B, H, L, hd)
+    out = out.transpose(1, 2).reshape(B, L, D)
+    return out
 ```
 
-**时序特征**：
+**Cross-Attention（VLA 中图像条件、动作专家读 VLM 时都用它）**：
+
+```python
+def cross_attention(query, context):
+    """
+    query:  (B, Lq, D)  例如 128 个 object query / 动作 token
+    context:(B, Lk, D)  例如 图像 patch 特征 / VLM KV
+    return: (B, Lq, D)  query 从 context 中"查"到的信息
+    """
+    # Q 来自 query 侧, K/V 来自 context 侧 —— 这是和 self-attn 的唯一区别
+    q = proj_q(query)        # (B, Lq, D)
+    k = proj_k(context)      # (B, Lk, D)
+    v = proj_v(context)      # (B, Lk, D)
+
+    scores = q @ k.transpose(-2, -1) / (D ** 0.5)   # (B, Lq, Lk)
+    attn = F.softmax(scores, dim=-1)                  # 每个 query 对 context 的权重
+    out = attn @ v                                    # (B, Lq, D)
+    return out
 ```
-不仅看当前帧，还看前几帧，得到"运动状态"（速度、加速度方向）。
-类比：你看前几帧知道那辆车在加速，而不是只看到它此刻的位置。
+
+**面试一句话**：self-attn 是「自己序列内互相看」，cross-attn 是「拿我的问题去查你的字典」；VLA 里 object query 查图像特征、动作专家查 VLM KV，都是 cross-attn。
+
+### 2.4 Object Query 详解
+
+**定义**：一组可学习的参数向量，每个 query 负责「查询场景中一个目标/一个槽位的特征」。
+
+```python
+class ObjectQueryDecoder(nn.Module):
+    def __init__(self, num_queries=128, embed_dim=256, num_layers=3):
+        super().__init__()
+        # 核心: 128 个可学习向量, 随机初始化, 训练中更新
+        self.object_queries = nn.Parameter(torch.randn(num_queries, embed_dim))
+
+        # 若干层 decoder: 每层 = self-attn(query 之间交互) + cross-attn(query 查图像)
+        self.layers = nn.ModuleList([
+            TransformerDecoderLayer(embed_dim, num_heads=8)
+            for _ in range(num_layers)
+        ])
+
+    def forward(self, image_feats):
+        """
+        image_feats: (B, L_img, D)  展平后的图像 patch 特征
+        return: (B, 128, D)  128 个目标的特征
+        """
+        b = image_feats.shape[0]
+        q = self.object_queries.unsqueeze(0).expand(b, -1, -1)  # (B, 128, D)
+
+        for layer in self.layers:
+            q = layer(q, image_feats)  # query 之间 self-attn + 查 image_feats
+        return q  # (B, 128, D)
 ```
+
+**为什么是 128 不是 64/512**：
+
+- 太少：同场景交互目标（车、人、骑行者、静态障碍）经常超过 60，query 不够会「几个目标挤一个槽位」。
+- 太多：冗余 query 学不到东西，attention 矩阵 512xL 图像特征算力翻倍。
+- 128 还能天然构成 128 节点交互图（邻接矩阵 128x128），显式建模两两博弈。
+
+**Query 初始化方式**（追问点）：随机初始化 / 可学习位置编码 / 从 anchor 框初始化（DETR3D 风格）。我们用可学习参数随机初始化，端到端训。
+
+### 2.5 BEV（鸟瞰图）与相机到 BEV 的投影
+
+**定义**：把多路环视相机的透视图像特征，投影到统一的俯视平面网格上，得到「上帝视角」特征。
+
+**为什么要 BEV**：
+
+- 规划在平面世界做（车道坐标系），BEV 和轨迹同构。
+- 多相机特征在 BEV 下对齐，才能做跨相机的目标关联。
+- 时序 BEV 可以直接 stack 出速度估计（同一格子前后帧位移）。
+
+**LSS 风格的深度软投影（概念伪代码）**：
+
+```python
+def camera_to_bev(image_feats, intrinsics, extrinsics, depth_bins=64):
+    """
+    image_feats: (B, Ncam, C, H, W)  N 路相机特征
+    intrinsics:  (B, Ncam, 3, 3)     内参 K
+    extrinsics:  (B, Ncam, 4, 4)     外参 (camera->ego)
+    depth_bins:  离散深度采样数
+    return: bev (B, C, X, Y)
+    """
+    # 1) 每个像素预测一个深度分布 (软化, 可微)
+    depth_dist = softmax(depth_head(image_feats), dim=1)  # (B,Ncam,Dbins,H,W)
+
+    # 2) 构造每个 (u,v,depth) 的 3D 点 (相机系), 再用外参转到自车系
+    # pts_ego = extrinsics @ inv(K) @ [u,v,1]*depth
+
+    # 3) 把 3D 点按 xy 落到 BEV 网格, 深度维做 sum/softmax 聚合
+    #    双线性插值保证可微
+    bev = scatter_to_bev_grid(pts_ego, image_feats, depth_dist)
+    return bev
+```
+
+**BEVFormer 风格的 attention BEV query（另一种主流）**：
+
+```python
+# 1) 可学习 BEV query 网格 (e.g. 50x50)
+# 2) 每个 BEV 格子沿高度采几个 reference point, 投影回每路相机取特征
+# 3) cross-attn: BEV query 查相机特征
+# 4) 时序: BEV query 还会先和上一帧 BEV 做 deformable attention
+```
+
+**面试一句话**：BEV 是把「各相机像素」变成「统一俯视网格特征」的中间表征；实现上要么深度软投影（LSS），要么可学习 BEV query 去 cross-attn 图像（BEVFormer）。我们的风险场 32x32 网格就是在 BEV 坐标系上定义的。
+
+### 2.6 时序特征与运动状态
+
+**定义**：不仅看当前帧，还聚合过去 K 帧的 BEV/目标特征，使模型能估计速度、加速度、意图（打灯、减速）。
+
+```python
+def temporal_fusion(bev_current, bev_past_list, ego_motion):
+    """
+    bev_current: (B, C, X, Y) 当前帧 BEV
+    bev_past_list: 上一帧、上上帧 ...
+    ego_motion: 自车位姿变化 (用于把历史 BEV 对齐到当前自车坐标)
+    """
+    # 关键: 先用自车位姿把历史 BEV warp 到当前坐标系, 否则「车动了」会被当成「目标动了」
+    aligned = [warp_bev(b, pose) for b, pose in zip(bev_past_list, ego_motion)]
+    aligned.append(bev_current)
+    stacked = torch.stack(aligned, dim=0)          # (K+1, B, C, X, Y)
+
+    # 沿时间维做 attention 或 GRU 聚合
+    fused = temporal_attention(stacked)            # (B, C, X, Y)
+    return fused
+```
+
+**面试常见追问**：为什么不直接 stack？—— 不对齐自车运动的话，历史帧相对当前是「平移+旋转」过的，直接 stack 会糊掉；必须先 ego-motion compensation（运动补偿）。
+
+### 2.7 导航指令与语言条件
+
+自动驾驶 VLA 的「语言」模态通常是结构化导航文本：
+
+```text
+"keep lane", "merge left onto highway", "turn left at next intersection"
+```
+
+编码方式：直接喂给 VLM/文本塔 → 池化成 vector 作为生成条件；或 token 化后进 cross-attn。我们项目里导航指令与 BEV 特征拼接后作为 Flow Matching 的条件 c。
 
 ---
 
-## 3. 世界模型（World Model）与 WAM（World Action Model）
+## 3. 世界模型（World Model）与 WAM
 
-### 3.1 世界模型是什么？
+### 3.1 专有名词表（本节）
 
-**核心定义**：给定当前状态和动作，预测下一个状态会怎样。
+| 术语 | 全称 | 一句话定义 |
+|------|------|------------|
+| World Model | 世界模型 | 给定状态与动作，预测下一状态（或状态分布）的模型 p(s'|s,a) |
+| WAM | World Action Model | 同时建模动作与后果的联合世界模型 |
+| OOD | Out-of-Distribution | 输入落在训练分布之外 |
+| ID | In-Distribution | 输入在训练分布内 |
+| Support Domain | 支持域 | 训练数据覆盖的输入区域，域内预测相对可信 |
+| Trust Region | 可信域/信任域 | 策略优化中限制更新步长的区域；或世界模型中「可信输入区域」——语境需区分 |
+| Rollout | - | 从某状态连续执行策略/模型，生成一段未来 |
+| Counterfactual | 反事实 | 「如果当时换一个动作会怎样」的假设推演 |
+| Compounding Error | 误差累积误差 | 模型自推（自己的预测当下一步输入）时误差指数放大 |
+| DAgger | - | 用「自己状态下的专家标签」缓解分布偏移的经典算法 |
+| Reward Hacking | 奖励作弊 | 策略找到奖励函数漏洞而非真正完成任务 |
 
-```
-p(s_{t+1} | s_t, a_t)
+**注意**：PPO 论文里的 trust region 是「限制新旧策略 KL」的优化概念；我们项目说的可信域/支持域是「世界模型输入是否被训练数据覆盖」的概念。面试被问到时先确认语境，再作答——这是很好的加分点。
 
-s_t = 当前状态（所有交通参与者的位置、速度）
-a_t = 动作（自车的转向、油门）
-s_{t+1} = 下一个状态
-```
+### 3.2 世界模型：从定义到公式
 
-**类比**：你在踩刹车之前，脑子里已经"想象"了车会减速、后车会跟上来——这就是世界模型。
+**核心定义**：
 
-### 3.2 像素世界模型 vs 表征世界模型
+```text
+学习动力学:  p(s_{t+1} | s_t, a_t)
 
-| | 像素世界模型 | 表征世界模型 |
-|---|---|---|
-| 预测什么 | 未来帧的像素 | 未来帧的抽象表征 |
-| 需要画出来？ | 是（生成视频） | 否（只输出向量） |
-| 计算量 | 巨大 | 小 |
-| 代表 | DriveDreamer, Sora | JEPA, Dreamer |
-
-### 3.3 WAM（World Action Model）是什么？
-
-WAM 是世界模型的一个变种：**不仅预测世界状态，还联合建模动作的影响**。
-
-```
-传统：先生成轨迹 → 后接一个评分器打分（割裂）
-WAM：生成轨迹的同时，同步演化"后果、风险、支持域"（联合）
-
-优势：轨迹和后果是"同时生成"的，不是事后预测的
+s_t: 系统状态 (所有交通参与者位姿、速度、信号灯...)
+a_t: 自车动作 (轨迹段 / 加速度 / 转向角)
 ```
 
-在 TrustDrive-WAM 项目中，WAM 的核心创新是**联合动作-后果流**：在 Flow Matching 生成轨迹的过程中，同步演化四类隐表征——轨迹、后果、风险、支持域。
+**类比**：老司机打方向前，脑内已经「放电影」——后车会不会挤、行人会不会走。这就是生物版世界模型（也与 LeCun 的「System 1/System 2」叙述相关，可作开放题素材）。
 
-### 3.4 OOD（Out-of-Distribution，分布外）
+**分类（面试常考对比）**：
 
-```
-训练数据的分布 = 模型"见过"的数据分布
-OOD = 落在训练分布之外的输入
+| 类型 | 预测目标 | 例子 | 算力 | 是否需要画出未来 |
+|------|----------|------|------|------------------|
+| 像素世界模型 | 未来帧像素 | DriveDreamer, GAIA-1, Genie | 极高 | 是 |
+| 表征世界模型 | 未来隐向量 | JEPA, Dreamer, IRIS | 中 | 否 |
+| 几何世界模型 | 未来点云/占据 | 部分 occupancy 预测 | 中 | 部分 |
+| 概率轨迹预测 | 他车未来分布 | VectorNet, LaneGCN | 低 | 否 |
 
-自动驾驶中的 OOD：
-  - 训练时没遇到过的天气（暴雪、大雾）
-  - 训练时没见过的车辆类型（异形车）
-  - 训练时没遇到过的交互（突然窜出的行人）
+**为什么「预测像素」对规划是过度需求**：规划不需要知道未来树叶怎么反光，只需要知道「空不空、危不危险」。像素 loss 会被大量与决策无关的自由度淹没。
 
-为什么 OOD 危险：模型对 OOD 输入的预测不可靠，
-但规划器可能"盲目相信"这些预测 → 灾难性后果
-```
+### 3.3 WAM：联合动作-后果建模
 
-### 3.5 可信域 / 支持域（Trust Region / Support Domain）
+**传统割裂流水线**：
 
-```
-支持域 = 模型"有把握"的输入区域
-类比：一个学生只学过加减法，你问他乘法——他还在"支持域"之外
+```text
+轨迹生成器 -> 若干候选轨迹
+评分器(独立模块) -> 对每条轨迹事后打分
+选择器 -> 取最高分
 
-在 TrustDrive-WAM 中：
-  可靠性信任校验 = 检查当前预测是否落在训练数据的支持域内
-  如果是 → 信任世界模型的预测
-  如果不是 → 切回传统规划策略
+问题: 生成时不知道后果, 评分时轨迹已固定; 两个模块的表征不对齐
 ```
 
-### 3.6 逆一致性约束（Inverse Consistency）
+**WAM 联合建模**：
 
-```
-正向：给定状态 s 和动作 a → 预测下一状态 s'
-逆向：给定 s' 和动作 a → 能否恢复出 s？
+```text
+在同一个流/扩散过程中, 同步演化:
+  z_traj        轨迹隐状态
+  z_conseq      后果隐状态 (碰撞? 舒适? 进度?)
+  z_risk        风险隐状态
+  z_support     是否落在支持域 (可信度)
 
-逆一致性 = 正向预测和逆向恢复要一致
-作用：防止模型"忽略"动作信息
-  （如果模型不看动作，正向逆向当然一致，但没有意义）
-  只有真正"用了"动作信息，正逆才一致
+四者共享参数与时间步 t, 互相作为条件
 ```
+
+**优势**：
+
+1. 轨迹与后果表征对齐（同一个 t 的联合状态）。
+2. 生成中途就能「感知」后果，早期路径就向低风险区漂移（相当于引导采样）。
+3. 支持域信号与生成同步，方便在线可信路由。
+
+**联合流的数学形式**（衔接第二部分代码）：
+
+```text
+联合状态:  z = [traj; conseq; risk; support]  ∈ R^d
+
+流匹配条件路径:  z_t = (1-t)*ε + t*z_1,   ε ~ N(0, I)
+网络预测联合速度:  v_θ(z_t, t, c) ∈ R^d
+损失:  || v_θ(z_t,t,c) - (z_1 - ε) ||²
+```
+
+注意各分量可以共享一个 backbone，输出头拆成 4 段；也可以 4 个专家 + 门控（我们的实现更接近后者 + 联合注意力）。
+
+### 3.4 OOD：定义、检测、为什么致命
+
+**定义**：训练分布 P_train 之外的输入。自动驾驶典型 OOD：
+
+```text
+天气: 训练无暴雪, 测试遇暴雪
+车辆: 训练无超高货车 / 异形工程车
+交互: 训练无「公交出站连续加塞」
+地图: 临时施工改道, 车道拓扑变化
+传感器: 镜头污损、逆光、夜间眩光
+```
+
+**为什么危险**：神经网络对 OOD 仍会输出「自信」的预测（softmax 不会自动变谦虚），规划器把错误预测当事实 → 碰撞。
+
+**OOD 检测常用手段**（面试加分）：
+
+```python
+def ood_score(feats, train_stats):
+    # 1) Mahalanobis 距离: 到训练类中心的马氏距离
+    # 2) 能量分数: E(x) = -logsumexp(logits)
+    # 3) 重构/预测误差: JEPA 里 predictor 误差大 -> 可疑
+    # 4) 支持域打分: 小分类器/密度估计 P_train(x)
+    return score
+```
+
+我们的可信路由把「支持域分数」作为第一道门，低分直接 fallback。
+
+### 3.5 可信域 / 支持域 / 可信路由
+
+**支持域 Support Domain**：训练样本在输入空间覆盖的区域（更严谨：数据流形及其邻域）。
+
+**可信路由双层评估**（我们项目的表述）：
+
+```text
+Layer 1  可靠性信任: 预测是否在支持域内?  support > tau_s ?
+Layer 2  决策信任:    该预测带来的效用是否优于基线? U(traj) > U(base) ?
+
+都通过 -> 使用世界模型输出
+否则   -> fallback 传统规划 (规则/优化)
+```
+
+**代码直觉**（完整版见第二部分算法 4）：
+
+```python
+trusted = (support_score > tau_s) and (risk_score < tau_r) and (utility > u_base)
+next_planner = world_model_planner if trusted else classical_planner
+```
+
+### 3.6 逆一致性约束 Inverse Consistency
+
+**问题动机**：若只约束 forward `s,a -> s'`，网络可能忽略 `a`（很多场景忽略动作也能拟合平均运动），动作信息泄漏不到表征里。
+
+**约束**：
+
+```text
+forward:   s' = f(s, a)
+inverse:   s_hat = g(s', a')     (常用 a' = a 或学一个逆动作)
+要求:      s_hat ≈ s
+```
+
+**与 CycleGAN cycle-consistency 的关系**：同构思想——双向闭环防止映射「作弊」。面试可主动类比，显示知识面。
+
+**防作弊解读**：
+
+```text
+如果 f 完全不看 a:  f(s,a)=f(s), 那么 g 可能也只需 s' 就还原 s 的平均值
+但真实世界不同 a 导致不同 s', 数据驱动下 g(s') 分布变宽, 还原误差上升
+加入 cycle loss 后, f 必须用 a 区分分支, 才能让 g 精确还原
+```
+
+### 3.7 分布偏移与闭环训练
+
+**开环训练的盲区**：数据集轨迹是人类司机的，模型执行自己的轨迹后，状态分布偏离数据集（steering bias, compounding error）。
+
+**缓解方法**：
+
+1. DAgger：在「模型自己的状态」上收集专家标签再训。
+2. 闭环仿真 + RL（我们 Flow-GRPO 属于奖励驱动，接近这一类的离线/在线混合）。
+3. 数据增强：对轨迹做扰动并标注（suffix supervision, “what if I drift”）。
+
+**NAVSIM 是开环的**——面试若被问「0.87 离上车有多远」，标准回答里必须主动承认开环-闭环 gap，并给出可信路由/兜底策略作为安全论证的一部分。
 
 ---
 
-## 4. JEPA（Joint Embedding Predictive Architecture）
+## 4. JEPA：联合嵌入预测架构
 
-### 4.1 JEPA 是什么？
+### 4.1 专有名词表（本节）
 
-JEPA = 联合嵌入预测架构，是 Yann LeCun 提出的自监督学习框架。
+| 术语 | 全称 | 一句话定义 |
+|------|------|------------|
+| JEPA | Joint Embedding Predictive Architecture | 在嵌入空间预测被遮/未来目标的抽象表征，不重建像素 |
+| I-JEPA | Image JEPA | 图像版：补全被 mask 块的表征（预测现在） |
+| V-JEPA | Video JEPA | 视频版：预测下一时刻表征（预测未来，世界模型属性） |
+| MAE | Masked Autoencoder | 掩码后在像素空间重建，解码器很重 |
+| MLM | Masked Language Modeling | BERT 完形填空，JEPA 的 NLP 精神祖先 |
+| EMA | Exponential Moving Average | 指数滑动平均，目标网络缓慢追随在线网络 |
+| stop-gradient | 梯度截断 | 前向算 loss 时对某分支不反传（sg(.) 或 detach） |
+| Collapse | 表征坍缩 | 所有输入映射到同一向量，loss 很低但信息为 0 |
+| VICReg | Variance-Invariance-Covariance Regularization | 用方差/协方差/不变性正则防坍缩 |
+| BYOL / SimSiam | - | 不负样本的对比变体，同样依赖 predictor+stopgrad 防坍缩 |
+| Linear Probing | 线性探测 | 冻结主干只训线性层，评估表征是否线性可分 |
+| Fine-tune | 微调 | 解冻全部/部分参数在下游任务上训练 |
+| Zero-shot | 零样本 | 不见过任务标签直接推理 |
+| Cycle Consistency | 循环一致性 | A->B->A 应回到 A |
+| Patch | - | ViT 把图像切成的小方块，一个 patch = 一个 token |
 
-**核心思想**：在**嵌入空间（表征空间）做预测**，而不是重建像素。
+### 4.2 JEPA vs 像素重建：为什么要换范式
 
-```
-传统方法（MAE/Diffusion）：预测被遮住部分的像素 → 花大量算力在无关细节上
-JEPA：预测被遮住部分的抽象表征 → 只关注语义，忽略纹理
-
-类比：
-  像素预测 = 考试时要把被遮住的每个像素都画出来
-  表征预测 = 只回答"被遮住的是什么动物"
-```
-
-### 4.2 为什么 JEPA 适合自动驾驶？
-
-```
-1. 像素冗余太多：背景渐变、光照变化对决策没用
-2. 多模态未来：前方路口可能直行、左转、右转，像素空间回归到均值会得到"鬼影"
-3. 生成式不等于理解：能画出逼真图像不等于理解物理因果
-```
-
-### 4.3 I-JEPA vs V-JEPA
-
-| | I-JEPA（图像版） | V-JEPA（视频版） |
-|---|---|---|
-| 输入 | 一张图片，挖掉一块 | 一段视频的前几帧 |
-| 预测什么 | 被挖掉那块的表征（**补全现在**） | 下一帧的表征（**预测未来**） |
-| 是世界模型吗？ | 不是 | 是 |
-
-**V-JEPA 才是世界模型**：看到前 4 帧，预测第 5 帧的表征——这才是预测未来。
-
-### 4.4 JEPA 的三个组件
-
-```
-1. Context Encoder（上下文编码器）：编码可见部分 → 上下文表征 s_x
-2. Target Encoder（目标编码器）：编码目标部分 → 目标表征 T(y)（用 EMA 更新）
-3. Predictor（预测器）：输入 s_x + 位置条件 → 预测目标表征 ŝ_y
-
-Loss = ||ŝ_y - sg(T(y))||²  （sg = stop-gradient）
+```text
+MAE/Diffusion 路径:  mask -> encoder -> decoder -> 重建像素 -> L2/噪声明确似然
+JEPA 路径:          mask -> encoder -> predictor -> 预测目标块的 embedding -> L2 in feature space
 ```
 
-### 4.5 表征坍缩（Representation Collapse）
+**三个理由（面试标准三点）**：
 
+1. **算力**：像素 decoder + 高分辨率 loss 很贵；表征空间只回归一个向量。
+2. **语义聚焦**：纹理、光照、背景噪声在像素 loss 里权重高但对决策无用；JEPA 只逼模型学「结构与语义」。
+3. **多模态未来**：路口未来可直行可左转，像素回归平均会得到「双影鬼车」；表征空间可保留多峰（配合条件/流模型）。
+
+**代价（平衡回答）**：表征空间没有显式似然，更依赖 EMA/predictor/正则防坍缩；下游需要额外评分头才能对齐 PDMS 这种任务指标。
+
+### 4.3 I-JEPA vs V-JEPA 对比（必考）
+
+| 维度 | I-JEPA | V-JEPA |
+|------|--------|--------|
+| 输入 | 单图，挖几个 block | 视频片段的可见帧 |
+| 预测目标 | 被挖块的表征（补全空间） | 未来帧的表征（预测时间） |
+| 是否世界模型 | 否，更像特征学习 | 是，学习 p(z_future|z_past) |
+| 我们项目 | - | 用视频帧间预测做驾驶场景预训练 |
+
+**V-JEPA 世界模型公式**：
+
+```text
+给定帧 x_1..x_t 可见, 预测 x_{t+1} 的表征:
+  z_ctx = Enc(x_1..x_t)
+  z_hat = Predictor(z_ctx, pos=time_emb)
+  loss  = || z_hat - sg( Enc_ema(x_{t+1}) ) ||²
 ```
-问题：如果两个编码器一起训练，它们可以"串通"——都输出常向量 [0,0,0,...]，loss=0 但什么都没学到
 
-解法：EMA + stop-gradient
-  Target Encoder 不靠梯度更新，而是缓慢追随 Context Encoder
-  算 loss 时梯度不传给 Target Encoder
-  → Context Encoder 必须"真正理解"才能预测 Target 的输出
+### 4.4 JEPA 三组件与训练循环（概念伪代码）
+
+```python
+class JEPA(nn.Module):
+    def __init__(self):
+        self.ctx_enc  = ViT()      # 可训练, 有梯度
+        self.tgt_enc  = ViT()      # EMA 更新, 无梯度
+        self.predictor= Predictor()# 可训练
+
+    def loss(self, x, mask):
+        # 1. 切 patch, 分上下文/目标
+        ctx_patches, tgt_patches = split_patches(x, mask)
+
+        # 2. 上下文编码 (有梯度)
+        z_ctx = self.ctx_enc(ctx_patches)
+
+        # 3. 目标编码 (stop-grad + EMA)
+        with torch.no_grad():
+            z_tgt = self.tgt_enc(tgt_patches)
+
+        # 4. 预测目标表征 (需要知道目标在哪 -> 位置条件)
+        z_hat = self.predictor(z_ctx, position_of_masked_blocks)
+
+        # 5. 特征空间 MSE
+        return mse(z_hat, z_tgt)
+
+    @torch.no_grad()
+    def ema_update(self):
+        for pt, ps in zip(self.tgt_enc.parameters(), self.ctx_enc.parameters()):
+            pt.mul_(self.momentum).add_(ps, alpha=1 - self.momentum)
 ```
 
-### 4.6 专有名词
+### 4.5 表征坍缩：机理与三道防线
 
-**ViT（Vision Transformer）**：把图片切成 patch，每个 patch 当作一个 token，用 Transformer 处理。
+**机理**：若 ctx/tgt 一起用同一 loss 优化，最优解之一是「所有向量输出常数 c」，`||c-c||²=0`。
 
-**自监督学习**：不需要人工标注，从数据本身构造"伪答案"。如 BERT 的完形填空。
+**三道防线**：
 
-**预训练 + 微调**：先在大数据上学通用能力（预训练），再在目标任务上微调。
+1. **stop-gradient**：loss 对 tgt 分支不反传，tgt 不会主动「配合」ctx 变简单。
+2. **EMA**：tgt 只缓慢追随 ctx，瞬间坍缩被时间常数拖住；ctx 必须预测一个「昨天的自己」，迫使保留信息。
+3. **显式正则（VICReg / 冗余减除）**：方差下限 + 协方差去相关，从几何上禁止所有点重合。
 
-**线性探测（Linear Probing）**：冻结主干，只训练一个线性分类器，评估表征质量。
+**面试一句话**：EMA + stopgrad 是「让老师慢半拍且不许对答案」，VICReg 是「直接规定点云不能塌成一个点」。我们项目三道全上（EMA 0.996 + stopgrad + VICReg）。
+
+### 4.6 VICReg 三项损失逐项拆解
+
+```python
+def vicreg_loss(z, lambda_=25.0, mu_=25.0, nu_=1.0):
+    """
+    z: (B, D) 批量表征
+    目标: 方差足大, 协方差近 0, 同图不同增广保持不变
+    """
+    # --- invariance: 同图两增广 a,b 的表征应接近 ---
+    # loss_inv = mse(z_a, z_b)
+
+    # --- variance: 每一维 std >= 1, 防止退化到常数 ---
+    std = torch.sqrt(z.var(dim=0) + 1e-4)          # (D,)
+    loss_var = F.relu(1.0 - std).mean()            # std<1 就罚
+
+    # --- covariance: 非对角协方差 -> 0, 防止维度共线/塌缩到低维流形 ---
+    zc = z - z.mean(dim=0)
+    cov = (zc.T @ zc) / (B - 1)                    # (D, D)
+    off = cov - torch.diag(torch.diag(cov))
+    loss_cov = (off ** 2).sum() / z.shape[1]
+
+    return loss_inv + lambda_ * loss_var + mu_ * loss_cov
+```
+
+**各项物理意义**：variance 防「所有点重合」；covariance 防「维度之间复制」（信息秩不够）；invariance 保持语义稳定性。
+
+### 4.7 线性探测 vs 微调：怎么证明表征好
+
+```text
+Linear Probing:  冻结 Enc, 只训 Linear: R^D -> num_classes
+  分数高 => 表征已经线性可分 => 预训练学到了语义
+
+Full Fine-tune:  解冻全部, 小学习率
+  分数高 => 表征好, 且还有可挖掘的适配空间
+
+两者都高: 最理想
+Probe 高 FT 低: 有过拟合/破坏表征风险 (少见)
+Probe 低 FT 高: 表征原始但可塑 (常见于弱预训练)
+```
+
+我们 JEPA-DRIVE 阶段 2 的「冻结世界模型 + 训练评分头」本质就是大规模线性/浅层 probing 的工程化版本。
+
+### 4.8 其他常见名词（防「没听过」）
+
+| 名词 | 解释 |
+|------|------|
+| Predictive Coding | 神经科学传统：大脑不断预测下一时刻输入，只编码意外（prediction error） |
+| Free Energy Principle | Friston 理论，LeCun 叙述时常引用：系统最小化预测误差界 |
+| Bidirectional (BiD) training | MAE 早期变体，编码器也能看到 mask token；最终 MAE 证明 unidirectional 够用 |
+| Target Network | RL 里延迟更新的网络，与 EMA target 同思想（DQN、BYOL） |
+| Barlow Twins / redundancy reduction | 维度去相关思想源头，VICReg 的近亲 |
+| Mask ratio | 被遮 patch 比例，MAE 常用 75%，JEPA 视任务 40%-80% |
 
 ---
 
 ## 5. Flow Matching（流匹配）
 
-### 5.1 什么是 Flow Matching？
+### 5.1 专有名词表（本节）
 
-Flow Matching 是一种训练**连续生成模型**的方法。核心思想：
+| 术语 | 全称 | 一句话定义 |
+|------|------|------------|
+| Flow Matching | - | 监督学习回归条件概率流的速度场，训练连续生成模型 |
+| ODE | Ordinary Differential Equation | 确定性微分方程：给定初值，轨迹唯一 |
+| SDE | Stochastic Differential Equation | 随机微分方程：转移带噪声，可定义条件概率密度 |
+| Vector Field | 速度场/向量场 | 每个空间点上给一个「往哪走、走多快」的向量 |
+| Euler Integration | 欧拉积分 | x_{t+1} = x_t + v*dt，一阶数值 ODE 解法 |
+| Probability Path | 概率路径 | 从噪声分布到数据分布的一族插值分布 p_t |
+| Conditional Flow Matching | 条件流匹配 | 对单个 (x0,x1) 对的路径做回归，边缘化后等于 FM |
+| Rectifying Flow | 整流流 | 直线插值路径的流匹配，与我们 SDE 推导同族 |
+| CFG | Classifier-Free Guidance | 推理时放大条件与无条件差值，提高指令服从度 |
+| Sampler | 采样器 | 推理时数值求解 ODE/SDE 的循环（步数、调度） |
+| sigma_min / sigma_max | - | 噪声调度端点，控制路径两端噪声量 |
+| Logit | - | softmax 前的原始分数 |
 
-```
-在噪声 x₀ 和数据 x₁ 之间拉一条直线：
-  x_t = (1-t)·x₀ + t·x₁，t ∈ [0,1]
+### 5.2 核心思想：把生成变成「学一条直线的速度」
 
-训练网络预测"速度场" v_θ(x_t, t) = 从 x_t 指向 x₁ 的方向
-```
+```text
+训练对: x0 ~ N(0,I)  (噪声),  x1 ~ p_data  (真实轨迹/图)
 
-**对比扩散模型（DDPM）**：
+直线插值:  x_t = (1-t)*x0 + t*x1,   t in [0,1]
 
-| | DDPM | Flow Matching |
-|---|---|---|
-| 路径 | 弯路（逐步加噪再去噪） | **直线**（一步到位） |
-| 学什么 | 预测噪声 ε | 预测速度场 v |
-| 推理步数 | 20-50 步 | **5-10 步** |
-| 数学基础 | SDE（随机微分方程） | ODE（常微分方程） |
+对 t 求导:  dx/dt = x1 - x0   (常数速度!)
 
-### 5.2 为什么 Flow Matching 更快？
-
-```
-DDPM = 蒙眼走迷宫，每步只能摸到附近，需要慢慢试
-Flow Matching = 拿着地图走直线，直接朝目的地走
-```
-
-### 5.3 Flow Matching 训练 Loss
-
-```
-L = E[||v_θ(x_t, t) - (x₁ - x₀)||²]
-
-1. 采样数据对：x₀=噪声，x₁=真实数据
-2. 随机采时间步 t
-3. 插值得到中间状态 x_t = (1-t)x₀ + tx₁
-4. 网络预测 v_θ(x_t, t)
-5. 正确答案是 x₁ - x₀（从噪声指向数据的方向）
-6. 算 MSE loss，反向传播
+学习目标:  网络 v_theta(x_t, t) 拟合 (x1 - x0)
 ```
 
-### 5.4 Flow Matching 推理（ODE 积分）
+网络在任意点 `(x_t, t)` 上如果都能答对「当前该往哪走」，推理时从噪声出发反复查询网络，就能走到数据。
 
+### 5.3 与 DDPM 的对照表（高频考题）
+
+| 维度 | DDPM / 扩散 | Flow Matching |
+|------|-------------|---------------|
+| 路径形状 | 弯曲（方差调度 + 噪声） | 直线（线性插值） |
+| 网络学什么 | 噪声 ε 或 x0 | 速度场 v = x1-x0 |
+| Loss | E[‖ε - ε_θ‖²] | E[‖v - v_θ‖²] |
+| 推理 | 反复去噪，常用 20-50 步 | ODE 积分，常用 5-32 步 |
+| 概率视角 | SDE + score | ODE + vector field |
+| 数学工具 | Fokker-Planck, score matching | Continuous Normalizing Flow (CNF), ODE |
+| 工程生态 | Stable Diffusion 系 | SD3, FLUX, π₀, 很多新工作 |
+
+**为什么直线更快（直觉）**：弯路要不断「纠偏曲率」，直线每一步方向几乎不变，大步长也不太偏。
+
+### 5.4 训练 Loss 逐步推导（代码级）
+
+```python
+def fm_loss(model, batch, t_eps=1e-5):
+    """
+    batch: 真实数据 (B, L, D), 例如一条轨迹展平
+    """
+    B = batch.shape[0]
+    x1 = batch
+
+    # Step1: 重参数化采噪声
+    x0 = torch.randn_like(x1)
+
+    # Step2: 采 t, 常用 U(0,1); 也可 importance sampling 靠近两端
+    t = torch.rand(B, device=batch.device)
+
+    # Step3: 沿直线走到中间点 (广播 t)
+    t_b = t.view(B, 1, 1)
+    x_t = (1.0 - t_b) * x0 + t_b * x1
+
+    # Step4: 网络看 (x_t, t) 预测速度
+    v = model(x_t, t)                     # (B, L, D)
+
+    # Step5: 目标速度是常数场 x1-x0
+    target = x1 - x0
+
+    # Step6: 均方误差, 对所有元素平均
+    return F.mse_loss(v, target)
 ```
-x₀ ~ N(0, I)  （纯噪声）
-for t in [0, 0.1, 0.2, ..., 0.9]:
-    v = v_θ(x_t, t)        # 网络预测速度
-    x_{t+1} = x_t + v·Δt   # Euler 积分，走一步
-x₁ = 最终生成的数据
+
+**变体**：
+
+- **OT-CFM**：对 (x0,x1) 做最优传输配对，减少路径交叉（样本效率更高）。
+- **条件 FM（CFM）**：`p_t(x|x1)` 单条路径回归，数学上边缘化后梯度无偏。
+- **与 score 的关系**：直线高斯路径下，score 与速度有闭式关系 `v = ... score ...`，SDE 推导时要用。
+
+### 5.5 推理：Euler 积分与步数权衡
+
+```python
+@torch.no_grad()
+def fm_sample(model, shape, steps=20, cfg_scale=1.0, cond=None):
+    x = torch.randn(shape)
+    dt = 1.0 / steps
+    for i in range(steps):
+        t_val = i / steps
+        t = torch.full((shape[0],), t_val, device=x.device)
+
+        # 可选 CFG: 放大条件方向
+        if cfg_scale != 1.0 and cond is not None:
+            v_c = model(x, t, cond)
+            v_u = model(x, t, None)
+            v = v_u + cfg_scale * (v_c - v_u)
+        else:
+            v = model(x, t, cond)
+
+        x = x + v * dt          # Euler: 一步
+        # 高阶: Heun = 先 Euler 试走, 再用端点速度平均校正
+    return x
+```
+
+**步数权衡**：
+
+```text
+steps 少: 快, 截断误差大 (轨迹终点偏)
+steps 多: 准, 慢, RL 采样成本线性涨
+常用:  SFT 生成 8-16 步; Flow-GRPO 采样 32 步保 log_prob 精度
+蒸馏:  consistency / step-distill 压到 1-4 步
+```
+
+### 5.6 条件生成：轨迹任务里的 c 是什么
+
+```text
+c = concat(或 cross-attn 注入):
+  - BEV / 感知特征
+  - 导航指令 embedding
+  - z_risk 风险先验 (Risk-Init-Flow)
+  - 行为模式 token (TrustDrive-WAM 的 16 组)
+  - ego 状态 (速度、档位)
+```
+
+条件进网络的三种方式：加法注入（adaLN/FiLM）、拼接进 token 序列、cross-attention。我们 DiT 风格用 adaLN + cross-attn 混合。
+
+### 5.7 手推：为什么 Euler 几步就能走对
+
+因为目标速度场训练成 `x1-x0` 常数方向，理想情况下：
+
+```text
+v(x_t, t) = x1 - x0  对所有 t 成立
+
+x0 + (x1-x0)*1 = x1   一步精确到位
+
+实际网络有误差, 且不同样本速度在同一点平均 -> 场不完全恒定
+所以用多步 + 可选 CFG 校正
+```
+
+面试若被问「理论上不是一步？」——答：理想场一步；真实场是边缘化后的平均场，路径会弯，需要多步数值积分，这也是为什么 Flow-GRPO 仍用 32 步循环。
+
+---
+
+## 6. Flow-GRPO：流匹配上的强化学习后训练
+
+### 6.1 专有名词表（本节）
+
+| 术语 | 全称 | 一句话定义 |
+|------|------|------------|
+| GRPO | Group Relative Policy Optimization | 同 prompt 采一组样本，组内归一化 advantage 的策略梯度算法 |
+| PPO | Proximal Policy Optimization | 用 clip 或 KL 限制更新步长的 actor-critic 算法 |
+| Actor-Critic | - | actor 出动作，critic 估价值 |
+| Advantage | 优势函数 | A = Q - V，动作比「平均水平」好多少 |
+| Baseline | 基线 | 减小梯度方差的参照值 |
+| Policy π_θ | 策略 | 参数化动作分布 |
+| log_prob | 对数概率 | log π(a|s)，PPO ratio 的原料 |
+| Ratio | 重要性采样比 | π_new/π_old = exp(logp_new - logp_old) |
+| Clip | 裁剪 | 把 ratio 限制在 [1-ε, 1+ε] 的悲观下界 |
+| KL Divergence | KL 散度 | 两个分布差异的非对称度量 |
+| Reward Model | 奖励模型/打分器 | 把轨迹映射为标量分数的函数（我们用 PDM） |
+| LoRA | Low-Rank Adaptation | 冻结 W0, 只训低秩增量 BA |
+| Checkpoint | - | 训练存档点 |
+| Constrained MDP | 约束马尔可夫决策过程 | 在期望约束下优化回报（安全 RL 常用框架） |
+| λ-return / GAE | 广义优势估计 | actor-critic 里估 A 的自举方法（GRPO 不用 critic 时可不提） |
+
+### 6.2 GRPO：从 LLM 到组内竞争
+
+**DeepSeek-R1 风格 GRPO 核心**（LLM 离散情形）：
+
+```text
+1. 对问题 q 采 G 条回答: y1..yG ~ π_old(.|q)
+2. 每条得分: r_i = reward(y_i, q)   (规则验证/裁判模型)
+3. 组内归一化: A_i = (r_i - mean(r)) / (std(r)+eps)
+4. 每个 token 的 PPO clip loss, 用 A_i 当全程标签
+5. 没有 critic, baseline 来自组内均值
+```
+
+**为什么不用 critic**：LLM 的 value 头难训、显存翻倍；组内样本天然提供 baseline。方差 vs 便宜的经典折中。
+
+**advantage 归一化代码**：
+
+```python
+def compute_group_advantages(rewards, group_size, clamp=2.0):
+    """
+    rewards: (num_groups * G,) 展平的组分数
+    """
+    r = rewards.view(-1, group_size)          # (Ng, G)
+    mean = r.mean(dim=1, keepdim=True)
+    std  = r.std(dim=1, keepdim=True) + 1e-4
+    adv  = (r - mean) / std                   # 组内标准化
+    adv  = torch.clamp(adv, -clamp, clamp)    # 压 outlier, 防单个异常分数主导
+    return adv.reshape(-1)
+```
+
+**直觉**：一条轨迹不再和「绝对满分」比，而是和「同场景其它 23 条」比——比同伴好就提高概率。
+
+### 6.3 连续动作的障碍：为什么不能直接 softmax log_prob
+
+```text
+LLM:  π(token=k) = softmax(logits)[k]  ∈ (0,1),  sum=1
+      log_prob = log softmax, 离散可枚举
+
+Flow: 转移 x -> x' 是确定性 ODE:  x' = x + v*dt
+      确定性映射下, 条件分布是 Dirac delta
+      log p(x'|x) = -inf (除 x'=f(x)) -> ratio 无意义
+```
+
+**解法路线对比**：
+
+| 路线 | 思路 | 问题 |
+|------|------|------|
+| 高斯化近似 | 把每步转移当 N(mean, σ²I) | σ 要仔细设 |
+| 概率流 ODE + Hutchinson score 估 | 用 score 估 log 密度 | 工程复杂，噪声大 |
+| **引入 SDE**（我们/论文） | 显式加噪，转移真有高斯密度 | 与 FM 训练一致性需保持边际不变 |
+
+### 6.4 SDE 化：四步推导（面试白板级）
+
+**步骤 1：原 Flow 是 ODE**
+
+```text
+dx = v_theta(x,t) dt,   x_0 ~ N(0,I) -> x_1 ~ p_data
+```
+
+**步骤 2：改写成 SDE，要求边际分布不变**
+
+```text
+dx = [ f(x,t) ] dt + sigma_t dw
+
+f(x,t) = v_theta(x,t) + (1/2) g(t)^2 * score p_t(x)
+```
+
+（漂移里加 score 项，是「加噪声还保持同一条 p_t」的标准 Fokker-Planck 补偿。）
+
+**步骤 3：直线路径下 score 与速度的闭式关系**
+
+对 `x_t = (1-t)x0 + t x1` 且 `x0~N(0,I)` 的边缘高斯：
+
+```text
+score p_t(x) = ( (1-t)*x1_expect - x ) / (t^2 * noise_scale)
+# 实现里用可算的 v_theta 与调度参数替换, 得到只依赖网络输出的 drift
+```
+
+**步骤 4：离散化 + 写出转移高斯**
+
+```text
+Euler-Maruyama:
+  mean = x_t + f_theta(x_t,t)*dt
+  x_{t+1} = mean + sqrt(|dt|)*sigma_noise*eps
+
+因此:
+  p(x_{t+1}|x_t) = N(mean, (sigma_noise^2 * |dt|) * I)
+  log p = -||x_{t+1}-mean||^2 / (2 s^2) - D/2*log(2*pi*s^2)
+```
+
+**实现中的均值公式**（对应第二部分代码）：
+
+```text
+mean = x_t * (1 + sn^2/(2t) * dt)
+     + v_theta * (1 + sn^2*(1-t)/(2t)) * dt
+sn = sqrt(t/(1-t)) * noise_level
+```
+
+（系数来自调度展开，不同论文符号略异，面试手推到「高斯转移 + score 补偿」即可，不必背到每个符号。）
+
+### 6.5 PPO-Clip 逐项解释
+
+```python
+def ppo_clip_loss(logp_new, logp_old, adv, eps=0.2):
+    ratio = torch.exp(logp_new - logp_old)     # = pi_new/pi_old
+    surr1 = ratio * adv                        # 未裁剪
+    surr2 = torch.clamp(ratio, 1-eps, 1+eps) * adv  # 裁剪
+    # max 取的是"对 agent 更悲观"的下界 (adv 可正可负时的下确界)
+    loss = -torch.min(surr1, surr2).mean()
+    return loss
+```
+
+**分情况**：
+
+```text
+adv > 0 (轨迹好):
+  希望 ratio 上升 -> 但 ratio > 1+eps 后 surr2 停止增长, 梯度截断
+adv < 0 (轨迹差):
+  希望 ratio 下降 -> ratio < 1-eps 后不再更狠地压
+```
+
+**为什么悲观取 min**：对最大化目标取两个估计的更小者，防止高估收益——PPO 的保守策略改进。
+
+### 6.6 KL 惩罚与 reference model
+
+```text
+L_total = L_clip + beta * KL(pi_new || pi_ref)
+
+pi_ref: 加载同一 checkpoint 但关闭 LoRA adapter 的原始模型
+```
+
+**作用**：
+
+1. 防灾难性遗忘（Flow Matching 预训练生成能力）。
+2. 防 reward hacking 沿奇怪方向漂移。
+3. 与 clip 互补：clip 管单步，KL 管全局锚点。
+
+**beta 调度**：太小→KL 爆炸不稳定；太大→训不动。常见 0.01-0.5 或 adaptive（目标 KL 触发）。
+
+### 6.7 LoRA 数学与「只训 0.5%」
+
+```text
+原始: W  ∈ R^{d_out × d_in}    (冻结)
+LoRA: W' = W + (alpha/r) * B A
+      A ∈ R^{r × d_in},  B ∈ R^{d_out × r},  r << min(d_in,d_out)
+      只训练 A, B;  初始化 A~N(0,σ), B=0 保证开始时 W'=W
+```
+
+```python
+class LoRALinear(nn.Module):
+    def __init__(self, base: nn.Linear, r=8, alpha=16):
+        super().__init__()
+        self.base = base
+        self.base.weight.requires_grad_(False)   # 冻结原权重
+        self.A = nn.Parameter(torch.randn(r, base.in_features) * 0.01)
+        self.B = nn.Parameter(torch.zeros(base.out_features, r))
+        self.scale = alpha / r
+
+    def forward(self, x):
+        # 原路径 + 低秩旁路
+        return self.base(x) + self.scale * (x @ self.A.T @ self.B.T)
+```
+
+**为什么 RL 后训特别适合 LoRA**：
+
+- Reward 引导的改动集中在少数方向 → 低秩假设成立。
+- 显存：优化器状态只覆盖 A,B。
+- 可插拔：任务切换 = 换 adapter；ref model = 同权重关 adapter。
+
+**追问「rank 取多少」**：r=8~64 常见；我们轨迹任务维度低、数据少，偏小 r 防过拟合，总参数约 0.5%（~60M 级别相对 12B 主干）。
+
+### 6.8 在线难例挖掘（Hard Example Mining）
+
+```text
+问题: 80% 常规场景对 GRPO 几乎无梯度 (组内分数都接近满分, adv≈0)
+      真正拉开差距的是 21% corner case
+
+做法:
+  1. 按历史奖励方差/失败率给场景打 priority
+  2. 采样 batch 时按 priority 加权, 提高高难场景概率
+  3. 或过滤掉"全对/全错"的组 (adv 全 0 或饱和)
+```
+
+**与课程学习关系**：easy-to-hard 是主动课程；难例挖掘是被动重加权。我们 SFT+GRPO 两阶段都用了。
+
+### 6.9 奖励设计细节（PDM + Agent 级归因）
+
+```python
+def reward_fn(traj, scenario):
+    # 1) 官方 PDMS 主项
+    pdms = pdms_single_trajectory(traj, scenario)   # 见 1.3
+
+    # 2) Agent 级归因: 碰撞时定位"谁的责任/离谁最近"
+    #    把稀疏的 0/1 碰撞拆成"离危险源的裕度" -> 稠密 shaping
+    margin = min_over_agents(clearance(traj, agent) - safe_buffer)
+
+    # 3) 归因加权: 对高风险交互场景, 该 agent 相关项权重放大
+    w = risk_weight[scenario.hardest_agent_id]
+    return pdms + w * shaped_margin
+```
+
+**为什么要 Agent 级**：全局 PDMS 有时「侥幸没碰但贴脸」得 0 缓慢改进信号；按最近威胁源做 shaping，梯度更指向真正风险。防 hacking：shaping 权重上限 + 主项仍是官方 PDMS。
+
+### 6.10 Flow-GRPO 完整训练数据流（文字流程，不用 ASCII 图）
+
+```text
+for each train step:
+  1. 取一个 batch 场景 prompts
+  2. 每个场景: SDE 采样 G 条轨迹, 记录逐步 log_prob_old
+  3. PDM 打分器给每条轨迹 r; 组内归一化 -> advantage
+  4. 若干 inner epoch:
+       对每条旧轨迹重算当前模型 log_prob_new
+       ratio = exp(logp_new - logp_old)
+       loss = -min(ratio*A, clip(ratio)*A) + beta*KL
+       backward 只落在 LoRA 参数
+  5. 可选: 更新难例权重; 记录 KL、分数、PDMS 到日志
 ```
 
 ---
 
-## 6. Flow-GRPO（流匹配强化学习后训练）
+## 7. 风险场 Risk Field
 
-### 6.1 GRPO 是什么？
+### 7.1 专有名词表（本节）
 
-GRPO（Group Relative Policy Optimization）= DeepSeek-R1 提出的强化学习算法，核心是**组内竞争**。
+| 术语 | 一句话定义 |
+|------|------------|
+| Risk Field | 把所有交通参与者影响建成连续时空风险密度场 |
+| Occupancy | 占据：格子是否被占用（几何，偏 0/1 或占用概率） |
+| Intention | 意图：变道、让行、抢行等离散/连续行为倾向 |
+| α-gating | 用可学习权重 alpha 对多源特征做软选择性聚合 |
+| Softmax 门控 | 把门控 logits 变成和为 1 的权重 |
+| Entropy | 熵：分布不确定性；均匀分布熵最大，one-hot 熵为 0 |
+| z_risk | 风险场压缩后的隐向量，作为全局风险先验 |
+| Interaction Graph | 交互图：agent 为节点、交互强度为边 |
+| Adjacency Matrix | 邻接矩阵：图的 NxN 边权存储 |
+| Clearance | 间距：自车与他目标的最小距离/时间裕度 |
+| Risk Aversion | 风险厌恶：同等期望下偏好更低方差结果 |
 
-```
-1. 同一个 prompt 生成一组样本（如 24 条轨迹）
-2. 用奖励模型打分
-3. 组内归一化：advantage_i = (r_i - mean) / std
-4. PPO 风格 loss 更新：比平均好的概率上升，差的下降
+### 7.2 为什么需要风险场（对比 occupancy）
 
-优势：不需要 critic 价值网络，用组内统计做 baseline
-```
-
-### 6.2 Flow-GRPO 的核心创新
-
-**问题**：LLM 的 GRPO 中 log_prob 直接从 softmax 取 log（离散 token）。但 Flow Matching 是连续的，不能直接取 softmax。
-
-**解法**：引入 SDE（随机微分方程），把确定性 ODE 变成有随机性的 SDE：
-
-```
-ODE（确定性）：dx = v_θ dt → log_prob 无法直接算
-SDE（随机性）：dx = f dt + σ dw → 转移概率是高斯分布 → log_prob 直接可算
-
-log p(x_{t+1}|x_t) = -||x_{t+1}-mean||²/(2σ²) - log(σ) - log(√(2π))
+```text
+Occupancy 回答:  "这里有没有东西?"
+Risk Field 回答: "这里的危险程度是多少, 随时间怎么变, 受谁影响?"
 ```
 
-### 6.3 Flow-GRPO 完整流程
+场景：旁车侵入车道但还没压线——occupancy 可能仍算「车道内空闲」，risk field 因其速度矢量和 TTA（time-to-agreement）已把该格点亮。
 
-```
-采样：同一场景生成 K 条轨迹（SDE 采样，记录 log_prob_old）
-打分：奖励模型给每条轨迹打分（安全、舒适、进度）
-Advantage：组内归一化
-训练：PPO loss = -min(ratio·A, clip(ratio, 1±ε)·A)
-  其中 ratio = exp(log_prob_new - log_prob_old)
-梯度：只更新 LoRA 参数（0.5%），冻结主干
-```
+**时空维度**：输出 32 x 32 x 8。
 
-### 6.4 PPO-Clip 机制
-
-```
-ratio = π_new / π_old = exp(log_prob_new - log_prob_old)
-
-loss = -min(ratio·A, clip(ratio, 1-ε, 1+ε)·A)
-
-当 A > 0（好轨迹）：希望 ratio 上升，但 clip 到 1+ε 防止更新太猛
-当 A < 0（差轨迹）：希望 ratio 下降，但 clip 到 1-ε 防止降太猛
-作用：限制每步更新幅度，训练稳定
+```text
+32 x 32: BEV 网格分辨率 (每格物理尺寸由场景范围 / 32 决定)
+8:       未来 8 个时间片的风险演化 (不是单帧快照)
+每个值 ∈ [0,1] 或 logit: 该时空点的风险强度
 ```
 
-### 6.5 KL 惩罚
+### 7.3 构建流程伪代码与逐行解释
 
-```
-L = L_policy + β·KL(π_new || π_ref)
+```python
+class RiskFieldNet(nn.Module):
+    def __init__(self, n_agents=128, d=256, grid=(32, 32, 8)):
+        super().__init__()
+        self.queries = nn.Parameter(torch.randn(n_agents, d))
+        self.gate = nn.Sequential(nn.Linear(d, d//2), nn.ReLU(), nn.Linear(d//2, 1))
+        self.to_grid = nn.Linear(d, grid[0]*grid[1]*grid[2])
+        self.grid = grid
 
-π_ref = reference model（禁用 LoRA 的原始模型）
-作用：防止新模型偏离原始模型太远，避免灾难性遗忘
+    def forward(self, bev, agent_state=None):
+        # (1) object query 查 BEV: 谁在哪
+        #     cross-attn(Q=queries, KV=flatten(bev))
+        agents = cross_attn(self.queries, flatten(bev))       # (B,128,d)
+
+        # (2) 可选: 融入速度/类别等状态
+        if agent_state is not None:
+            agents = agents + agent_state_embed(agent_state)
+
+        # (3) 交互图: 双线性 form Q W K^T 得到 128x128 边权
+        #     高分边 = 强交互 (跟车、并线博弈)
+        # agents = agents + graph_propagate(agents)
+
+        # (4) alpha 软门控: 每个 agent 一个标量权重, softmax 归一
+        logits = self.gate(agents).squeeze(-1)                # (B,128)
+        alpha = torch.softmax(logits, dim=-1)                 # sum=1
+
+        # (5) 加权池化 -> 解码到网格
+        pooled = (alpha.unsqueeze(-1) * agents).sum(dim=1)    # (B,d)
+        field = self.to_grid(pooled)                          # (B, 32*32*8)
+        field = field.view(-1, *self.grid)                    # (B,32,32,8)
+
+        # (6) 风险隐编码: 池化向量本身或再过一层
+        z_risk = pooled                                       # (B,d)
+        return field, z_risk, alpha
 ```
+
+**alpha 为什么 softmax**：保证可加权、权重和为 1（贡献可解释、尺度稳定）；也可 sigmoid 独立门控，但会失去「相对重要性」竞争。
+
+### 7.4 z_risk 的三个下游用途
+
+```text
+1. Risk-Init-Flow:  初始噪声 = f(z_risk) + eps   -> 生成从更合理区域出发
+2. 专家门控:        熵 = H(field); g = softmax(MLP(H)) -> Base vs LTE
+3. 评分器/RL:       score_input = concat(traj_feat, z_risk) -> 裕度评估
+```
+
+```python
+def risk_entropy(field, eps=1e-8):
+    # field 先归一化成伪概率 (softmax over spatial or sigmoid+norm)
+    p = field.flatten(1)
+    p = p / (p.sum(-1, keepdim=True) + eps)
+    return -(p * (p + eps).log()).sum(-1)   # (B,) 熵
+```
+
+### 7.5 面试对比题模板：风险场 vs 预测后处理
+
+> 传统：先各自预测轨迹，再用碰撞检测后处理筛选。交互信息在「预测」阶段是解耦的，博弈关系（他让我还是我让他）要到检测时才出现。风险场把交互前移到表征阶段，用 α 门控显式聚合，生成阶段通过 z_risk 条件化，属于「predict-then-check」到「joint risk representation」的升级。
 
 ---
 
-## 7. 风险场（Risk Field）
+## 8. 双专家 Base + LTE
 
-### 7.1 什么是风险场？
+### 8.1 名词
 
-传统方案对每个交通参与者单独预测，**没有显式建模交互关系**。风险场把所有参与者的影响建模为一个**连续的空间风险分布**。
+| 术语 | 定义 |
+|------|------|
+| LTE | Long-Tail Expert，长尾专家 |
+| Mixture of Experts | 专家混合：多个子网络 + 路由 |
+| Hard Routing | one-hot 选一个专家（Switch Transformer） |
+| Soft Routing | 加权混合多个专家输出 |
+| Curriculum Learning | 课程学习：由易到难组织数据 |
+| Online Hard Mining | 在线难例挖掘：按损失/失败率重采样 |
+| Bimodal Skill | 双峰技能：常规稳健 vs 长尾激进 |
 
-```
-类比：磁场——每个磁铁在空间中产生磁场，叠加起来决定铁屑的分布
-风险场——每个交通参与者在空间中产生"风险"，叠加起来决定哪里危险
-```
+### 8.2 为什么双专家（数据分布视角）
 
-### 7.2 时空风险场
-
-```
-输出：32 × 32 × 8 的连续风险场
-  32 × 32 = 空间分辨率（BEV 网格）
-  8 = 时间维度（未来 8 步的风险演化）
-
-每个网格值 = 该位置在该时刻的碰撞风险
-```
-
-### 7.3 α 软门控路由聚合
-
-```
-128 个 agent 的特征 → α 软门控 → 加权聚合 → 32×32×8 风险场
-
-α 软门控 = learnable 的权重，决定每个 agent 对风险场的贡献
-类比：不是所有车都一样危险，门控网络学习"谁更重要"
+```text
+数据分布:  P常规 >> P长尾
+单模型 + 平均 loss  ->  梯度被常规场景主导 ->  逼近保守平均策略
+双专家:   Base 拟合 P常规, LTE 在 P长尾上加权训练 -> 分布不再单一
 ```
 
-### 7.4 z_risk 风险隐编码
+**门控输入为什么用风险熵而不是 hard 标签**：
 
+```text
+hard 标签:  需要人标"这是长尾", 边界主观, 错标代价高
+风险熵:     从模型自己的风险场连续导出, 可微, 天然 soft
+熵高 -> 场景复杂 -> LTE 权重升
+熵低 -> 常规 -> Base 权重升
 ```
-风险场 → 编码器 → z_risk（一个紧凑的向量）
-作用：作为统一的风险先验，传递给下游模块
-  - 轨迹生成：用 z_risk 优化初始噪声分布
-  - 专家门控：用 z_risk 决定用哪个专家
-  - 评分器：用 z_risk 评估轨迹风险
+
+```python
+def dual_expert_forward(base, lte, risk_field):
+    h = risk_entropy(risk_field)                      # (B,)
+    w = torch.softmax(self.gate(h.unsqueeze(-1)), -1) # (B,2)
+    v = w[:, 0:1, None] * base + w[:, 1:2, None] * lte
+    return v, w
 ```
+
+### 8.3 LTE 初始化与训练细节
+
+```text
+LTE 不从零初始化:  load_state_dict(Base) 后再在长尾子集 finetune
+否则早期 LTE 输出噪声大, 门控学不敢用它
+
+长尾子集来源:
+  - 碰撞/压线失败回放
+  - 风险熵 top-k 场景
+  - 合成插入 (cut-in, 突然鬼探)
+```
+
+**防过拟合**：LTE 数据少 → 强 EMA、小 lr、早停；门控加 dropout；始终与 Base 软混合（不完全替换）。
+
+### 8.4 Risk-Init-Flow（风险初始化流）
+
+```text
+标准 FM:  x0 ~ N(0, I)
+我们:     x0 = MLP(z_risk) + sigma_small * N(0,I)
+
+含义:  噪声分布不再全局各向同性, 而是条件于当前场景风险
+       -> 初始点已偏向"风险场允许的区域", 积分路径更短、更少违例
+```
+
+**数学注意**：训练时也必须用同一 x0 分布（条件 FM），否则 train/inference mismatch。若训练仍用纯噪声、推理用风险初始化，会有分布偏移——面试若被追问，答「初始化作为条件的一部分进入训练」。
+
+**多样性**：保留 `sigma_small * noise` 避免同场景 K 条候选完全相同（组内 advantage 需要多样性，否则 std->0 不稳定）。
 
 ---
 
-## 8. 双专家架构（Base + LTE）
-
-### 8.1 为什么需要双专家？
-
-```
-常规场景（80%）：需要稳定、保守的轨迹
-长尾高危场景（20%）：需要激进但安全的轨迹（如紧急避让）
-
-单模型：两种场景混在一起学，互相妥协
-双专家：Base 专家学常规，LTE（Long-Tail-Expert）学长尾
-```
-
-### 8.2 风险场熵自动门控
-
-```
-风险场熵 = 风险分布的不确定性
-  熵高 → 场景复杂/长尾 → 倾向用 LTE
-  熵低 → 场景常规 → 倾向用 Base
-
-门控 = softmax(熵) → 权重 → 加权混合两个专家的输出
-```
-
-### 8.3 Risk-Init-Flow（风险初始化流）
-
-```
-标准 Flow Matching：噪声 ~ N(0, I)（纯随机）
-Risk-Init-Flow：噪声 = f(z_risk)（用风险编码优化初始噪声分布）
-
-作用：让轨迹生成"从更合理的起点出发"，减少盲目性
-类比：不是从零开始找路，而是先大致知道危险在哪，从安全区域开始搜
-```
-
----
-
-## 9. 关键指标与缩写速查表
+## 9. 关键指标与缩写总表
 
 | 缩写 | 全称 | 含义 |
 |------|------|------|
-| E2E | End-to-End | 端到端，从传感器直接到轨迹 |
-| BEV | Bird's Eye View | 鸟瞰图视角 |
+| E2E | End-to-End | 端到端 |
+| BEV | Bird's Eye View | 鸟瞰图 |
 | VLA | Vision-Language-Action | 视觉语言动作模型 |
 | WAM | World Action Model | 世界动作模型 |
 | JEPA | Joint Embedding Predictive Architecture | 联合嵌入预测架构 |
@@ -468,943 +1272,1787 @@ Risk-Init-Flow：噪声 = f(z_risk)（用风险编码优化初始噪声分布）
 | PPO | Proximal Policy Optimization | 近端策略优化 |
 | ODE | Ordinary Differential Equation | 常微分方程 |
 | SDE | Stochastic Differential Equation | 随机微分方程 |
-| OOD | Out-of-Distribution | 分布外 |
-| PDMS | Pilot-Driving Metric Score | NAVSIM 核心指标 |
+| OOD / ID | Out/In of Distribution | 分布外/内 |
+| PDMS | Pilot-Driving Metric Score | NAVSIM 核心乘积指标 |
 | NC | No at-fault Collision | 无责碰撞 |
 | DAC | Drivable Area Compliance | 可行驶区域合规 |
 | TTC | Time-to-Collision | 碰撞时间 |
 | EP | Ego Progress | 自车进度 |
-| LoRA | Low-Rank Adaptation | 低秩适配微调 |
+| SLC | Speed Limit Compliance | 限速合规 |
+| LoRA | Low-Rank Adaptation | 低秩适配 |
 | EMA | Exponential Moving Average | 指数移动平均 |
 | ViT | Vision Transformer | 视觉 Transformer |
 | MLP | Multi-Layer Perceptron | 多层感知机 |
-| MMAE | Masked Autoencoder | 掩码自编码器 |
-| VICReg | Variance-Invariance-Covariance Regularization | 表征坍缩正则 |
+| MAE | Masked Autoencoder | 掩码自编码器 |
+| VICReg | Variance-Invariance-Covariance Reg. | 防坍缩正则 |
 | SFT | Supervised Fine-Tuning | 监督微调 |
 | RL | Reinforcement Learning | 强化学习 |
+| CFG | Classifier-Free Guidance | 无分类器引导 |
+| LSS | Lift-Splat-Shoot | 深度提升投影 BEV 方法名 |
+| GQA / MQA / MHA | Group/Multi-Query/Multi-Head Attention | 注意力变体（K/V 头数不同） |
+| RVQ | Residual Vector Quantization | 残差向量量化（RDT-2 训练用） |
+| CE | Cross-Entropy | 交叉熵 |
+| MSE | Mean Squared Error | 均方误差 |
+| PDM | Predictive Driver Model | NAVSIM 打分器家族名 |
+| FPS | Frames Per Second | 帧率 |
+| TTFT / Latency | - | 首包延迟 / 端到端时延 |
+| FLOPs | Floating Point Ops | 计算量 |
+| KV Cache | Key-Value Cache | 自回归推理缓存 |
+| adaLN | adaptive LayerNorm | 用条件调制 LN 的 scale/shift |
+| FiLM | Feature-wise Linear Modulation | 条件线性调制 |
+| MLP-Mixer | - | 用 MLP 替代 attention 的视觉骨干 |
+| Deformable Attn | 可变形注意力 | 只在参考点附近采样的高效 attention |
+| IoU | Intersection over Union | 框重叠度 |
+| NMS | Non-Max Suppression | 非极大值抑制去重框 |
+| TTA | Time-To-Agree / analysis | 语境：碰撞相关时间裕度 |
+| MDP | Markov Decision Process | 马尔可夫决策过程 |
+| HJ | Hamilton-Jacobi | 可达性分析常用 PDE（安全验证） |
 
 ---
 
 # 第二部分：核心算法伪代码实现
 
-> 这一部分从概念到伪代码，逐步实现每个核心算法。先讲"是什么"，再讲"怎么写代码"。
+> 每个算法按「它是什么（30 秒版）」->「数学/直觉」->「完整伪代码」->「逐段注释」->「面试易错点」组织。代码为教学伪代码，张量 shape 全部标注。
 
 ---
 
 ## 算法 1：Flow Matching 完整实现
 
-### 1.1 概念回顾
+### 1.1 它是什么（30 秒版）
 
-Flow Matching 训练一个网络预测"从噪声到数据的方向"（速度场），推理时用 Euler 积分沿速度场走多步生成数据。
+在噪声和数据之间拉一条直线，训练网络在直线任意点回答「现在往哪走」；推理时从纯噪声出发，按网络指示的方向多走几步，到达数据分布。
 
-### 1.2 训练伪代码
+### 1.2 数学（一分钟版）
+
+```text
+路径:  x_t = (1-t) x0 + t x1,  x0~N(0,I), x1~p_data, t~U[0,1]
+速度:  u_t = d x_t / dt = x1 - x0   (常数场)
+学习:  min_theta  E || v_theta(x_t, t) - (x1 - x0) ||^2
+推理:  dx/dt = v_theta(x,t),  x(0)~N(0,I), 数值积分到 t=1
+```
+
+### 1.3 模型骨架：DiT 风格速度场网络
 
 ```python
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
-# ========== 模型定义 ==========
-class DiT(nn.Module):
-    """Diffusion Transformer：输入带噪状态+时间步，输出速度场"""
-    def __init__(self, input_dim, hidden_dim, num_layers):
+
+def timestep_embedding(t, dim):
+    """
+    把标量时间步 t∈[0,1] 变成 sinusoidal 向量 (类比 Transformer 位置编码)
+    t: (B,)
+    return: (B, dim)
+    """
+    half = dim // 2
+    freqs = torch.exp(-torch.arange(half, device=t.device) * (10000.0 / half))
+    # t 通常很小 (0~1), 乘一个大 scale 防止 sin 近似常数
+    args = t[:, None].float() * 1000.0 * freqs[None, :]
+    return torch.cat([torch.cos(args), torch.sin(args)], dim=-1)
+
+
+class DiTBlock(nn.Module):
+    """一层 Transformer: adaLN 调制 + self-attn + adaLN + MLP"""
+    def __init__(self, d_model=256, nhead=8, mlp_ratio=4.0):
         super().__init__()
-        self.time_embed = nn.Linear(1, hidden_dim)  # 时间步编码
-        self.transformer = nn.TransformerEncoder(
-            nn.TransformerEncoderLayer(d_model=hidden_dim, nhead=8),
-            num_layers=num_layers
+        self.norm1 = nn.LayerNorm(d_model, elementwise_affine=False)
+        self.attn  = nn.MultiheadAttention(d_model, nhead, batch_first=True)
+        self.norm2 = nn.LayerNorm(d_model, elementwise_affine=False)
+        self.mlp   = nn.Sequential(
+            nn.Linear(d_model, int(d_model * mlp_ratio)),
+            nn.GELU(),
+            nn.Linear(int(d_model * mlp_ratio), d_model),
         )
-        self.output_proj = nn.Linear(hidden_dim, input_dim)  # 输出速度
-    
-    def forward(self, x_t, t):
-        """
-        x_t: (B, seq_len, input_dim) 当前带噪状态
-        t:   (B,) 时间步
-        return: v_theta, shape (B, seq_len, input_dim) 速度场
-        """
-        t_emb = self.time_embed(t.unsqueeze(-1))  # (B, hidden_dim)
-        h = x_t + t_emb.unsqueeze(1)  # 时间步注入
-        h = self.transformer(h)       # Transformer 处理
-        v_theta = self.output_proj(h) # 输出速度场
-        return v_theta
+        # 时间步 -> 4 个调制向量 (shift, scale, gate_attn, gate_mlp)
+        self.ada = nn.Linear(d_model, 4 * d_model)
 
-# ========== Flow Matching 训练 ==========
-def flow_matching_train_step(model, real_data, noise):
-    """
-    训练一步 Flow Matching
-    real_data: (B, seq_len, dim) 真实数据（轨迹/图片）
-    noise:     (B, seq_len, dim) 随机噪声
-    """
-    B = real_data.shape[0]
-    
-    # 第 1 步：随机采时间步 t ~ U[0, 1]
-    t = torch.rand(B, device=real_data.device)
-    
-    # 第 2 步：线性插值得到中间状态
-    # x_t = (1-t) * noise + t * real_data
-    t_expand = t.view(-1, 1, 1)
-    x_t = (1 - t_expand) * noise + t_expand * real_data
-    
-    # 第 3 步：网络预测速度场
-    v_pred = model(x_t, t)  # (B, seq_len, dim)
-    
-    # 第 4 步：正确答案 = 从噪声指向数据的方向
-    v_target = real_data - noise  # x1 - x0，恒定速度
-    
-    # 第 5 步：MSE Loss
-    loss = nn.MSELoss()(v_pred, v_target)
-    
-    return loss
+    def forward(self, x, t_emb):
+        """
+        x:     (B, L, D)  当前状态 token (轨迹点/patch)
+        t_emb: (B, D)     时间嵌入
+        return:(B, L, D)
+        """
+        shift1, scale1, gate1, gate2 = self.ada(t_emb).chunk(4, dim=-1)
+        # adaLN: 用条件调制归一化输出  h = norm(x)*(1+scale)+shift
+        h = self.norm1(x) * (1 + scale1[:, None, :]) + shift1[:, None, :]
+        x = x + gate1[:, None, :] * self.attn(h, h, h, need_weights=False)[0]
+        x = x + gate2[:, None, :] * self.mlp(self.norm2(x))
+        return x
 
-# ========== Flow Matching 推理（ODE 积分）==========
-@torch.no_grad()
-def flow_matching_sample(model, shape, num_steps=10):
-    """
-    从噪声生成数据
-    返回最终生成的轨迹
-    """
-    # 从纯噪声开始
-    x = torch.randn(shape)  # x_0 ~ N(0, I)
-    dt = 1.0 / num_steps
-    
-    for i in range(num_steps):
-        t = i * dt
-        t_batch = torch.full((shape[0],), t, device=x.device)
-        
-        # 网络预测速度
-        v = model(x, t_batch)
-        
-        # Euler 积分：沿速度方向走一步
-        x = x + v * dt
-    
-    return x  # x_1 = 生成的数据
+
+class VelocityFieldDiT(nn.Module):
+    """Flow Matching 速度场网络 v_theta(x_t, t, cond)"""
+    def __init__(self, traj_dim=2, d_model=256, n_layers=6, nhead=8):
+        super().__init__()
+        self.in_proj  = nn.Linear(traj_dim, d_model)
+        self.time_mlp = nn.Sequential(
+            nn.Linear(d_model, d_model), nn.SiLU(), nn.Linear(d_model, d_model)
+        )
+        self.cond_proj = nn.Linear(256, d_model)   # 场景条件 (BEV/z_risk)
+        self.blocks = nn.ModuleList([
+            DiTBlock(d_model, nhead) for _ in range(n_layers)
+        ])
+        self.out_proj = nn.Linear(d_model, traj_dim)
+
+    def forward(self, x_t, t, cond):
+        """
+        x_t:  (B, L, 2)  带噪轨迹, L=未来步数 (如 30)
+        t:    (B,)       时间步
+        cond: (B, 256)   场景条件向量
+        return:(B, L, 2) 速度场
+        """
+        h = self.in_proj(x_t)                 # (B, L, D)
+        t_emb = self.time_mlp(timestep_embedding(t, 256))
+        c = self.cond_proj(cond)              # (B, D)
+        t_emb = t_emb + c                     # 条件并入时间条件 (也可用 cross-attn)
+
+        # 每个 token 都加上同样的条件嵌入
+        h = h + t_emb[:, None, :]
+        for blk in self.blocks:
+            h = blk(h, t_emb)
+        return self.out_proj(h)               # (B, L, 2)
 ```
 
-### 1.3 逐行解读
+### 1.4 训练一步（完整可读版）
 
-| 代码行 | 对应概念 |
-|--------|---------|
-| `t = torch.rand(B)` | 随机采时间步，让模型学会在任意时刻预测速度 |
-| `x_t = (1-t)*noise + t*real_data` | 线性插值，构造"半噪声半数据"的中间状态 |
-| `v_target = real_data - noise` | 正确答案：从噪声指向数据的方向 |
-| `loss = MSE(v_pred, v_target)` | 让网络预测的方向和真实方向一致 |
-| `x = x + v * dt` | Euler 积分：每步沿预测的速度方向走一小步 |
+```python
+def flow_matching_train_step(model, optimizer, real_traj, cond):
+    """
+    real_traj: (B, L, 2) 真实未来轨迹 (已归一化到 ego 系)
+    cond:      (B, 256)  感知+导航条件
+    """
+    model.train()
+    B = real_traj.shape[0]
+    optimizer.zero_grad()
+
+    # [1] 采噪声端点 x0 和数据端点 x1
+    x0 = torch.randn_like(real_traj)
+    x1 = real_traj
+
+    # [2] 采连续时间步, 训练时必须覆盖 (0,1) 全程, 否则推理某段没学过
+    t = torch.rand(B, device=real_traj.device)
+
+    # [3] 线性插值构造路径上的点 (这就是 "conditional path sample")
+    t_b = t.view(B, 1, 1)
+    x_t = (1.0 - t_b) * x0 + t_b * x1
+
+    # [4] 网络预测速度
+    v_pred = model(x_t, t, cond)             # (B, L, 2)
+
+    # [5] 监督目标: 直线路径的速度恒为 x1-x0
+    v_target = x1 - x0                       # (B, L, 2)
+
+    # [6] 对 batch、序列、维度全部平均, 标量 loss
+    loss = F.mse_loss(v_pred, v_target)
+
+    # [7] 标准反传; LoRA 场景下只有 adapter 参数 .grad 非 None
+    loss.backward()
+    torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+    optimizer.step()
+    return loss.item()
+```
+
+**逐段对照表**：
+
+| 代码步骤 | 数学对象 | 面试一句话 |
+|----------|----------|------------|
+| x0, x1 | 路径两端 | 噪声端 + 真轨迹端 |
+| t ~ U[0,1] | 随机时刻 | 让网络学会路径上每一点的速度 |
+| x_t 插值 | 条件路径样本 | 这就是 Flow Matching 的 "Flow" |
+| v_target=x1-x0 | 常数速度场 | 直线路径求导得到 |
+| MSE | 回归 loss | 和 DDPM 的 eps 预测同构，只是目标不同 |
+
+### 1.5 推理：多步 Euler 采样器
+
+```python
+@torch.no_grad()
+def flow_matching_sample(model, cond, num_steps=16, shape=None):
+    """
+    从噪声生成一条轨迹
+    shape: (B, L, 2) 若已知
+    return: (B, L, 2)
+    """
+    model.eval()
+    B = cond.shape[0]
+    if shape is None:
+        shape = (B, 30, 2)
+
+    x = torch.randn(shape, device=cond.device)   # t=0 端: 纯噪声
+    dt = 1.0 / num_steps
+
+    for i in range(num_steps):
+        t_val = i / dt if False else i / num_steps   # 0, dt, 2dt, ...
+        t = torch.full((B,), t_val, device=cond.device)
+        v = model(x, t, cond)                # 网络说: 这里往哪走
+        x = x + v * dt                       # Euler 走一小步
+
+    # 循环结束 t≈1, x 即生成轨迹 (再反归一化到米制)
+    return x
+```
+
+**Heun（二阶）变体**（追问「更高精度」时答）：
+
+```text
+k1 = v(x, t)
+x_pred = x + k1*dt
+k2 = v(x_pred, t+dt)
+x_new = x + 0.5*(k1+k2)*dt      # 两次前向, 精度 O(dt^2)
+```
+
+### 1.6 面试易错点
+
+1. 训练目标是 **速度** 不是「去噪后的 x1」——写成 `mse(model(x_t,t), x1)` 是错的（那是 x0-prediction 变体，FM 标准是 velocity）。
+2. t 广播必须 `(B,1,1)`，写成 `(B,)` 会 broadcast 错轴。
+3. 推理必须 `torch.no_grad()`，且 **不要** `model.train()`（dropout/BN 行为会变）。
+4. 归一化空间要一致：训练在归一化轨迹上，推理也要在归一化空间走，最后一步再反变换。
 
 ---
 
 ## 算法 2：Flow-GRPO 完整实现
 
-### 2.1 概念回顾
+### 2.1 它是什么（30 秒版）
 
-Flow-GRPO = 用 GRPO 强化学习微调 Flow Matching 模型。核心：采样多条轨迹 → 打分 → 组内比较 → PPO loss 更新。
+对 Flow Matching 模型做 GRPO 后训练：同场景采多条轨迹 -> PDM 打分 -> 组内比出好坏 -> PPO-clip 更新 LoRA。难点是连续流没有 softmax log_prob，用 **SDE 化** 每步转移写成高斯，从而 log_prob 可算。
 
-### 2.2 SDE 采样（带 log_prob）
+### 2.2 SDE 单步 + log_prob（带完整公式注释）
 
 ```python
-def sde_step_with_logprob(model, x_t, t, dt, noise_level=0.7):
+def sde_step_with_logprob(model, x_t, t, dt, cond, noise_level=0.7):
     """
-    Flow Matching 的 SDE 采样一步，同时计算 log_prob
-    关键：引入随机性，使转移概率可算
+    一步随机流匹配采样, 同时返回 log p(x_next|x_t)
+
+    x_t: (B, L, 2)  当前状态
+    t:   (B,)       当前时间
+    dt:  float      步长 > 0
+    cond:(B, 256)
+    return:
+      x_next:    (B, L, 2)
+      log_prob:  (B,)     该步转移的对数密度 (对所有元素乘积取 log -> sum)
+      mean:      (B, L, 2) 高斯均值 (KL 用)
     """
-    # 第 1 步：网络预测速度场
-    v_theta = model(x_t, t)  # (B, seq_len, dim)
-    
-    # 第 2 步：计算 SDE 均值（带 score 修正的逆时 SDE）
-    # mean = x_t * (1 + σ_noise²/(2σ) * dt) 
-    #      + v_theta * (1 + σ_noise²*(1-σ)/(2σ)) * dt
-    sigma = t  # 当前噪声水平
+    # (1) 当前网络速度场
+    v = model(x_t, t, cond)                              # (B, L, 2)
+
+    # (2) 当前噪声水平调度  sigma(t), 这里用 t 本身
+    sigma = t.clamp(1e-5, 1.0 - 1e-5)                   # (B,)
+    # 离散化后的步噪声 std, 与调度匹配
     sigma_noise = torch.sqrt(sigma / (1 - sigma + 1e-8)) * noise_level
-    
-    mean_coeff_x = 1 + (sigma_noise**2) / (2 * sigma + 1e-8) * dt
-    mean_coeff_v = 1 + (sigma_noise**2 * (1 - sigma)) / (2 * sigma + 1e-8) * dt
-    mean = x_t * mean_coeff_x + v_theta * mean_coeff_v * dt
-    
-    # 第 3 步：采样下一步（加随机噪声）
-    std = sigma_noise * torch.sqrt(torch.abs(dt))
-    epsilon = torch.randn_like(x_t)
-    x_next = mean + std * epsilon
-    
-    # 第 4 步：计算 log_prob（高斯分布的 log 概率）
-    # log p(x_next | x_t) = -||x_next - mean||² / (2σ²) - log(σ) - log(√(2π))
-    log_prob = -((x_next.detach() - mean)**2).sum(dim=(1,2,3)) / (2 * std**2)
-    log_prob = log_prob - torch.log(std + 1e-8) - 0.5 * torch.log(2 * torch.pi)
-    
+
+    # (3) 均值: 漂移 = 确定性流速度 + score 补偿项 (保证边际分布仍是 p_t)
+    #     实现采用的显式系数 (与论文同族, 符号以实现为准):
+    #     mean = x * (1 + sn^2/(2*sigma)*dt) + v * (1 + sn^2*(1-sigma)/(2*sigma)) * dt
+    sn2_over_2s = (sigma_noise ** 2) / (2 * sigma + 1e-8)
+    mean_x = 1.0 + sn2_over_2s * dt
+    mean_v = 1.0 + (sigma_noise ** 2) * (1 - sigma) / (2 * sigma + 1e-8) * dt
+    mean = x_t * mean_x[:, None, None] + v * mean_v[:, None, None]
+
+    # (4) 采样下一状态 (Euler-Maruyama)
+    std = (sigma_noise * torch.sqrt(torch.abs(dt))).clamp_min(1e-6)
+    # std 形状广播到 (B,1,1) 沿元素维
+    eps = torch.randn_like(x_t)
+    x_next = mean + std[:, None, None] * eps
+
+    # (5) 高斯 log-prob:
+    #     log N(x; mean, s^2) = -0.5 * sum_i ((x_i-mean_i)/s)^2 - D*log(s) - 0.5*D*log(2pi)
+    #     注意 detach(mean) 不必须 (我们要梯度进 mean -> 进 v -> 进 LoRA),
+    #     但 x_next 在 PPO 里来自旧轨迹时应对 x_next.detach() 避免把梯度灌进采样图
+    D = x_t[0].numel()
+    diff = x_next.detach() - mean                          # (B, L, 2)
+    log_prob = -0.5 * (diff ** 2).sum(dim=(1, 2)) / (std ** 2)
+    log_prob = log_prob - D * torch.log(std) - 0.5 * D * torch.log(
+        torch.tensor(2.0 * 3.141592653589793, device=x_t.device)
+    )
+    # 上式 D*log(s) 里 s 是标量 per-batch; 若 std 是 (B,) 则:
+    #   log_prob -= D * torch.log(std)
     return x_next, log_prob, mean
 ```
 
-### 2.3 GRPO 训练主循环
+**注意**：教学代码里系数与具体调度绑定；面试时说清「Fokker-Planck 补偿使边际不变 + 离散化得高斯转移」比背系数更重要。
+
+### 2.3 采样一组轨迹并缓存 log_prob_old
 
 ```python
-def flow_grpo_train_step(model, ref_model, reward_fn, prompts, config):
+@torch.no_grad()
+def sample_group(model, cond, G=24, num_steps=32, dt=None):
     """
-    Flow-GRPO 一个训练步
+    同一场景采 G 条轨迹
+    cond: (1, 256) 或 (B,256), 下面按单场景 B=1 演示再 batch 化
+    return:
+      trajs:     (G, L, 2)
+      logps:     (G, num_steps)  每步的 log_prob, 便于逐步 PPO
     """
-    G = config.group_size       # 每组轨迹数，如 24
-    eps = config.clip_range     # PPO clip range，如 0.2
-    beta = config.kl_beta       # KL 惩罚系数
-    
-    # ========== 第 1 步：采样一组轨迹 ==========
-    all_trajectories = []
-    all_log_probs_old = []
-    all_rewards = []
-    
-    for prompt in prompts:  # 遍历每个场景
-        trajectories = []
-        log_probs_old_list = []
-        
-        for g in range(G):  # 每个场景采 G 条轨迹
-            # SDE 采样，记录每步的 log_prob
-            x = torch.randn(batch_shape)  # 初始噪声
-            step_log_probs = []
-            
-            for step in range(num_steps):
-                t = torch.full((B,), step/num_steps)
-                x, log_prob, _ = sde_step_with_logprob(
-                    model, x, t, dt
-                )
-                step_log_probs.append(log_prob)
-            
-            trajectories.append(x)  # 生成的轨迹
-            log_probs_old_list.append(torch.stack(step_log_probs, dim=1))
-        
-        # 打分
-        rewards = reward_fn(trajectories, prompt)
-        
-        all_trajectories.extend(trajectories)
-        all_log_probs_old.extend(log_probs_old_list)
-        all_rewards.extend(rewards)
-    
-    # ========== 第 2 步：组内归一化算 advantage ==========
-    rewards_tensor = torch.tensor(all_rewards)
-    mean_r = rewards_tensor.mean()
-    std_r = rewards_tensor.std() + 1e-4
-    advantages = (rewards_tensor - mean_r) / std_r
-    advantages = torch.clamp(advantages, -2.0, 2.0)  # 裁剪 outlier
-    
-    # ========== 第 3 步：PPO 更新 ==========
-    for inner_epoch in range(config.num_inner_epochs):
-        for traj, log_prob_old, adv in zip(
-            all_trajectories, all_log_probs_old, advantages
-        ):
-            for j in range(len(log_prob_old)):  # 遍历每一步
-                # 重新计算当前模型下的 log_prob
-                # 关键：用旧轨迹的 x_j+1，但用当前模型的 v_theta
-                _, log_prob_new, _ = compute_log_prob_current(
-                    model, traj, j
-                )
-                
-                # PPO ratio
-                ratio = torch.exp(log_prob_new - log_prob_old[j])
-                
-                # PPO-clip loss
-                unclipped_loss = -adv * ratio
-                clipped_loss = -adv * torch.clamp(
-                    ratio, 1.0 - eps, 1.0 + eps
-                )
-                policy_loss = torch.maximum(unclipped_loss, clipped_loss).mean()
-                
-                # KL 惩罚
-                if beta > 0:
-                    with torch.no_grad():
-                        _, _, mean_ref = sde_step_with_logprob(
-                            ref_model, traj[j], t, dt
-                        )
-                        _, _, mean_cur = sde_step_with_logprob(
-                            model, traj[j], t, dt
-                        )
-                    kl_loss = ((mean_cur - mean_ref)**2).mean() / (2 * std**2)
-                    loss = policy_loss + beta * kl_loss
-                else:
-                    loss = policy_loss
-                
-                # 反向传播（只更新 LoRA）
-                loss.backward()
-                optimizer.step()
-                optimizer.zero_grad()
-    
-    return advantages.mean(), rewards_tensor.mean()
+    if dt is None:
+        dt = 1.0 / num_steps
+    trajs, logps = [], []
+    for g in range(G):
+        x = torch.randn(1, 30, 2, device=cond.device)
+        step_logs = []
+        for i in range(num_steps):
+            t = torch.full((1,), i / num_steps, device=cond.device)
+            x, lp, _ = sde_step_with_logprob(model, x, t, dt, cond)
+            step_logs.append(lp)           # (1,)
+        trajs.append(x.squeeze(0))
+        logps.append(torch.stack(step_logs, dim=1).squeeze(0))  # (num_steps,)
+    return torch.stack(trajs), torch.stack(logps)  # (G,L,2), (G,T)
 ```
 
-### 2.4 计算图与梯度流
+### 2.4 组内优势 + PPO 主循环
 
-```
-loss (PPO)
-  → log_prob_new（高斯 log_prob 对 mean 求导）
-    → mean（SDE 均值公式，对 v_theta 线性）
-      → v_theta（DiT 前向输出）
-        → LoRA 参数（梯度只落在 LoRA A/B 矩阵上）
+```python
+def flow_grpo_update(model, ref_model, trajs, logps_old, rewards, 
+                     cond, opt, cfg=None):
+    """
+    trajs:     (B*G, L, 2)  旧轨迹 (不再重新采样)
+    logps_old: (B*G, T)
+    rewards:   (B*G,)
+    """
+    G = cfg.group_size
+    eps = cfg.clip_range          # 0.2
+    beta = cfg.kl_beta            # 0.05
+    dt = 1.0 / cfg.num_steps
 
-关键：v_theta 是 DiT 的输出，mean 是 v_theta 的线性函数，
-所以 d(log_prob)/d(v_theta) 可以手推闭式解。
+    # ---- A. 组内相对优势 ----
+    r = rewards.view(-1, G)
+    adv = (r - r.mean(1, keepdim=True)) / (r.std(1, keepdim=True) + 1e-4)
+    adv = adv.clamp(-2, 2).reshape(-1)            # (B*G,)
+
+    # ---- B. 多个 inner epoch 重用旧轨迹 (off-policy) ----
+    for _ in range(cfg.num_inner_epochs):
+        for i in range(trajs.shape[0]):
+            traj_i = trajs[i:i+1]                 # (1,L,2) 旧轨迹
+            # 逐步重算当前策略下的 log_prob_new
+            logp_new_seq = recompute_logprob_current(
+                model, traj_i, cond[i:i+1], dt, cfg.num_steps
+            )                                      # (1, T)
+            logp_old = logps_old[i:i+1]            # (1, T)
+
+            # ratio_t = exp(logp_new_t - logp_old_t)
+            ratio = torch.exp(logp_new_seq - logp_old)
+            a = adv[i].view(1, 1)
+
+            surr1 = ratio * a
+            surr2 = torch.clamp(ratio, 1 - eps, 1 + eps) * a
+            policy_loss = -torch.min(surr1, surr2).mean()
+
+            # KL: 当前 mean vs ref mean (同一 x_t,t)
+            kl = gaussian_kl_mean(
+                mean_cur=model_mean(model, traj_i, cond[i:i+1], dt),
+                mean_ref=model_mean(ref_model, traj_i, cond[i:i+1], dt),
+                std=cfg.std,
+            )
+            loss = policy_loss + beta * kl
+
+            opt.zero_grad()
+            loss.backward()
+            # 只裁 LoRA: 其它参数 grad 本应为 None; 若全参则手动 mask
+            opt.step()
+    return adv.mean().item(), rewards.mean().item()
 ```
+
+### 2.5 recompute_logprob_current：PPO 的关键「重算」
+
+```python
+def recompute_logprob_current(model, old_traj, cond, dt, T):
+    """
+    关键思想:
+      - 轨迹状态序列取自旧轨迹 (x_0, x_1, ..., x_T)  固定
+      - 但每个 (x_t -> x_{t+1}) 的高斯均值用【当前】模型算
+      - 于是 logp_new 随参数变化, 可以反传; 轨迹本身不重新采样
+    """
+    L = old_traj.shape[1]
+    # 构造路径点: 把旧轨迹看作 SDE 网格上的状态
+    # 教学简化: 直接把轨迹点当作 x_{t_j}; 真实实现还依赖流匹配的 x_t 构造
+    logps = []
+    for j in range(T):
+        # x_t 近似: 带噪状态 = 插值或直接用轨迹点+噪声, 与采样时一致
+        x_t = old_traj  # 简化示意; 实现需与 sde 采样时状态定义完全一致
+        t = torch.full((old_traj.shape[0],), j / T, device=old_traj.device)
+        _, lp, _ = sde_step_with_logprob(model, x_t, t, dt, cond)
+        logps.append(lp)
+    return torch.stack(logps, dim=1)   # (1, T)
+```
+
+**面试必须说清的三点**：
+
+1. 轨迹 **不重新采样**（重要性采样框架，靠 ratio 纠正新旧策略差）。
+2. `x_next` 在算 loss 时要用旧轨迹的 `x_{t+1}`，均值用新模型——写成「新模型重新 roll out 再算」会让策略梯度变成 on-policy 发散。
+3. log_prob 是 **逐步** 的，PPO 可以逐步 clip，也可以把整条轨迹 logp 当 token 序列 sum——LLM GRPO 是 per-token，我们 per-step。
+
+### 2.6 计算图（文字描述，避免 ASCII 图错位）
+
+```text
+标量 loss
+  <- min(ratio*A, clip(ratio)*A)
+  <- ratio = exp(logp_new - logp_old)
+  <- logp_new = GaussianLogProb(x_next_old, mean_theta, std)
+  <- mean_theta = drift(x_t, v_theta, t)     (含 score 补偿)
+  <- v_theta = VelocityFieldDiT(x_t, t, cond)
+  <- theta 中只有 requires_grad=True 的 LoRA A,B 获得 .grad
+  -> optimizer.step() 只改 adapter; base 权重字节级不变
+```
+
+### 2.7 面试易错点
+
+1. **advantage 归一化必须按组 view(-1,G)**，不能全局归一化（组间难度不同）。
+2. **ratio 数值稳定**：用 `exp(logp_new - logp_old)` 不要 `exp(new)/exp(old)`。
+3. **ref model 必须 eval + no_grad**，且关闭 adapter（同一 base 权重）。
+4. 采样用 SDE、训练 loss 与采样同一调度，否则 train/test mismatch。
+5. GRPO 组内 std 过小（分数全一样）时 advantage 全 0，该 batch 无梯度——难例挖掘的动机。
 
 ---
 
 ## 算法 3：VLA 轨迹生成（RiskField-VLA）
 
-### 3.1 概念回顾
+### 3.1 它是什么（30 秒版）
 
-VLA = 视觉 + 语言 → 动作轨迹。在 RiskField-VLA 中，额外引入风险场来优化轨迹生成。
+用 128 个 object query 从 BEV 中提取 agent 特征，聚合成时空风险场，用风险熵门控 Base/LTE 双专家，风险编码优化 Flow Matching 初始噪声，生成多条候选轨迹供打分选择。
 
-### 3.2 Agent 级感知与风险场构建
+### 3.2 从相机到 agent 特征
+
+```python
+class PerceptionHead(nn.Module):
+    def __init__(self, num_queries=128, d=256):
+        super().__init__()
+        self.q = nn.Parameter(torch.randn(num_queries, d))
+        self.layers = nn.ModuleList([DecoderLayer(d) for _ in range(3)])
+
+    def forward(self, cam_feats):
+        """
+        cam_feats: (B, Ncam, C, H, W)  N=6~8 路环视
+        通常先展平+pos_emb: (B, Ncam*H*W, C)
+        return: (B, 128, d)
+        """
+        kv = flatten_with_pos(cam_feats)       # (B, Lkv, C)
+        x = self.q[None].expand(cam_feats.size(0), -1, -1)
+        for lyr in self.layers:
+            # DecoderLayer = self-attn(128 个 query 互看) + cross-attn(查 kv)
+            x = lyr(x, kv)
+        return x                               # 每个 query 聚焦一类目标
+```
+
+### 3.3 交互图传播（可选模块）
+
+```python
+def graph_propagate(nodes, topk=16):
+    """
+    nodes: (B, N, D) N=128
+    边权 = softmax_k( QK^T / sqrt(d) ) 只保留每行 top-k 避免 O(N^2) 噪声
+    """
+    Q = nodes
+    K = nodes
+    logits = Q @ K.transpose(-2, -1) / (nodes.size(-1) ** 0.5)  # (B,N,N)
+
+    # 可选 mask: 用欧氏距离/类别剔除不可能交互对
+    topk_val, topk_idx = logits.topk(topk, dim=-1)
+    attn = F.softmax(topk_val, dim=-1)                          # (B,N,k)
+
+    # gather 邻居值并加权
+    neigh = torch.gather(
+        nodes.unsqueeze(2).expand(-1, -1, topk, -1),  # (B,N,k,D)
+        dim=2,
+        index=topk_idx.unsqueeze(-1).expand(-1, -1, -1, nodes.size(-1)),
+    )
+    out = (attn.unsqueeze(-1) * neigh).sum(dim=2)                # (B,N,D)
+    return nodes + out   # residual
+```
+
+### 3.4 风险场 + z_risk（完整前向）
 
 ```python
 class RiskFieldBuilder(nn.Module):
-    """构建时空风险场"""
-    def __init__(self, num_queries=128, num_agents=128, 
-                 risk_grid=(32, 32, 8)):
+    def __init__(self, n=128, d=256, grid=(32, 32, 8)):
         super().__init__()
-        self.num_queries = num_queries
-        self.grid_h, self.grid_w, self.grid_t = risk_grid
-        
-        # Object Query：128 个可学习的查询向量
-        self.object_queries = nn.Parameter(
-            torch.randn(num_queries, 256)
-        )
-        
-        # α 软门控网络：决定每个 agent 对风险场的贡献
-        self.alpha_gate = nn.Sequential(
-            nn.Linear(256, 128),
-            nn.ReLU(),
-            nn.Linear(128, 1)
-        )
-        
-        # 风险场解码器
-        self.risk_decoder = nn.Sequential(
-            nn.Linear(256, 512),
-            nn.ReLU(),
-            nn.Linear(512, self.grid_h * self.grid_w * self.grid_t)
-        )
-    
-    def forward(self, camera_features):
+        self.grid = grid
+        self.gate = nn.Sequential(nn.Linear(d, 128), nn.ReLU(), nn.Linear(128, 1))
+        self.decod = nn.Linear(d, grid[0] * grid[1] * grid[2])
+        self.norm = nn.LayerNorm(d)
+
+    def forward(self, agents):
         """
-        camera_features: (B, num_cameras, H, W, C) 8 路相机特征
-        return: 
-          agent_features: (B, 128, 256) 每个 agent 的特征
-          risk_field: (B, 32, 32, 8) 连续风险场
-          z_risk: (B, 256) 风险隐编码
+        agents: (B,128,D)  来自 PerceptionHead (+ 可选 graph)
+        return: field (B,32,32,8), z_risk (B,D), alpha (B,128)
         """
-        # 1. 用 object query 从相机特征中提取 agent 特征
-        # cross-attention: query 关注 feature map
-        agent_features = cross_attention(
-            self.object_queries,  # (128, 256)
-            camera_features       # (B, ..., C)
-        )  # (B, 128, 256)
-        
-        # 2. 构建交互图：128 个节点，两两计算关系
-        interaction_graph = build_interaction_graph(agent_features)
-        # (B, 128, 128) 邻接矩阵，表示交互强度
-        
-        # 3. α 软门控聚合：每个 agent 的贡献权重
-        alpha = self.alpha_gate(agent_features)  # (B, 128, 1)
-        alpha = torch.softmax(alpha, dim=1)       # 归一化
-        
-        # 4. 加权聚合生成风险场
-        weighted_features = (alpha * agent_features).sum(dim=1)  # (B, 256)
-        risk_field = self.risk_decoder(weighted_features)        # (B, 32*32*8)
-        risk_field = risk_field.view(-1, 32, 32, 8)             # (B, 32, 32, 8)
-        
-        # 5. 风险隐编码
-        z_risk = weighted_features  # (B, 256)
-        
-        return agent_features, risk_field, z_risk
+        alpha = torch.softmax(self.gate(agents).squeeze(-1), dim=-1)  # (B,128)
+        pooled = (alpha.unsqueeze(-1) * agents).sum(1)                 # (B,D)
+        pooled = self.norm(pooled)
+        field = self.decod(pooled).view(-1, *self.grid)                # (B,32,32,8)
+        # 风险强度用 sigmoid 压到 (0,1) 可解释
+        field = torch.sigmoid(field)
+        return field, pooled, alpha
 ```
 
-### 3.3 Risk-Init-Flow 轨迹生成
+### 3.5 Risk-Init-Flow 双专家生成
 
 ```python
-class RiskInitFlowGenerator(nn.Module):
-    """带风险初始化的 Flow Matching 轨迹生成器"""
-    def __init__(self, traj_dim=2, hidden_dim=256):
+class RiskFlowPlanner(nn.Module):
+    def __init__(self, d=256):
         super().__init__()
-        # 标准 Flow Matching 网络
-        self.velocity_net = DiT(input_dim=traj_dim, hidden_dim=hidden_dim)
-        # 风险编码 → 初始噪声的映射
-        self.risk_to_noise = nn.Sequential(
-            nn.Linear(256, hidden_dim),
-            nn.ReLU(),
-            nn.Linear(hidden_dim, traj_dim * traj_seq_len)
+        self.base = VelocityFieldDiT(d_model=d)
+        self.lte  = VelocityFieldDiT(d_model=d)
+        self.noise_head = nn.Sequential(
+            nn.Linear(d, 256), nn.SiLU(), nn.Linear(256, 30 * 2)
         )
-        # 双专家
-        self.base_expert = self.velocity_net
-        self.lte_expert = copy.deepcopy(self.velocity_net)  # Long-Tail-Expert
-        # 风险熵 → 门控
-        self.gate = nn.Linear(1, 2)  # 输入熵，输出两个专家的权重
-    
-    def forward(self, scene_context, z_risk, risk_field, num_candidates=8):
-        """
-        生成多条候选轨迹
-        scene_context: 场景上下文（感知特征+导航指令）
-        z_risk: 风险隐编码
-        risk_field: 风险场
-        return: (B, K, traj_seq_len, 2) K 条候选轨迹
-        """
-        B = scene_context.shape[0]
-        
-        # === Risk-Init-Flow：用风险编码优化初始噪声 ===
-        # 标准 FM: noise = torch.randn(...)  纯随机
-        # 我们:   noise = risk_to_noise(z_risk) + 少量随机
-        risk_init = self.risk_to_noise(z_risk)  # (B, traj_seq_len * traj_dim)
-        risk_init = risk_init.view(B, traj_seq_len, traj_dim)
-        noise = risk_init + 0.1 * torch.randn_like(risk_init)  # 加少量随机保持多样性
-        
-        # === 风险熵门控 ===
-        risk_entropy = -risk_field.flatten(1) * torch.log(
-            risk_field.flatten(1) + 1e-8
-        ).sum(dim=1, keepdim=True)  # (B, 1) 风险场熵
-        gate_weights = torch.softmax(self.gate(risk_entropy), dim=-1)  # (B, 2)
-        
-        # === ODE 积分生成 K 条轨迹 ===
-        candidates = []
-        for k in range(num_candidates):
-            x = noise.clone()
-            for step in range(num_steps):  # 32 步 Euler
-                t = torch.full((B,), step / num_steps, device=x.device)
-                
-                # 双专家混合
-                v_base = self.base_expert(x, t, scene_context)
-                v_lte = self.lte_expert(x, t, scene_context)
-                
-                # 门控混合
-                v = gate_weights[:, 0:1, 0] * v_base + gate_weights[:, 1:2, 0] * v_lte
-                
-                # Euler 积分
+        self.gate = nn.Linear(1, 2)
+
+    def init_noise(self, z_risk, B):
+        """Risk-Init-Flow: 主方向来自风险, 保留小随机保多样性"""
+        main = self.noise_head(z_risk).view(B, 30, 2)
+        return main + 0.1 * torch.randn_like(main)
+
+    def expert_weights(self, field):
+        # 风险熵高 -> 场景长尾 -> LTE 权重应升高 (gate 自己学这个映射)
+        p = field.flatten(1)
+        p = p / (p.sum(-1, keepdim=True) + 1e-8)
+        h = -(p * (p + 1e-8).log()).sum(-1, keepdim=True)   # (B,1)
+        return torch.softmax(self.gate(h), dim=-1)           # (B,2)
+
+    @torch.no_grad()
+    def generate(self, z_risk, field, cond, K=8, steps=32):
+        B = z_risk.shape[0]
+        w = self.expert_weights(field)                       # (B,2)
+        cands = []
+        for _ in range(K):                                   # K 条候选
+            x = self.init_noise(z_risk, B)
+            dt = 1.0 / steps
+            for i in range(steps):
+                t = torch.full((B,), i / steps, device=x.device)
+                vb = self.base(x, t, cond)
+                vl = self.lte(x, t, cond)
+                # 软混合, 不 hard switch (训练更稳)
+                v = w[:, 0:1, None] * vb + w[:, 1:2, None] * vl
                 x = x + v * dt
-            
-            candidates.append(x)
-        
-        return torch.stack(candidates, dim=1)  # (B, K, seq, 2)
+            cands.append(x)
+        return torch.stack(cands, dim=1)                     # (B,K,30,2)
 ```
+
+### 3.6 选择与评分（推理期）
+
+```python
+def select_best(cands, scorer, z_risk):
+    """
+    cands: (B,K,30,2)
+    多目标: score = PDMS_proxy - lane_dev - comfort_pen + progress
+    """
+    scores = scorer(cands, z_risk)   # (B,K)
+    idx = scores.argmax(dim=1)       # 每个 batch 取一条
+    best = cands[torch.arange(cands.size(0)), idx]
+    return best, scores
+```
+
+### 3.7 面试易错点
+
+1. 说清 **128 query 是可学习槽位**，不是检测框的替代 NMS 输出——可以输出「无目标」的低权重 query。
+2. Risk-Init 的噪声头必须 **参与训练**（和 FM loss 或 aux loss 联合），推理时突然换初始化会 mismatch。
+3. 双专家是 **软门控混合**，不是 if-else 硬路由；硬路由会有梯度断点、训练不稳。
+4. 生成 K 条是为了组内多样性，K=1 就没有 GRPO 的 std。
 
 ---
 
 ## 算法 4：WAM 联合动作-后果流（TrustDrive-WAM）
 
-### 4.1 概念回顾
+### 4.1 它是什么（30 秒版）
 
-传统：先生成轨迹 → 后接评分器（割裂）
-WAM：生成轨迹的同时，同步演化"后果、风险、支持域"四类隐表征（联合）
+把轨迹、后果、风险、支持域四条隐变量放在 **同一个流** 里联合去噪/积分；生成过程中心跳式更新可信度，由可信路由决定信世界模型还是回退经典规划。
 
-### 4.2 联合动作-后果流伪代码
+### 4.2 联合状态打包与拆包
 
 ```python
-class JointActionConsequenceFlow(nn.Module):
-    """联合动作-后果流：轨迹和后果同步生成"""
-    def __init__(self, traj_dim=2, consequence_dim=64):
-        super().__init__()
-        # 统一的速度场网络：同时输出轨迹速度和后果速度
-        self.joint_velocity_net = nn.Sequential(
-            nn.Linear(traj_dim + consequence_dim + 1, 512),
-            nn.ReLU(),
-            nn.Linear(512, traj_dim + consequence_dim)
-        )
-        # 四类隐表征：轨迹、后果、风险、支持域
-        self.traj_embed = nn.Linear(traj_dim, consequence_dim)
-        self.consequence_embed = nn.Linear(consequence_dim, consequence_dim)
-        self.risk_embed = nn.Linear(consequence_dim, consequence_dim)
-        self.support_embed = nn.Linear(consequence_dim, consequence_dim)
-        
-        # 行为模式 token（16 组）
-        self.behavior_tokens = nn.Parameter(torch.randn(16, consequence_dim))
-    
-    def forward(self, scene_context, behavior_token_idx):
-        """
-        同步生成轨迹和后果
-        """
-        # 初始状态：轨迹=噪声，后果=行为token
-        traj = torch.randn(B, traj_seq_len, traj_dim)
-        consequence = self.behavior_tokens[behavior_token_idx]  # (B, consequence_dim)
-        risk = torch.zeros(B, consequence_dim)
-        support = torch.ones(B, consequence_dim)  # 初始假设在支持域内
-        
-        # 联合 ODE 积分：四类表征同步演化
-        for step in range(num_steps):
-            t = step / num_steps
-            
-            # 拼接所有状态
-            joint_state = torch.cat([
-                traj.flatten(1), consequence, risk, support
-            ], dim=-1)
-            
-            # 统一网络预测速度
-            v = self.joint_velocity_net(
-                torch.cat([joint_state, t], dim=-1)
-            )
-            
-            # 拆分并更新四类表征
-            v_traj = v[:, :traj_dim*traj_seq_len].view(B, traj_seq_len, traj_dim)
-            v_consequence = v[:, traj_dim*traj_seq_len:traj_dim*traj_seq_len+consequence_dim]
-            
-            traj = traj + v_traj * dt
-            consequence = consequence + v_consequence * dt
-            # risk 和 support 同步演化...
-        
-        # 逆一致性约束：正向预测后果 → 逆向恢复轨迹 → 应该一致
-        recovered_traj = self.inverse_predict(consequence)
-        consistency_loss = F.mse_loss(traj, recovered_traj.detach())
-        
-        return {
-            'traj': traj,
-            'consequence': consequence,
-            'risk': risk,
-            'support_domain': support,
-            'consistency_loss': consistency_loss
-        }
+# 维度设计示例
+TRAJ_DIM = 60        # 30 步 * (x,y)
+CONQ_DIM = 32        # 后果向量: 碰撞裕度, 舒适, 进度, 合规 ...
+RISK_DIM = 16
+SUPP_DIM = 8         # 支持域 logit
+JOINT_DIM = TRAJ_DIM + CONQ_DIM + RISK_DIM + SUPP_DIM  # 116
+
+def pack(z_traj, z_conq, z_risk, z_supp):
+    return torch.cat([z_traj, z_conq, z_risk, z_supp], dim=-1)
+
+def unpack(z):
+    a = z[..., :TRAJ_DIM]
+    b = z[..., TRAJ_DIM:TRAJ_DIM+CONQ_DIM]
+    c = z[..., TRAJ_DIM+CONQ_DIM:TRAJ_DIM+CONQ_DIM+RISK_DIM]
+    d = z[..., TRAJ_DIM+CONQ_DIM+RISK_DIM:]
+    return a, b, c, d
 ```
 
-### 4.3 可信路由（Trust Router）
+### 4.3 联合速度场与训练
 
 ```python
-class RiskBoundedTrustRouter:
-    """风险约束可信路由：决定是否信任世界模型的预测"""
-    def __init__(self, support_threshold=0.8, risk_threshold=0.5):
-        self.support_threshold = support_threshold
-        self.risk_threshold = risk_threshold
-    
-    def route(self, candidate_trajs, consequences, support_scores, risk_scores):
+class JointVelocityNet(nn.Module):
+    def __init__(self, d_joint=116, d_model=512, cond_dim=256):
+        super().__init__()
+        self.inp = nn.Linear(d_joint, d_model)
+        self.cond = nn.Linear(cond_dim, d_model)
+        self.backbone = nn.Sequential(
+            nn.Linear(d_model, d_model), nn.GELU(),
+            nn.Linear(d_model, d_model), nn.GELU(),
+        )
+        self.out = nn.Linear(d_model, d_joint)
+
+    def forward(self, z_t, t, cond):
+        h = self.inp(z_t) + self.cond(cond) + timestep_embedding(t, d_model)
+        h = self.backbone(h)
+        return self.out(h)   # 联合速度, 再 unpack 成 4 段
+
+
+def joint_fm_loss(model, batch_traj, conq_gt, risk_gt, supp_gt, cond):
+    """
+    所有分量端点打包成 z1, 与联合噪声线性插值
+    """
+    z1 = pack(batch_traj, conq_gt, risk_gt, supp_gt)
+    z0 = torch.randn_like(z1)
+    t = torch.rand(z1.size(0), device=z1.device)
+    t_b = t.view(-1, 1)
+    z_t = (1 - t_b) * z0 + t_b * z1
+    v = model(z_t, t, cond)
+    return F.mse_loss(v, z1 - z0)
+```
+
+**为什么四条要同一条流**：共享 t 与联合速度，后果分量始终「贴着」轨迹分量演化；若四个独立流各自积分，对应时刻的 (轨迹, 后果) 语义不对齐，评分头会学到错位配对。
+
+### 4.4 行为模式 token 与多峰
+
+```python
+class BehaviorTokens(nn.Module):
+    def __init__(self, n_modes=16, cond_dim=256):
+        super().__init__()
+        self.tokens = nn.Parameter(torch.randn(n_modes, cond_dim))
+        self.mode_proj = nn.Linear(cond_dim, cond_dim)
+
+    def forward(self, mode_ids):
         """
-        双层信任评估：
-        1. 可靠性信任：预测是否落在支持域内
-        2. 决策信任：预测是否带来性能增益
+        mode_ids: (B,) 或 (B,K) 每个候选一个模式 id
+        推理: 枚举 0..15 得 16 条不同风格候选
+        训练: GT 模式可由驾驶风格标签指定, 或 max 多模态匹配 ( winner-takes-all )
         """
-        decisions = []
-        for traj, cons, support, risk in zip(
-            candidate_trajs, consequences, support_scores, risk_scores
-        ):
-            # 第一层：可靠性信任校验
-            is_reliable = support > self.support_threshold
-            
-            # 第二层：决策信任评估
-            utility = compute_utility(traj)  # 效用
-            is_beneficial = utility > baseline_utility
-            
-            # 联合打分
-            trust_score = (
-                0.4 * support +      # 支持域
-                0.3 * (1 - risk) +   # 碰撞风险（越低越好）
-                0.3 * utility        # 效用
-            )
-            
-            if is_reliable and is_beneficial:
-                decisions.append(('USE_WM', traj))  # 信任世界模型
-            else:
-                decisions.append(('FALLBACK', baseline_traj))  # 切回传统规划
-        
-        return decisions
+        return self.mode_proj(self.tokens[mode_ids])  # (B, cond_dim)
+```
+
+**多峰 loss（WTA）**：
+
+```python
+# 16 条预测与 GT 轨迹两两距离, 只回传最近一条 (mode collapse 比全平均好)
+d = torch.cdist(pred_modes.view(16, -1), gt.view(1, -1))  # (16,)
+loss_wta = d.min()
+```
+
+### 4.5 逆一致性网络
+
+```python
+class InverseConsistency(nn.Module):
+    def __init__(self):
+        self.forward_net = Dynamics()   # (s, a) -> s'
+        self.inverse_net = Dynamics()   # (s', a') -> s_hat
+
+    def loss(self, s, a):
+        s_next = self.forward_net(s, a)
+        # 逆向用同一动作 (或学 delta_a); 教学取 a'=a
+        s_hat = self.inverse_net(s_next, a)
+        return F.mse_loss(s_hat, s)
+```
+
+**加入后果后的 cycle**（我们的版本）：
+
+```text
+(traj -> conseq) 与  (conseq -> 重建 traj) 对齐
+loss_cycle = mse(traj, recon_traj(conseq))
+```
+
+### 4.6 可信路由完整代码
+
+```python
+class TrustRouter:
+    def __init__(self, tau_supp=0.8, tau_risk=0.4, tau_gain=0.0):
+        self.tau_supp = tau_supp
+        self.tau_risk = tau_risk
+        self.tau_gain = tau_gain
+
+    @torch.no_grad()
+    def route(self, supp_logit, risk, util_wm, util_base):
+        """
+        supp_logit: (B,) 支持域打分 (0-1)
+        risk:       (B,) 世界模型预测的风险
+        util_wm:    (B,) 用 WM 轨迹的效用 (PDMS 线性代理)
+        util_base:  (B,) 经典规划器效用
+        return: use_wm (B,) bool
+        """
+        p_supp = torch.sigmoid(supp_logit)
+        layer1 = (p_supp > self.tau_supp) & (risk < self.tau_risk)
+        layer2 = (util_wm - util_base) > self.tau_gain
+        return layer1 & layer2
+
+    def plan(self, wm_trajs, base_traj, **kw):
+        use = self.route(**kw)                    # (B,)
+        # where 选: True 用 WM 最优, False 用 base
+        best_wm = wm_trajs.argmax_over_utility()  # 示意
+        out = torch.where(use.view(-1, 1, 1), best_wm, base_traj)
+        return out, use.float().mean()            # 返回平均信任率做日志
+```
+
+**阈值怎么定**：验证集扫 tau，目标是「信任率-风险曲线」的拐点；部署可保守（高 tau_s）。面试答「验证集标定 + 故障注入测 fallback 召回率」。
+
+### 4.7 面试易错点
+
+1. WAM 不是「先生成再评」——后果是 **并行积分** 出来的，不是后处理算出来的。
+2. 可信路由是 **双层**（可靠性 + 效用），只说「加个 if 判断」太浅。
+3. 逆一致性 **不能** 去掉 stopgrad 或自由学 a'——否则 trivial 解（forward 恒等、inverse 恒等）也能低 loss。
+4. Fallback 基线必须 **始终前向**（或懒计算），否则 `use=False` 路径没有轨迹。
+
+---
+
+## 算法 5：JEPA 全流程（JEPA-DRIVE）
+
+### 5.1 它是什么（30 秋版）
+
+三阶段：1) 视频帧间 JEPA 自监督学场景动力学表征；2) 冻结世界模型，训隐空间评分头对齐 PDMS；3) 感知-世界模型-生成-评分端到端微调。全程不依赖像素重建。
+
+### 5.2 Patch 化与 Mask
+
+```python
+def patchify(x, patch=16):
+    """x: (B,3,H,W) -> (B, N, patch*patch*3)  ViT 标准切法"""
+    B, C, H, W = x.shape
+    p = patch
+    x = x.reshape(B, C, H // p, p, W // p, p)
+    x = x.permute(0, 2, 4, 3, 5, 1).reshape(B, (H // p) * (W // p), p * p * C)
+    return x
+
+
+def make_mask(B, N, ratio=0.75, device='cpu'):
+    """随机挖掉 ratio 比例的 patch 作为预测目标"""
+    n_mask = int(N * ratio)
+    mask = torch.zeros(B, N, dtype=torch.bool, device=device)
+    for i in range(B):
+        idx = torch.randperm(N, device=device)[:n_mask]
+        mask[i, idx] = True   # True = 目标块 (被挖)
+    return mask
+```
+
+**可选 block mask**（I-JEPA 原版用大块，学长程结构）：
+
+```python
+def block_mask(B, H_grid, W_grid, size=8):
+    # 每张图随机选若干 size x size 连续块
+    ...
+```
+
+### 5.3 JEPA 模块
+
+```python
+class JEPA(nn.Module):
+    def __init__(self, enc=None, d=768, pred_depth=6, pred_dim=1024):
+        super().__init__()
+        self.ctx_enc = enc or ViT(patch_size=16, embed_dim=d)
+        self.tgt_enc = copy.deepcopy(self.ctx_enc)   # 结构完全一致
+        for p in self.tgt_enc.parameters():
+            p.requires_grad = False                   # 不进 optimizer
+
+        self.predictor = nn.Sequential(
+            nn.Linear(d + 128, pred_dim),            # + 位置/时间条件
+            nn.GELU(),
+            nn.Linear(pred_dim, pred_dim),
+            nn.GELU(),
+            nn.Linear(pred_dim, d),
+        )
+        self.momentum = 0.996
+
+    def forward(self, frames, mask):
+        """
+        frames: (B,3,H,W) 或 (B,T,3,H,W) 时间维展进 batch
+        mask:   (B,N) True=目标
+        """
+        patches = patchify(frames)                          # (B,N,Dp)
+        ctx = patches[~mask]                                 # (M, Dp)
+        tgt = patches[mask]                                 # (K, Dp)
+
+        z_ctx = self.ctx_enc(ctx)                           # (M, d) 可训
+        with torch.no_grad():
+            z_tgt = self.tgt_enc(tgt)                       # (K, d) EMA+sg
+
+        # 需要对齐: 每个目标位置的预测 = 上下文汇聚 + 位置嵌入
+        # 教学简化: 全局池化预测一个向量, 正式版 per-target token
+        ctx_pool = z_ctx.mean(0, keepdim=True).expand(z_tgt.size(0), -1)
+        pos = pos_embed_for_masked(mask)
+        z_hat = self.predictor(torch.cat([ctx_pool, pos], dim=-1))
+
+        return F.mse_loss(z_hat, z_tgt)
+
+    @torch.no_grad()
+    def ema_update(self):
+        for pt, ps in zip(self.tgt_enc.parameters(), self.ctx_enc.parameters()):
+            pt.data.lerp_(ps.data, 1.0 - self.momentum)  # 等价 EMA
+```
+
+**正式版 per-target**：predictor 输入应为 `(z_ctx_tokens, mask_pos_tokens)` 的交叉注意力输出，每个目标 patch 出一个预测——面试可主动说「全局池化是教学简化」。
+
+### 5.4 三阶段训练
+
+```python
+# ========== Stage 1: JEPA 自监督 ==========
+def stage1(model, loader, steps=100000):
+    opt = AdamW([p for p in model.parameters() if p.requires_grad], lr=1e-4)
+    for step, videos in enumerate(loader):
+        # videos: (B, T, 3, H, W) 连续帧
+        t = random.randrange(videos.size(1) - 1)
+        x_t = videos[:, t]
+        # 目标是下一帧 (世界模型属性) 或同帧 mask 块 (I-JEPA 属性)
+        x_next = videos[:, t + 1]
+        mask = make_mask(B, N, ratio=0.75)
+
+        # 可见上下文来自 x_t, 目标块来自 x_next 的表征 (时序 JEPA)
+        loss = model.temporal_loss(x_t, x_next, mask)
+        loss.backward(); opt.step()
+        model.ema_update()
+
+# ========== Stage 2: 冻结 WM, 训评分头 ==========
+def stage2(model, scorer, loader):
+    freeze(model)
+    for batch in loader:
+        with torch.no_grad():
+            z = model.ctx_enc(batch['visible_patches'])
+        # score head: 预测候选轨迹的 PDMS 或排序
+        pred = scorer(z, batch['cand_trajs'])     # (B,K)
+        # 排序 loss: 对齐官方指标的相对序
+        loss = listwise_rank_loss(pred, batch['pdms'])
+        loss.backward(); opt_scorer.step()
+
+# ========== Stage 3: 端到端联合 ==========
+def stage3(full_model, loader):
+    unfreeze_perception(full_model)
+    for batch in loader:
+        z_scene = full_model.perception(batch['imgs'])
+        z_future = full_model.world_model(z_scene)     # 未来隐表征
+        trajs = full_model.generator(z_future)         # 密集轨迹
+        scores = full_model.scorer(trajs, z_future)
+        loss = (
+            rank_loss(scores, batch['pdms'])
+            + 0.1 * full_model.jepa_aux(batch)         # 保持动力学
+            + 0.05 * vicreg_loss(z_scene)              # 防坍缩
+        )
+        loss.backward(); opt.step()
+```
+
+### 5.5 65536 条密集轨迹的因子化生成
+
+```text
+朴素:  直接回归 65536 条 -> 参数爆炸
+因子化:  path (空间形状) x speed (时间分配) 独立生成再组合
+  path:  256 条几何路径 (曲率/偏移模式)
+  speed: 256 种速度剖面 (加速/巡航/减速)
+  组合:  256 * 256 = 65536
+评分:  隐空间 scorer 批处理所有组合 (不生成像素)
+选择:  argmax score, 或 top-m 进入下游控制
+```
+
+```python
+def dense_candidates(paths, speeds):
+    """
+    paths: (B, 256, L, 2)
+    speeds: (B, 256, L, 1)  时间缩放/速度系数
+    return: (B, 65536, L, 2)  广播组合 — 实现上可 chunk 评分别物化全量
+    """
+    B, P, L, _ = paths.shape
+    S = speeds.size(1)
+    traj = paths.unsqueeze(2) * speeds.unsqueeze(1)  # (B,P,S,L,1)*(B,P,S,L,2)
+    return traj.view(B, P * S, L, 2)
+```
+
+**工程点**：65536 不一定物化，scorer 可分块算 top-k 再精排。
+
+### 5.6 Cycle-Energy 双空间自监督
+
+```python
+def cycle_energy_loss(enc_ctx, enc_tgt, pred, x_a, x_b):
+    """
+    正向: A 可见 -> 预测 B 被 mask 处的表征
+    逆向: B 可见 -> 预测 A
+    能量: 重构误差本身可当不确定性 (能量越大越不可信 -> 支持域信号)
+    """
+    # forward
+    z_a = enc_ctx(observe(x_a, mask_b_side))
+    z_b_tgt = enc_tgt(target(x_b, mask_b_side))     # no grad
+    e_fwd = F.mse_loss(pred(z_a, pos_b), z_b_tgt)
+
+    # backward
+    z_b = enc_ctx(observe(x_b, mask_a_side))
+    z_a_tgt = enc_tgt(target(x_a, mask_a_side))
+    e_bwd = F.mse_loss(pred(z_b, pos_a), z_a_tgt)
+
+    energy = e_fwd + e_bwd
+    return energy, energy.detach()   # loss 用 energy; 能量值给 router
+```
+
+**能量 -> 支持域**：训练分布内 energy 低，OOD/长尾 energy 高；用验证集拟合 `support = sigmoid(a - b*energy)` 或分位数归一。
+
+### 5.7 VICReg（完整可运行风格）
+
+```python
+def vicreg_loss(za, zb, lam=25.0, mu=25.0, nu=1.0):
+    """za, zb: 同图两增广 (B,D)"""
+    # invariance
+    inv = F.mse_loss(za, zb)
+    # variance on centered batch of za
+    std = torch.sqrt(za.var(dim=0, unbiased=False) + 1e-4)
+    var_term = F.relu(1.0 - std).mean()
+    # covariance
+    z = za - za.mean(dim=0)
+    cov = (z.T @ z) / (za.size(0) - 1)
+    off = cov - torch.diag(torch.diag(cov))
+    cov_term = (off ** 2).sum() / za.size(1)
+    return inv + lam * var_term + mu * cov_term
+```
+
+### 5.8 面试易错点
+
+1. Target encoder **不进 optimizer**——用 `requires_grad_(False)` + EMA，不是「有梯度但 lr=0」。
+2. `loss.backward()` 时图里不能还有 tgt 分支的可微路径——`torch.no_grad()` 或 `detach()` 必须有。
+3. 阶段 2 评分头用 **排序 loss** 不是 MSE——PDMS 是乘积/序数指标，绝对值校准次要。
+4. 三阶段的「冻结/解冻」边界要答清楚：S1 冻感知了吗？我们 S1 主要练 WM；S2 全冻 WM；S3 解感知联合调。
+5. JEPA-DRIVE 0.7285 低于另两项目，主动解释：基线未做满 RL 后训练 + 无标注设定 + 范式验证阶段。
+
+---
+
+## 算法 6：辅助组件速查（面试手写题高频）
+
+### 6.1 Softmax 与温度
+
+```python
+def softmax_with_temperature(logits, tau=1.0):
+    # tau -> 0 近似 argmax (更确定); tau 大分布更平 (更多探索)
+    return F.softmax(logits / tau, dim=-1)
+```
+
+GRPO 采样时 SDE 的 `noise_level` / 策略熵 bonus 扮演类似「温度」角色。
+
+### 6.2 KL 散度（高斯与样本估计）
+
+```python
+def kl_gaussian(mu1, logvar1, mu2, logvar2):
+    # KL(N1 || N2)
+    return (logvar2 - logvar1 + (logvar1.exp() + (mu1-mu2)**2) / logvar2.exp() - 1) * 0.5
+
+def kl_sample_estimate(p_samples, logp, logq):
+    # E_p[logp - logq]
+    return (logp - logq).mean()
+```
+
+### 6.3 GAE（若被问 actor-critic，对比 GRPO 用不上）
+
+```python
+def gae(rewards, values, gamma=0.99, lam=0.95):
+    T = len(rewards)
+    adv = torch.zeros(T)
+    last = 0.0
+    for t in reversed(range(T)):
+        delta = rewards[t] + gamma * values[t+1] - values[t]
+        last = delta + gamma * lam * last
+        adv[t] = last
+    return adv
+```
+
+**对比**：GAE 需要 value 网络；GRPO 用组均值当 baseline，省 critic。
+
+### 6.4 温和的 Reward 归一与 winsorize
+
+```python
+def robust_normalize(r, group_size, lo=-2, hi=2):
+    r = r.view(-1, group_size)
+    r = (r - r.mean(1, True)) / (r.std(1, True) + 1e-4)
+    return r.clamp(lo, hi).view(-1)
+```
+
+### 6.5 学习率与 warmup（工程追问）
+
+```text
+SFT: 1e-4 ~ 3e-4, cosine decay
+GRPO: 1e-5 ~ 5e-5 (更小, 防 KL 爆)
+warmup 3% steps;  grad clip 1.0;  LoRA dropout 0.05
 ```
 
 ---
 
-## 算法 5：JEPA 完整实现（JEPA-DRIVE）
+# 第二部分补章：四大面试必问「项目怎么做的」完整话术
 
-### 5.1 概念回顾
+> 面试官最常问的五个问题：**你负责什么？Flow Matching 怎么做的？VLA 怎么做的？世界模型/世界动作模型怎么做的？JEPA 具体怎么做的？**
+>
+> 本章为每个项目准备一段 **3-5 分钟口述稿**，结构统一为：
+> 【我负责什么】->【整体 pipeline】->【核心算法 + 代码怎么写的】->【为什么这样设计】->【效果与追问预案】。
+> 口述时按「先说我在哪一环」再展开，避免一上来就堆名词。括号内是**可略过的深水细节**，面试官感兴趣再讲。
 
-JEPA = 在表征空间预测，不重建像素。三个组件：Context Encoder、Target Encoder（EMA）、Predictor。
+---
 
-### 5.2 JEPA 训练伪代码
+## 话术 A：Flow Matching —— 「你们 Flow Matching 具体怎么做的？」
+
+### A.0 30 秒电梯版（先接住问题）
+
+> Flow Matching 是我们轨迹生成器的**生成范式**，替代扩散模型的 DDPM。一句话：在高斯噪声和真实轨迹之间构造**直线概率路径**，训练一个 Transformer 网络去回归这条路径上的**速度场**；推理时从噪声出发，用 Euler 积分 16~32 步就能走出一条轨迹。相比 DDPM 的 20~50 步去噪，直线路径更快、更好训，也方便我们后面接 GRPO 做 RL 后训练。
+
+### A.1 我负责什么
+
+> 在这个子模块里我负责三件事：一是**速度场网络的结构选型与实现**（DiT + adaLN 条件注入）；二是**训练目标与路径采样**（conditional flow matching 的 loss）；三是**采样器与后续 RL 的衔接**——因为 Flow-GRPO 要在每一步上算 log-prob，我把确定性 ODE 采样改造成了可算 log-prob 的 SDE 形式。整个生成器输入是感知出来的条件向量 `cond`（BEV 池化 + 导航指令 + 风险先验拼起来），输出是未来 30 步的自车轨迹 `（30, 2）`。
+
+### A.2 整体 pipeline（口述顺序）
+
+> 整条链路是：
+> 1. 真实轨迹做**归一化**（以自车为原点、朝向对齐），得到 `x1 ~ (B, 30, 2)`；
+> 2. 每个训练步采一个 `x0 ~ N(0, I)` 同 shape 的噪声，再采 `t ~ U(0,1)`；
+> 3. 沿直线插值出中间状态 `x_t = (1-t)*x0 + t*x1`；
+> 4. 网络吃 `(x_t, t, cond)`，输出速度预测 `v_pred`；
+> 5. 回归目标就是常数速度 `x1 - x0`，MSE 一步反传。
+>
+> 推理时从纯噪声出发，for 循环里每步 `x = x + v*dt`，`dt = 1/steps`，走完 steps 步得到轨迹，再反归一化回米制坐标。
+
+### A.3 核心代码（面试可直接默写的骨架）
 
 ```python
-import torch
-import torch.nn as nn
+# ---- 训练一步: 10 行核心 ----
+def fm_train_step(model, x1, cond):
+    B = x1.shape[0]
+    x0 = torch.randn_like(x1)                 # 噪声端
+    t  = torch.rand(B, device=x1.device)      # 随机时间
+    tb = t.view(B, 1, 1)                      # 广播到 (B,L,2)
+    xt = (1 - tb) * x0 + tb * x1              # 直线插值
+    v  = model(xt, t, cond)                   # 网络预测速度
+    return F.mse_loss(v, x1 - x0)             # 目标 = 常数速度场
 
-class JEPA(nn.Module):
-    """JEPA 联合嵌入预测架构"""
-    def __init__(self, encoder_dim=768, predictor_dim=1024):
+# ---- 推理采样: Euler ----
+@torch.no_grad()
+def fm_sample(model, cond, steps=20):
+    x = torch.randn(cond.size(0), 30, 2, device=cond.device)
+    dt = 1.0 / steps
+    for i in range(steps):
+        t = torch.full((cond.size(0),), i / steps, device=cond.device)
+        v = model(x, t, cond)
+        x = x + v * dt                        # 一步积分
+    return x                                  # 归一化空间轨迹
+```
+
+**速度场网络结构（一句话带过 + 深水细节）**：
+
+> 网络是 DiT 风格：轨迹点先 `Linear` 升到 256 维，时间步做 sinusoidal embedding 过 MLP，再和条件向量相加做 **adaLN** 调制，堆 6 层 Transformer block（每层 self-attn 建模 30 个轨迹点之间的时序依赖），最后 `Linear` 投回 `(30, 2)`。条件注入我们试过拼接和 cross-attn，最终 adaLN + 加法最稳、开销最小。
+
+### A.4 为什么不用 DDPM（必被追问）
+
+| 点 | DDPM | Flow Matching（我们） |
+|----|------|----------------------|
+| 路径 | 方差调度的弯路 | 直线，速度恒为 `x1-x0` |
+| 目标 | 预测噪声 ε | 预测速度 v |
+| 步数 | 20-50 | 16-32（RL 还要复用，步数越少采样越便宜） |
+| RL 接口 | score / ε 转 log-prob 绕 | SDE 化后每步直接是高斯，log-prob 闭式 |
+
+> 补充一句有深度的：**我们选 FM 不只是快，更是为了 GRPO**。LLM 的 GRPO 靠 `softmax` 拿 log-prob，DDPM 的反向高斯也有，但 FM 的直线路径在「加一点噪声转成 SDE」时 score 和速度有闭式关系，漂移项能写干净，这是我后面做 Flow-GRPO 推导时的前提。
+
+### A.5 效果 + 追问预案
+
+**Q：轨迹多样性和模式坍缩怎么办？**
+> 三层：一是采样端保留随机噪声（推理也是从随机 `x0` 出发）；二是条件端挂 16 个可学习行为 token，推理时枚举不同 token 得到保守/激进/变道等不同风格的候选；三是打分器在 top-K 里选，不只取一条。Risk-Init 版本里初始噪声还加了 `0.1*randn` 防止同场景 K 条一模一样——组内 GRPO 需要 std>0。
+
+**Q：steps 能压到 1 吗？**
+> 可以做 consistency distillation / step-distill，但我们 RL 阶段仍用 32 步：一是 log-prob 累计更细，二是轨迹只有 30 点、算力可接受，32 步单条采样毫秒级。部署前可以再蒸馏。
+
+**Q：损失为什么不直接 MSE 到 x1？**
+> 那是 x0-prediction 或直接回归均值，会把多模态回归到平均（鬼影轨迹）。FM 回归的是**速度场**，分布信息藏在向量场和随机初始里，多模态靠多次采样 `x0` 展开。
+
+---
+
+## 话术 B：VLA —— 「VLA 你们怎么做的？你负责什么？」
+
+### B.0 30 秒电梯版
+
+> 我们的 VLA 是 **RiskField-VLA**：视觉（8 路环视）+ 语言（导航指令）进一个感知大模型，输出不是离散 token，而是**连续轨迹分布**，用 Flow Matching 解码。项目名里的 RiskField 是我这边的核心创新——把 128 个 object query 聚合成 **32×32×8 的时空风险场**，再用风险场做双专家门控和初始噪声条件，最后 Flow-GRPO 做后训练。NAVSIM PDMS **0.8713**。
+
+### B.1 我负责什么（划清边界，面试必问）
+
+> 我负责的是**感知之后的「风险建模 + 轨迹生成 + RL 后训练」全链路**，具体三块：
+> 1. **风险场模块**：从 object query 特征到时空风险场、`z_risk` 风险隐编码、风险熵门控；
+> 2. **生成器**：双专家（Base/LTE）+ Risk-Init-Flow 的 Flow Matching 轨迹解码，以及候选选择；
+> 3. **Flow-GRPO 后训练**：SDE 化采样、组内优势、PPO-clip + KL，LoRA 微调。
+>
+> 相机前处理、BEV 主干、导航文本编码是组里同学的基础模块，我消费他们的 `cond` 特征。
+
+### B.2 整体 pipeline（按数据流讲，面试官最爱这个）
+
+> 一次前向的数据流：
+>
+> **第一步，感知。** 8 路相机过共享 CNN/ViT backbone，投影到 BEV；同时 128 个可学习 object query 对 BEV 做 cross-attention，出来 `(B,128,256)`——每个 query 负责盯场景里一个潜在目标（车、人、骑行者，也可能空槽）。这 128 个特征再过 2-3 层「query 之间 self-attn + 查 BEV 的 cross-attn」，self-attn 那一步就是在建**交互图**（谁跟谁有博弈）。
+>
+> **第二步，风险场。** 对每个 query 过一个小 MLP 得到标量 logit，`softmax` 成 128 维的 α 权重——这就是 **α 软门控**：有的目标对当前风险贡献大（对向来车、加塞车），权重大。加权池化后过 `Linear` 展到 `32×32×8` 再 `sigmoid`，得到时空风险场；池化向量本身（256 维）就是 **`z_risk`**。空间 32×32 是 BEV 网格，时间维 8 是未来 8 个预测步的风险演化。
+>
+> **第三步，条件拼接。** `cond = [BEV 池化特征, 导航指令 embedding, ego 状态, z_risk]`，维度对齐后进生成器。
+>
+> **第四步，轨迹生成。** 用风险场算熵：熵高场景复杂，走 LTE 长尾专家；熵低走 Base。两路速度场按门控权重软混合。初始噪声不用纯 `N(0,I)`，而是 `noise_head(z_risk) + 0.1*randn`——**Risk-Init-Flow**，让采样起点就偏向当前风险允许的区域。然后 Euler 走 32 步，出 8 条候选。
+>
+> **第五步，打分与后训练。** 推理用 PDM 代理分选最优；训练后期上 Flow-GRPO，同场景采 24 条组内比优势，PPO-clip 更新 LoRA。
+
+### B.3 核心算法 + 代码（风险场这段必细讲）
+
+```python
+# ========= 风险场: query -> alpha -> field -> z_risk =========
+class RiskFieldNet(nn.Module):
+    def __init__(self, n_agents=128, d=256, grid=(32, 32, 8)):
         super().__init__()
-        # Context Encoder：可训练，有梯度
-        self.context_encoder = ViT(patch_size=16, embed_dim=encoder_dim)
-        
-        # Target Encoder：EMA 更新，无梯度
-        self.target_encoder = ViT(patch_size=16, embed_dim=encoder_dim)
-        
-        # Predictor：输入上下文表征+位置条件，预测目标表征
-        self.predictor = nn.Sequential(
-            nn.Linear(encoder_dim + pos_dim, predictor_dim),
-            nn.GELU(),
-            nn.Linear(predictor_dim, predictor_dim),
-            nn.GELU(),
-            nn.Linear(predictor_dim, encoder_dim)
-        )
-        
-        # EMA momentum
-        self.ema_momentum = 0.996
-    
-    def forward(self, images, mask):
-        """
-        images: (B, 3, H, W) 输入图片
-        mask:   (B, num_patches) bool，True = 被挖掉的目标块
-        """
-        B, C, H, W = images.shape
-        num_patches = (H // 16) * (W // 16)
-        
-        # 第 1 步：切 patch
-        patches = patchify(images, patch_size=16)  # (B, num_patches, dim)
-        
-        # 第 2 步：分离上下文和目标
-        context_patches = patches[~mask]   # 可见 patch
-        target_patches = patches[mask]      # 被遮住的 patch
-        
-        # 第 3 步：Context Encoder（有梯度）
-        context_repr = self.context_encoder(context_patches)  # (B, num_ctx, dim)
-        
-        # 第 4 步：Target Encoder（无梯度，EMA 更新）
-        with torch.no_grad():  # stop-gradient！
-            target_repr = self.target_encoder(target_patches)  # (B, num_tgt, dim)
-            target_repr_pooled = target_repr.mean(dim=1)        # (B, dim)
-        
-        # 第 5 步：Predictor 预测目标表征
-        context_pooled = context_repr.mean(dim=1)  # (B, dim)
-        pos_tokens = get_position_embeddings(mask)  # 位置条件
-        pred_input = torch.cat([context_pooled, pos_tokens], dim=-1)
-        pred_repr = self.predictor(pred_input)  # (B, dim)
-        
-        # 第 6 步：算 Loss（表征空间 MSE）
-        loss = F.mse_loss(pred_repr, target_repr_pooled)
-        
-        return loss
-    
-    def update_ema(self):
-        """EMA 更新 Target Encoder"""
-        for param_t, param_s in zip(
-            self.target_encoder.parameters(),
-            self.context_encoder.parameters()
-        ):
-            param_t.data = (
-                self.ema_momentum * param_t.data + 
-                (1 - self.ema_momentum) * param_s.data
-            )
+        self.gate = nn.Sequential(
+            nn.Linear(d, 128), nn.ReLU(), nn.Linear(128, 1)
+        )                                    # 每个 agent -> 一个贡献 logit
+        self.decode = nn.Linear(d, 32 * 32 * 8)
+        self.grid = grid
+
+    def forward(self, agents):               # agents: (B, 128, D)
+        # 1) alpha 软门控: softmax 保证权重和为 1, 可解释为"谁占风险预算"
+        alpha = torch.softmax(self.gate(agents).squeeze(-1), dim=-1)  # (B,128)
+
+        # 2) 加权聚合 128 个目标 -> 全局风险向量
+        pooled = (alpha.unsqueeze(-1) * agents).sum(dim=1)            # (B,D)
+
+        # 3) 解码到时空网格, sigmoid 到 (0,1) 当风险强度
+        field = self.decode(pooled).view(-1, 32, 32, 8)
+        field = torch.sigmoid(field)                                   # (B,32,32,8)
+
+        z_risk = pooled                                                # (B,D)
+        return field, z_risk, alpha
 ```
 
-### 5.3 JEPA-DRIVE 的三阶段训练
+```python
+# ========= 双专家门控 + Risk-Init 初始噪声 =========
+class DualExpertFlow(nn.Module):
+    def __init__(self, d=256):
+        super().__init__()
+        self.base = VelocityDiT(d)     # 常规专家
+        self.lte  = VelocityDiT(d)     # Long-Tail Expert, 从 Base 热启动
+        self.noise_head = nn.Linear(d, 30 * 2)   # z_risk -> 主噪声方向
+        self.gate = nn.Linear(1, 2)              # 风险熵 -> 两专家权重
+
+    def expert_mix(self, field):
+        # 风险场熵: 分布越均匀(复杂)熵越大 -> 更信 LTE
+        p = field.flatten(1)
+        p = p / (p.sum(-1, keepdim=True) + 1e-8)
+        h = -(p * (p + 1e-8).log()).sum(-1, keepdim=True)   # (B,1)
+        w = torch.softmax(self.gate(h), dim=-1)              # (B,2)
+        return w
+
+    def sample_x0(self, z_risk):
+        main = self.noise_head(z_risk).view(-1, 30, 2)
+        return main + 0.1 * torch.randn_like(main)  # Risk-Init + 多样性
+
+    @torch.no_grad()
+    def generate(self, field, z_risk, cond, K=8, steps=32):
+        w = self.expert_mix(field)
+        outs = []
+        for _ in range(K):
+            x = self.sample_x0(z_risk)
+            dt = 1.0 / steps
+            for i in range(steps):
+                t = torch.full((x.size(0),), i / steps, device=x.device)
+                v = w[:, 0:1, None] * self.base(x, t, cond) \
+                  + w[:, 1:2, None] * self.lte(x, t, cond)   # 软混合
+                x = x + v * dt
+            outs.append(x)
+        return torch.stack(outs, dim=1)          # (B, K, 30, 2)
+```
+
+### B.4 为什么这样设计（三个「为什么」）
+
+1. **为什么风险场而不是 occupancy？**
+   Occupancy 只回答「有没有东西」，是几何；风险场回答「这里多危险、随时间怎么变、受谁影响」。旁车还没压线但速度矢量指向我们，occupancy 还是空的，风险场已经点亮——交互信息被前移到表征阶段，而不是生成完再碰运气。
+
+2. **为什么双专家？**
+   数据上常规 : 长尾 ≈ 8 : 2，单模型 MSE 被常规主导，梯度拉向保守平均。Base 拟合常规，LTE 在难例子集上加权，门控用**风险熵**（连续、可微）而不是人工 hard 标签，避免标错边界。
+
+3. **为什么 Risk-Init？**
+   标准 FM 起点在全空间各向同性噪声，积分要自己「学着绕开」高风险区。用 `z_risk` 映射初始分布，等于把先验放进 `p_0`，路径更短、早期违例更少。关键是训练时必须用**同一初始化分布**（条件 FM），否则 train/inference mismatch——这点面试可以主动点出来，显示踩过坑。
+
+### B.5 效果与追问预案
+
+**Q：0.8713 相对基线涨在哪？**
+> 拆 PDMS 看，涨的几乎全在 **NC/DAC 的长尾子集**：基线在约 21% 高危交互上因碰撞/压线被乘积归零，风险场让模型「看见」这些交互并生成避让轨迹，把这批从 ~0 拉回 0.5+；常规 79% 我们没有掉点（comfort/EP 持平）。所以不是刷平均分，是修一票否决项。
+
+**Q：128 query 够吗？怎么确定的？**
+> 同屏强交互目标很少超过 50；128 是网格搜索 64/128/256 后的点——64 在密集路口漏目标，256 算力涨、收益平。128 还刚好构成 128 节点交互图，邻接矩阵形状整齐，方便做 top-k 稀疏 attention。
+
+**Q：你和做感知的同学接口是什么？**
+> 我拿三样：`(1) BEV 特征图 or 池化向量`、`(2) query 输出的 128 个 agent 特征`、`(3) 导航指令 token`。风险场、生成器、GRPO 都在我这边；感知的 loss 不反传进我的采样器（RL 阶段感知冻结，只训 LoRA 挂在生成器和风险头上）。
+
+**Q：Flow-GRPO 为什么只 LoRA？**
+> 三点：(1) 预训练速度场是通用生成先验，全参会灾难性遗忘，KL 也拉不回来；(2) RL 信号是标量奖励，信息量小于 SFT 文本，低秩假设（改动集中在少数方向）成立；(3) 0.5% 参数 ≈ 优化器状态小一个数量级，组大小 24×32 步的采样已经很贵，训练侧要省。`W' = W + (α/r)BA`，`B=0, A~N(0,σ)` 初始化保证起点就是原模型。
+
+---
+
+## 话术 C：世界模型 / 世界动作模型（TrustDrive-WAM）——「你们世界模型怎么做的？WAM 又是什么？」
+
+### C.0 30 秒电梯版（区分两个词，很多人栽在这）
+
+> 先分清：**世界模型**是经典定义——给定状态和动作预测下一状态 `p(s'|s,a)`，让我们能「想象」走了这条轨迹世界会怎样。**WAM（World Action Model）** 是我们项目的具体形态：不把「生成动作」和「预测后果」拆成两个模块，而是在**同一个流匹配过程**里联合演化轨迹、后果、风险、支持域四类隐变量——所以叫**联合动作-后果流**。外面再套一层**可信路由**：世界模型的预测不当真理、当「证据」，支持域分数不够就回退经典规划。NAVSIM **0.8012**。
+
+### C.1 我负责什么
+
+> 我负责 WAM 核心与安全闭环三件事：
+> 1. **联合流**：把四类隐变量打包成一个向量做 Flow Matching，设计各分量的监督信号（轨迹用 L2，后果用 PDMS 分量，支持域用能量分数）；
+> 2. **逆一致性与行为 token**：防止模型忽略动作输入；16 个行为模式 token 覆盖多峰驾驶风格；
+> 3. **可信路由与 fallback**：双层信任评估（支持域 + 效用），在线决定信模型还是信经典规划器。
+>
+> 世界模型的主干时序编码（视频/轨迹 encoder）是共用的，我在它之上建「动作-后果联合解码头」。
+
+### C.2 整体 pipeline（先讲清和传统方案的差别）
+
+> **传统割裂做法**：先跑一个轨迹生成器吐 K 条，再跑一个独立评分网络事后打分，最后 argmax。问题是生成时不知道后果，评分和生成的表征不对齐，属于 predict-then-check。
+>
+> **我们的 WAM**：
+> 1. 联合状态打包 `z = [traj(60) | conseq(32) | risk(16) | support(8)]`，共 116 维；
+> 2. 和噪声 `z0` 直线插值得 `z_t`，一个联合速度场网络 `v_θ(z_t, t, c)` 输出 116 维速度，**同一时间步 t 上四条一起积分**；
+> 3. 条件 `c` = 感知上下文 + 行为 token（枚举 16 个得 16 条不同风格候选）；
+> 4. 积分中途每个中间点都能读出当前的 `support` logit 和 `risk`——**心跳式**给路由器用，不用等全程走完；
+> 5. 路由：`layer1` 看支持域和风险（可靠性信任），`layer2` 看 WM 轨迹效用是否优于经典基线（决策信任），都过才用 WM，否则 `torch.where` 切到经典轨迹。
+>
+> 这样轨迹和后果的表征天然对齐（同 t），评分头不用跨模块对齐；代价是要设计好四条的 loss 权重和防坍缩。
+
+### C.3 核心算法 + 代码
 
 ```python
-# ============ 阶段 1：JEPA 自监督预训练 ============
-def stage1_jepa_pretrain(jepa_model, driving_videos):
-    """学习时序场景未来隐表征预测，规避像素级重建"""
-    for video_batch in driving_videos:
-        frames = video_batch['frames']  # (B, T, 3, H, W)
-        
-        # 帧间预测：用第 t 帧预测第 t+1 帧的表征
-        for t in range(T - 1):
-            frame_t = frames[:, t]
-            frame_next = frames[:, t + 1]
-            
-            # 掩码当前帧的一部分
-            mask = random_mask(num_patches, ratio=0.75)
-            
-            # JEPA 预测
-            loss = jepa_model(frame_t, mask)  # 预测被遮住部分的表征
-            
-            loss.backward()
-            optimizer.step()
-        
-        # EMA 更新
-        jepa_model.update_ema()
+# ========= 维度与打包 =========
+TRAJ, CONQ, RISK, SUPP = 60, 32, 16, 8      # 60=30步*xy
+JOINT = TRAJ + CONQ + RISK + SUPP           # 116
 
-# ============ 阶段 2：冻结世界模型，训练隐空间评分头 ============
-def stage2_train_scorer(jepa_model, scorer_head, navsim_data):
-    """输出与 PDMS 安全指标对齐"""
-    # 冻结世界模型
-    for param in jepa_model.parameters():
-        param.requires_grad = False
-    
-    for batch in navsim_data:
+def pack(traj, conq, risk, supp):
+    return torch.cat([traj, conq, risk, supp], dim=-1)
+
+def unpack(z):
+    return (z[..., :TRAJ],
+            z[..., TRAJ:TRAJ+CONQ],
+            z[..., TRAJ+CONQ:TRAJ+CONQ+RISK],
+            z[..., TRAJ+CONQ+RISK:])
+
+# ========= 联合速度场 =========
+class JointVelocityNet(nn.Module):
+    def __init__(self, d=512, cond_dim=256):
+        super().__init__()
+        self.inp  = nn.Linear(JOINT, d)
+        self.cond = nn.Linear(cond_dim, d)
+        self.mlp  = nn.Sequential(
+            nn.Linear(d, d), nn.GELU(), nn.Linear(d, d), nn.GELU()
+        )
+        self.out = nn.Linear(d, JOINT)
+
+    def forward(self, z_t, t, cond, mode_tok):
+        h = self.inp(z_t) + self.cond(cond + mode_tok) \
+            + timestep_embedding(t, d)
+        return self.out(self.mlp(h))         # 一次出 116 维速度
+
+# ========= 联合 FM loss =========
+def joint_fm_loss(net, traj1, conq1, risk1, supp1, cond, mode):
+    z1 = pack(traj1, conq1, risk1, supp1)
+    z0 = torch.randn_like(z1)
+    t  = torch.rand(z1.size(0), device=z1.device)
+    zt = (1 - t[:, None]) * z0 + t[:, None] * z1
+    v  = net(zt, t, cond, mode)
+    # 各分量可加权: 轨迹主任务权重大, 后果/风险中等, 支持域用能量蒸馏
+    vz, vc, vr, vs = unpack(v - z1 + z0)     # 目标速度 z1-z0 也拆开
+    loss = (w_t * (vz ** 2).mean()
+          + w_c * (vc ** 2).mean()
+          + w_r * (vr ** 2).mean()
+          + w_s * (vs ** 2).mean())
+    return loss
+```
+
+```python
+# ========= 可信路由 =========
+class TrustRouter:
+    def __init__(self, tau_s=0.8, tau_r=0.4, tau_u=0.0):
+        self.tau_s, self.tau_r, self.tau_u = tau_s, tau_r, tau_u
+
+    @torch.no_grad()
+    def route(self, supp_logit, risk, u_wm, u_base):
+        p_s = torch.sigmoid(supp_logit)
+        reliable = (p_s > self.tau_s) & (risk < self.tau_r)  # 层1 可靠性
+        useful   = (u_wm - u_base) > self.tau_u               # 层2 决策信任
+        return reliable & useful
+
+    def select(self, wm_traj, base_traj, supp, risk, u_wm, u_base):
+        use = self.route(supp, risk, u_wm, u_base)            # (B,)
+        out = torch.where(use.view(-1, 1, 1), wm_traj, base_traj)
+        return out, use.float().mean()   # 信任率, 直接当监控指标
+```
+
+```python
+# ========= 逆一致性: 防止忽略动作 =========
+def inverse_consistency(forward_dyn, inverse_dyn, s, a):
+    s_next = forward_dyn(s, a)            # 前向: s,a -> s'
+    s_hat  = inverse_dyn(s_next, a)       # 逆向: s',a -> s
+    return F.mse_loss(s_hat, s)           # 必须闭环, 否则可忽略 a
+```
+
+**四条为什么必须同一条流**（面试金句）：
+> 如果轨迹和后果各跑各的 ODE，同一「时刻」的 `(traj, conseq)` 语义对不齐，评分头会学到错位配对；共享 t 和联合速度场，代价分量始终贴着轨迹分量走，表征空间天然配对。
+
+### C.4 「世界模型」vs「世界动作模型」——必答题的标准答案
+
+> 世界模型是**类**，WAM 是**种**。类的经典形式只建模环境动力学 `p(s'|s,a)`，动作是外部输入；WAM 把动作的**生成**和动作的**后果**放进同一个联合分布/同一条流里学——动作不再只是条件，后果也不再是事后插件。对外表现有三点不同：
+> 1. 生成中途就能读出后果和风险（可早停、可引导）；
+> 2. 支持域和动作同步演化，路由不用等独立「验证网络」；
+> 3. 逆一致性直接约束「动作信息确实进了表征」。
+>
+> 如果面试官问「和 Dreamer 那类世界模型比」：Dreamer 在 latent 里 roll 出 reward/value 再学策略，是 model-based RL 范式；我们是**开环评测 + 后训练**范式，WAM 更像「带后果头的条件生成器 + 安全路由器」，最终指标直接对齐 NAVSIM PDMS，不训 value 函数。
+
+### C.5 效果与追问预案
+
+**Q：可信阈值怎么定？上线怎么监控？**
+> 验证集扫 `tau_s`，画「信任率 vs 碰撞率」曲线取拐点，部署取保守侧（高 `tau_s`）。线上监控三个数：信任率、fallback 触发率、fallback 段的 PDMS。故障注入（遮挡镜头、注入 OOD 车辆）看 fallback 召回率是否掉——这题答出来就是安全工程分。
+
+**Q：如果 WM 和经典规划器都错呢？**
+> 路由只保证「不确定时不信 WM」，不保证经典永远对。兜底再往下是安全层：RSS/可控域约束、最小风险策略（MRC）。我们项目做到「OOD 不盲信」，完整安全论证要接 HJ 可达性或 RSS——我会主动说这条边界，不吹「绝对安全」。
+
+**Q：逆一致性会不会学成恒等映射？**
+> 如果 forward 和 inverse 都学恒等，cycle loss 也低——所以 forward 必须受动力学监督（下一状态预测 loss），inverse 只作为正则；且 `a` 用的是真实执行动作不是自由变量。另外加 stopgrad，防止梯度把 forward 压成可逆玩具映射。
+
+**Q：为什么 PDMS 比 RiskField-VLA 低 7 个点？**
+> 三个原因：(1) 联合四头共享容量，轨迹专用容量相对少；(2) 可信路由保守，早期 `tau` 高导致常走 fallback，EP 被基线拖累；(3) 多峰 16 token 还在调，偶发选错风格。消融上单轨迹头能到 0.83+，说明瓶颈在联合与路由调参，不在范式。
+
+---
+
+## 话术 D：JEPA —— 「JEPA 你们具体怎么做的？」
+
+### D.0 30 秒电梯版
+
+> JEPA 是 **联合嵌入预测架构**：不重建像素，在**表征空间**预测被遮住/未来时刻的抽象向量。我们做的 **JEPA-DRIVE** 是驾驶场景的世界模型路线——三阶段：**Stage1** 用视频帧间 JEPA 自监督学「给定当前场景，下一刻表征长什么样」；**Stage2** 冻结世界模型，训一个隐空间评分头去对齐 NAVSIM 的 PDMS 排序；**Stage3** 解冻感知，感知-世界模型-生成器-评分器端到端调。全程**不需要轨迹人工标注之外的像素级监督**，基线 PDMS **0.7285**。
+
+### D.1 我负责什么
+
+> 我负责 **JEPA 主干与三阶段训练框架**：mask 策略与帧间目标构造、Target Encoder 的 EMA 更新、predictor 结构、VICReg/Cycle-Energy 防坍缩与能量到支持域的映射、以及 Stage2/3 的评分头与联合 loss 权重。65536 条密集轨迹的**因子化生成**（path×speed）和排序选择也是我写的；感知 backbone 冻结/解冻策略和组内对齐。
+
+### D.2 整体 pipeline（三阶段一条线讲完）
+
+> **Stage 1 —— 自监督预训练（学世界模型）。**
+> 取连续视频帧 `x_t` 和 `x_{t+1}`。对 `x_t` 挖 75% 的 patch 做可见上下文，**目标不是重建 x_t 的像素**，而是 `x_{t+1}` 被 mask 区域的 **Target Encoder 输出**。Context Encoder 有梯度，Target Encoder 是 Context 的 EMA 副本 + `no_grad`。Predictor 吃上下文表征 + 位置/时间条件，预测目标表征，loss 是特征空间 MSE。这一步学到的是「场景动力学的抽象」——车流怎么演化、遮挡关系怎么变，而不是树叶纹理。
+>
+> **Stage 2 —— 冻结 WM，训评分头（对齐任务）。**
+> 把 JEPA 冻死，特征出来喂评分头，输入是候选轨迹的特征拼场景特征，输出 PDMS 分数；loss 用 **listwise 排序 loss** 不是 MSE——因为 PDMS 是乘积指标，官方也只 care 排序，回归绝对值会把尾部碰撞样本的权重带偏。
+>
+> **Stage 3 —— 端到端联合。**
+> 解冻感知分支，全链 `感知 -> 世界模型 -> 轨迹生成 -> 评分` 一起调，loss = 排序 loss + `0.1 * JEPA 辅助`（别丢掉动力学）+ `0.05 * VICReg`（防联合训练时坍缩）。生成端用 path×speed 因子化一次出 65536 条，评分头在**隐空间**批量打，不需要生成像素。
+
+### D.3 核心算法 + 代码
+
+```python
+# ========= JEPA 前向 =========
+class JEPA(nn.Module):
+    def __init__(self, d=768, m=0.996):
+        super().__init__()
+        self.ctx = ViT(patch=16, dim=d)          # 可训练
+        self.tgt = copy.deepcopy(self.ctx)       # EMA, requires_grad=False
+        for p in self.tgt.parameters():
+            p.requires_grad = False
+        self.pred = nn.Sequential(               # 上下文+位置 -> 目标表征
+            nn.Linear(d + 128, 1024), nn.GELU(),
+            nn.Linear(1024, 1024), nn.GELU(),
+            nn.Linear(1024, d),
+        )
+        self.m = m
+
+    def forward(self, x_ctx_patches, x_tgt_patches, pos):
+        z_ctx = self.ctx(x_ctx_patches)                 # 梯度到 ctx
+        with torch.no_grad():                           # 关键: stop-grad
+            z_tgt = self.tgt(x_tgt_patches)             # 只 EMA 更新
+        z_pool = z_ctx.mean(dim=0, keepdim=True) \
+                     .expand(z_tgt.size(0), -1)
+        z_hat = self.pred(torch.cat([z_pool, pos], -1))
+        return F.mse_loss(z_hat, z_tgt)                 # 特征空间 MSE
+
+    @torch.no_grad()
+    def ema_update(self):
+        for pt, ps in zip(self.tgt.parameters(), self.ctx.parameters()):
+            pt.data.lerp_(ps.data, 1.0 - self.m)        # EMA
+```
+
+```python
+# ========= Stage 1: 帧间世界模型 JEPA =========
+def stage1_train(jepa, loader, opt):
+    for videos in loader:                               # (B,T,3,H,W)
+        t = torch.randint(0, videos.size(1) - 1, (1,)).item()
+        x_now, x_next = videos[:, t], videos[:, t + 1]
+        mask = make_block_mask(B, N, ratio=0.75)        # True=目标块
+
+        # 上下文来自当前帧可见块, 目标来自下一帧被遮块 (预测未来)
+        loss = jepa.temporal_loss(x_now, x_next, mask)
+        loss.backward(); opt.step()
+        jepa.ema_update()
+
+# ========= Stage 2: 冻结 + 排序评分头 =========
+def stage2_train(jepa, scorer, loader, opt_s):
+    freeze(jepa)
+    for batch in loader:
         with torch.no_grad():
-            scene_repr = jepa_model.context_encoder(batch['images'])
-        
-        # 评分头：预测每条轨迹的 PDMS 分数
-        pred_scores = scorer_head(scene_repr, batch['candidate_trajs'])
-        gt_scores = batch['pdms_scores']
-        
-        # 排序学习 loss（对齐 NAVSIM 官方指标）
-        loss = ranking_loss(pred_scores, gt_scores)
-        loss.backward()
-        optimizer_scorer.step()
+            z = jepa.ctx(batch['ctx_patches'])          # (B,D)
+        pred = scorer(z, batch['cand_trajs'])           # (B,K) 分数
+        loss = listwise_rank_loss(pred, batch['pdms'])  # 对齐官方序
+        loss.backward(); opt_s.step()
 
-# ============ 阶段 3：端到端联合调优 ============
-def stage3_end2end_finetune(full_model, navsim_data):
-    """释放感知分支，感知-世界模型-生成器-评分器联合调优"""
-    # 解冻感知分支
-    for param in full_model.perception.parameters():
-        param.requires_grad = True
-    
-    for batch in navsim_data:
-        # 完整前向：感知 → 世界模型 → 轨迹生成 → 评分
-        scene_repr = full_model.perception(batch['images'])
-        future_repr = full_model.world_model(scene_repr)  # 预测未来表征
-        trajs = full_model.generator(future_repr)         # 生成密集轨迹
-        scores = full_model.scorer(trajs)                  # 打分
-        
-        # 多任务 loss
-        loss = (
-            F.mse_loss(scores, batch['pdms_scores']) +  # 评分对齐
-            0.1 * jepa_loss +                           # JEPA 正则
-            0.05 * vicreg_loss                          # 防坍缩
-        )
-        loss.backward()
-        optimizer.step()
+def listwise_rank_loss(pred, gt):
+    """软排序: 高分轨迹应有更高 gt 的概率 (softmax 对齐)"""
+    p = F.softmax(pred / 0.1, dim=-1)
+    q = F.softmax(gt  / 0.1, dim=-1)
+    return F.kl_div(p.log(), q, reduction='batchmean')
 ```
-
-### 5.4 VICReg 正则（防表征坍缩）
 
 ```python
-def vicreg_loss(representations):
-    """
-    VICReg: Variance-Invariance-Covariance Regularization
-    三项约束防止表征坍缩
-    """
-    # 1. 方差项：每个维度的方差要足够大（不能是常数）
-    var = representations.var(dim=0)
-    variance_loss = F.relu(1.0 - var).mean()  # 方差 < 1 时惩罚
-    
-    # 2. 协方差项：不同维度之间要去相关
-    cov = torch.cov(representations.T)
-    off_diagonal = cov - torch.diag(torch.diag(cov))
-    covariance_loss = (off_diagonal**2).sum() / representations.shape[1]
-    
-    # 3. 不变项：同一图片的不同增强应该有相似的表征
-    # （用 VICReg 的 invariance 项）
-    
-    return variance_loss + 0.04 * covariance_loss
+# ========= Cycle-Energy: 双向 + 能量给支持域 =========
+def cycle_energy(jepa, xa, xb, mask_b, mask_a):
+    e_fwd = jepa(xa, xb, mask_b)     # A 看可见, 预测 B 的 mask 处
+    e_bwd = jepa(xb, xa, mask_a)     # 反向
+    energy = e_fwd + e_bwd           # 样本能量
+    support = torch.sigmoid(2.0 - 4.0 * energy)  # 能量低->支持域内(示意标定)
+    return energy, support
 ```
-
-### 5.5 Cycle-Energy 双空间自监督损失
 
 ```python
-def cycle_energy_loss(jepa_model, frame_a, frame_b):
-    """
-    Cycle-Energy: 双空间自监督
-    正向：A 的表征 → 预测 B 的表征
-    逆向：B 的表征 → 预测 A 的表征
-    双向一致 = 好的表征
-    """
-    # 正向
-    repr_a = jepa_model.context_encoder(frame_a)
-    pred_b = jepa_model.predictor(repr_a)
-    target_b = jepa_model.target_encoder(frame_b)  # EMA, no grad
-    
-    # 逆向
-    repr_b = jepa_model.context_encoder(frame_b)
-    pred_a = jepa_model.predictor(repr_b)
-    target_a = jepa_model.target_encoder(frame_a)
-    
-    # 双向 cycle loss
-    forward_loss = F.mse_loss(pred_b, target_b.detach())
-    backward_loss = F.mse_loss(pred_a, target_a.detach())
-    
-    cycle_loss = forward_loss + backward_loss
-    return cycle_loss
+# ========= Stage 3: 端到端 =========
+def stage3_train(full, loader, opt):
+    unfreeze(full.perception)
+    for batch in loader:
+        z = full.perception(batch['imgs'])
+        z_fut = full.world_model(z)                   # 未来隐表征
+        trajs = full.generator(z_fut)                 # 或 path*speed 因子化
+        scores = full.scorer(trajs, z_fut)
+        loss = (listwise_rank_loss(scores, batch['pdms'])
+                + 0.1 * full.jepa_aux(batch)
+                + 0.05 * vicreg_loss(z))
+        loss.backward(); opt.step()
 ```
+
+```python
+# ========= 65536 密集轨迹: path x speed 因子化 =========
+def dense_paths_speeds(paths, speeds):
+    """
+    paths: (B,256,L,2)  空间形状
+    speeds:(B,256,L,1)  时间分配/速度系数
+    -> (B, 65536, L, 2)  256*256 组合
+    注意: 实现里 scorer 可 chunk 评分别物化全量显存
+    """
+    return (paths.unsqueeze(2) * speeds.unsqueeze(1)) \
+            .flatten(1, 2)
+```
+
+### D.4 为什么 JEPA（必考对比）
+
+**vs MAE/像素重建：**
+> MAE 要把遮住的每个像素画回来，算力花在纹理、光照这些对决策无用的自由度上；JEPA 只要求「预测对抽象」，一个向量回归搞定。用考试类比：MAE 是把被挡的图重画一遍，JEPA 是回答「被挡的是什么」。
+
+**vs 扩散式像素世界模型（DriveDreamer 那类）：**
+> 三点：算力（不生成像素）、物理一致性（像素生成会画出穿模，表征可注入几何先验）、接口（表征直接进规划头，不用先解码再读语义）。代价是表征没有显似然，更依赖 EMA+stopgrad+VICReg 三道防坍缩，以及 Stage2 这种任务对齐头。
+
+**I-JEPA vs V-JEPA：**
+> I-JEPA 单图挖块，补的是**空间上的现在**；V-JEPA 看前几帧预测下一帧表征，补的是**时间上的未来**——只有 V-JEPA 算世界模型。我们 Stage1 是帧间目标，属于 V-JEPA 路线。
+
+### D.5 防坍缩（ JEPA 必问）
+
+> 表征坍缩 = 所有输入映到同一点，loss=0 但信息为 0。机理是 Context 和 Target 一起被同一个 loss 拉，可以「串通」输出常数。三道防线：
+> 1. **stop-gradient**：Target 分支 `no_grad`，不对答案；
+> 2. **EMA（0.996）**：Target 慢半拍，瞬时坍缩被时间常数拖住，Context 必须预测「昨天的自己」才准；
+> 3. **VICReg**：方差项罚 `std<1`，协方差项罚维度间相关——几何上禁止点云塌缩。
+>
+> 类比：EMA+stopgrad 是「老师慢半拍且不许对答案」，VICReg 是「直接规定不许缩成一个点」。我们三个都开了，Stage3 还保留 0.05 的 VICReg 权重防联合训练时被排序 loss 带崩。
+
+### D.6 效果与追问预案
+
+**Q：0.7285 比另两个低，JEPA 是不是不行？**
+> 先对齐口径：这是**无标注自监督 + 未做满 GRPO** 的基线，另两项目是监督/后训练打满的。0.7285 证明范式闭环可行；消融里去掉 Stage2 排序对齐只有 0.68，说明瓶颈在任务对齐不在 JEPA 表征本身。计划里 Stage2 换 listwise + 引入 Flow-GRPO，内部复现预期能过 0.78。
+
+**Q：评分头为什么排序 loss 不用 MSE？**
+> PDMS 是乘积且官方评测是相对排序；MSE 会被「一堆 0.9 分的常规样本」主导梯度，长尾 0 分样本之间怎么排学不到。listwise KL 让整组分布对齐，和 GRPO 组内思想同源——面试可以把这两个项目串起来说，显示方法论统一。
+
+**Q：mask 比例多少？为什么 75%？**
+> 75% 是 MAE/JEPA 常用甜点：遮太少，任务太简单（局部插值就能骗过 loss）；遮太多，上下文没信息，predictor 学到先验平均。驾驶视频我还试过 block mask——遮整块车道比随机 patch 难，更逼出「车流结构」而不是「纹理补全」。
+
+**Q：Target Encoder 要进 optimizer 吗？**
+> 绝对不进。只通过 EMA 从 Context 拷贝权重。如果 Target 也有 Adam 状态，等于两边一起被 loss 拽，坍缩防线失效。代码里 `requires_grad_(False)` 且不 add 到 optimizer param group——这是代码审查常抓的点。
+
+**Q：和 LeCun 说的 JEPA 是一回事吗？**
+> 是同一条线：预测嵌入空间、用 stopgrad/EMA 防坍缩、I-JEPA 补空间 V-JEPA 补时间。我们加的是**驾驶特有的东西**：帧间目标当世界模型、能量当支持域接可信路由、排序头对齐 PDMS。可以说「架构是 LeCun 的，任务封装和安全接口是我们的」。
+
+---
+
+## 话术 E：「你负责什么？」总述版（开场 1 分钟，三项目通用模板）
+
+> 我三个项目是一条递进线，都围绕**端到端自动驾驶的「感知-预测-生成-评估」闭环**：
+>
+> **第一个项目 RiskField-VLA**，我负责风险建模和轨迹生成后训练——从 128 个 object query 聚出时空风险场，条件化 Flow Matching 双专家生成轨迹，再用 Flow-GRPO（SDE 化 + PPO-clip + LoRA）对齐 NAVSIM PDMS，最后 **0.8713**。
+>
+> **第二个项目 TrustDrive-WAM**，我负责把「生成动作」和「预测后果」合成一条联合流，外加可信路由——世界模型预测当证据不当真理，支持域不够就回退经典规划，**0.8012**。
+>
+> **第三个项目 JEPA-DRIVE**，我负责 JEPA 世界模型的三阶段训练——自监督帧间表征预测、冻结后排序评分头、端到端联合，走无像素重建路线，**0.7285**。
+>
+> 横向看，我擅长的是**连续生成模型（Flow Matching）+ 强化学习后训练（GRPO）+ 安全可信接口（风险场/支持域）** 这三块的落地，而不是只会调检测框。
+
+**使用提示**：面试官问「你负责什么」时，先 1 分钟总述，再让对方挑一个项目深入——然后切到对应话术 A/B/C/D。切忌三个项目同时展开讲细节。
+
+---
+
+## 话术 F：Flow Matching 与 Flow-GRPO 如何串讲（被要求「讲一个你最有深度的算法」时）
+
+> 我讲 Flow-GRPO 吧，因为它跨了生成模型和 RL 两边，坑最多。
+>
+> **问题设定**：我们已有 Flow Matching 轨迹生成器，SFT 后 PDMS 卡住，想用 RL 拉长尾分数。GRPO 的框架是现成的——同场景采一组，组内归一化 advantage，PPO-clip 更新。
+>
+> **第一个坎：log-prob 算不了。** LLM 里 `log π(a)` 直接 `log_softmax`。Flow 推理是确定性 ODE，`x_{t+1}` 是 `x_t` 的函数，条件分布是 Dirac，`log p = -inf`，ratio 爆炸。解法是**把采样改成 SDE**：漂移里加 score 补偿项保证边际分布和原 FM 一致，再 Euler-Maruyama 离散化，每步转移变成 `N(mean, σ²I)`，于是
+> `log p = -||x'-mean||²/(2σ²) - D/2 log(2πσ²)` 闭式可算。score 又可以用速度场和直线路径的恒等式换成 `v_θ`，整条链可微。
+>
+> **第二个坎：PPO 的 off-policy。** 采样时记录 `log_prob_old`，训练时不重新 rollout（贵且方差大），而是拿旧轨迹的状态序列，用**新模型**重算每步 `log_prob_new`，`ratio = exp(new - old)`，clip 到 `[0.8, 1.2]`，再加对 ref model（关 LoRA 的同一 base）的 KL。梯度从 ratio 经高斯 log 概率进 mean，再进 `v_θ`，只落在 LoRA 的 A/B 上——`W' = W + (α/r)BA`，0.5% 参数。
+>
+> **第三个坑：组内 std≈0。** 常规场景 24 条分都接近满分，advantage 全 0，白采样。所以加**难例挖掘**：按历史失败率重采样长尾场景，保证每组都有区分度。
+>
+> **结果**：长尾子集 NC/DAC 从归零拉回正区间，总 PDMS 到 0.8713；训练监控看三个数——组内 reward std、policy KL、LoRA 输出范数。KL 突然掉、reward 单边涨，基本是 reward hacking，要查打分器漏洞。
+>
+> （如果对方点头，再展开 SDE 四步推导或 PPO-clip 代码；如果对方打断，停在「确定性 ODE 没有 log-prob，所以 SDE 化」这句核心上。）
 
 ---
 
 # 第三部分：面试压力面问题与参考回答
 
-> 这一部分模拟真实面试场景，覆盖概念、原理、项目细节、开放性问题。每个问题给出"标准回答"和"加分回答"。
+> 覆盖概念、原理、项目细节、开放题。每题给「标准回答」和「加分回答」，部分附「追问链」。
 
 ---
 
 ## A. Flow Matching 相关
 
-**Q1：Flow Matching 和 DDPM 有什么区别？为什么你选 Flow Matching？**
+**Q1：Flow Matching 和 DDPM 有什么区别？为什么你们选 Flow Matching？**
 
-> **标准回答**：DDPM 是弯路去噪，前向过程逐步加噪形成随机路径，反向需要 20-50 步逐步退回。Flow Matching 是直线插值，在噪声和数据之间拉一条直线，网络学习这条线上的速度场，推理只需 5-10 步。我们选 Flow Matching 是因为 GRPO 需要反复采样（每个场景 24 条轨迹），采样效率差 5 倍意味着 RL 训练也慢 5 倍。
+> **标准回答**：DDPM 是弯路去噪，前向方差调度形成弯曲路径，反向常要 20-50 步；Flow Matching 在噪声和数据间拉直线，网络学速度场，推理 5-32 步。我们选 FM 一是轨迹任务要在 RL 里反复采样（每场景 24 条×32 步），采样器快 5 倍 RL 就快 5 倍；二是直线路径下 score 与速度有闭式关系，后面做 Flow-GRPO 的 SDE 推导时干净。
 >
-> **加分回答**：补充数学区别——DDPM 训练目标是预测噪声 ||ε_θ - ε||²，Flow Matching 是预测速度 ||v_θ - (x₁-x₀)||²。DDPM 基于 SDE，FM 基于 ODE。另外 FM 的速度场几乎恒定（= x₁-x₀），学起来更容易收敛。
+> **加分回答**：再补数学——DDPM 目标 `E‖ε-ε_θ‖²`，FM 目标 `E‖v-(x1-x0)‖²`；DDPM 概率视角是 SDE+score，FM 是 CNF+向量场。工程上 FM 生态（SD3/FLUX/π₀）也在替我们踩坑。
 
-**Q2：Flow Matching 推理时为什么用 Euler 积分而不是更高阶的积分器？**
+**Q2：为什么推理用 Euler 不用高阶积分器？**
+> **标准**：直线路径速度近似常数，Euler 一阶误差在 16-32 步内可接受；RK4 每步 4 次前向，轨迹只有 30 点，省下的精度不如省算力。
+> **加分**：Heun 两次前向可作折中；1 步蒸馏场景才明显需要高阶或 consistency。我们 RL 用 32 步是为 log-prob 累计精度，不是积分精度不够。
 
-> **标准回答**：Euler 积分实现简单、速度快，而且 Flow Matching 的路径是直线，速度场几乎恒定，低阶积分器的精度损失很小。更高阶的积分器（如 RK4）每步需要多次网络前向，计算量翻倍但收益不大。
->
-> **加分回答**：实际工程中会根据步数权衡——步数多时 Euler 就够了，步数极少时（如 1 步蒸馏）可能需要更精确的积分。我们的方案是 32 步 Euler，平衡了精度和速度。
+**Q3：多模态坍缩（只会出平均轨迹）怎么解？**
+> **标准**：(1) 从随机 `x0` 多次采样展开多模态；(2) 行为 token 条件化 16 种风格；(3) 不用单点 MSE 直接回归 x1（那才是必然坍缩）。
+> **加分**：Risk-Init 加 `0.1*noise` 保组内多样性，否则 GRPO std→0；可提 winner-takes-all 或 mixture 头作备选。
 
-**Q3：如果 Flow Matching 生成的轨迹很"平庸"（多模态坍缩），怎么解决？**
+**Q4：训练时 t 的分布为什么均匀采？**
+> **标准**：覆盖路径全程，否则某段速度场没学过，积分到那里会拐。
+> **加分**：可 importance sampling 偏向两端（曲率大处）或 SNR 加权；我们简单 U(0,1)+少量 t-embedding 缩放够用。
 
-> **标准回答**：多模态坍缩是指模型只生成"平均"轨迹，丢掉了多种可能性。解决方案有：1）增加采样的随机性（SDE 而不是 ODE）；2）条件化——给不同的行为 token（我们的项目用了 16 组可学习行为模式 token）；3）对抗训练或 mode-seeking loss。
->
-> **加分回答**：在 TrustDrive-WAM 中，我们引入 16 组可学习行为模式 token 作为生成条件，引导模型输出覆盖保守跟车、加速通行、侧向偏移等不同驾驶假设的 16 条多样化候选轨迹，从条件端解决模式坍缩。
+**Q5：如果一步 Euler 误差大，你会改 loss 吗？**
+> **标准**：先加步数/Heun 验证是否真是积分误差；若是网络欠拟合，加容量或按 t 加权 loss。
+> **加分**：velocity 目标理论上一步到位，实际多步是因为**边缘化后平均场会弯**——可提 OT-CFM 减路径交叉。
 
 ---
 
 ## B. Flow-GRPO 相关
 
-**Q4：GRPO 最早是给 LLM 设计的，你怎么把它迁移到 Flow Matching 上？**
+**Q6：GRPO 是 LLM 的，你怎么迁到连续流上？**
+> **标准**：核心差在 log-prob。离散 token 用 softmax；确定性 ODE 没有转移密度。我们引入 SDE，漂移加 score 项保边际，离散化后每步是高斯，log-prob 闭式，PPO ratio 就能算。
+> **加分**：四步：Fokker-Planck 反解漂移；直线路径用速度替换 score；Euler-Maruyama；高斯 log 概率。轨迹不重采样，只重算 log_prob_new。
 
-> **标准回答**：核心挑战是 log_prob 的计算方式不同。LLM 中 token 是离散的，log_prob 直接从 softmax 取 log。但 Flow Matching 是连续的 ODE，确定性系统没有转移概率。我们的解法是引入 SDE，把确定性 ODE 变成有随机性的 SDE，这样转移概率变成高斯分布，log_prob 就是高斯 log_prob，直接可算。
->
-> **加分回答**：具体推导分四步：1）用 Fokker-Planck 方程反解 SDE 漂移项，保证边际分布不变；2）在整流流下用速度场替换 score（闭式恒等式）；3）欧拉-马鲁亚马离散化；4）得到带 score 修正的均值公式和高斯 log_prob。这样 PPO 的 ratio 就能算了。
+**Q7：PPO clip 取多少？clip 和 KL 各管什么？**
+> **标准**：ε=0.2 经典值。clip 限制**单步**新旧比偏离；KL 拉住**整体**不远离 ref。
+> **加分**：只有 clip 长期仍会漂；只有 KL 单步可能过大。监控三元组：clip 裁剪比例、KL、有效样本数——裁剪比例>40% 说明步子太大或数据太 off-policy。
 
-**Q5：PPO-clip 的 clip range 设多大？为什么？**
+**Q8：为什么只 LoRA？全参不好吗？**
+> **标准**：0.5% 参数，保 Flow 预训练、省显存、可插拔 ref=同权重关 adapter。
+> **加分**：RL 标量奖励信息量低于 SFT，低秩假设成立；全参易沿 reward 奇异方向 hack。
 
-> **标准回答**：我们设 0.2，这是 PPO 的经典默认值。clip 的作用是限制新旧策略的偏离不超过 ±20%。太大容易训练不稳定，太小学习太慢。
->
-> **加分回答**：在 Flow-GRPO 中，clip 和 KL 惩罚是双重保护。clip 限制单步更新幅度，KL 惩罚限制整体偏离 reference model 的程度。两者缺一不可——只有 clip 没有 KL，长时间训练还是会漂移；只有 KL 没有 clip，单步可能更新太猛导致崩溃。
+**Q9：奖励怎么设计？怎么防 hack？**
+> **标准**：主项官方 PDMS（NC/DAC/TTC/Comfort/EP/SLC 乘积），加 agent 级最近威胁裕度做 shaping。
+> **加分**：防 hack 三件套：EP 防「停着不动刷安全」；shaping 权重有上界且主项仍是官方分；组内相对优势看方向不看绝对值，打分器整体漂移不改梯度方向。reward 突涨 KL 突降要人工查漏洞。
 
-**Q6：为什么只微调 LoRA？全参微调不行吗？**
+**Q10：advantage 归一化细节？**
+> **标准**：`view(-1, G)` 组内 `(r-mean)/std`，clamp ±2。
+> **加分**：不能全局归一（组间难度不同）；std+ε 防除零；全同分组丢弃或降权——连着讲难例挖掘动机。
 
-> **标准回答**：LoRA 只更新 0.5% 的参数（约 60M），原始权重全部冻结。好处是：1）训练快、显存省；2）不破坏预训练知识；3）可以多个任务各挂一个 LoRA。
->
-> **加分回答**：全参微调 12B 模型需要大量显存和数据，而且容易灾难性遗忘——模型会忘记 Flow Matching 预训练学到的生成能力。LoRA 的低秩分解 W = W₀ + (α/r)·BA 本质上是在已有的速度场上叠加一个低秩"微调偏移"，GRPO 的梯度告诉这个偏移往 reward 高的方向挪，原始权重不动。
-
-**Q7：奖励模型怎么设计的？会不会被 hack？**
-
-> **标准回答**：奖励模型基于 NAVSIM 官方 PDM 打分器，包括碰撞、可行驶区域、TTC、舒适度等子指标。hack 的风险是存在的——模型可能找到"钻空子"的方式（比如永远不动车来避免碰撞）。
->
-> **加分回答**：防 hack 的手段有三个：1）EP（Ego Progress）指标要求自车必须前进，防止"不动"策略；2）clip + KL 双重约束限制偏离；3）组内归一化——只看相对好坏，不看绝对分数，即使奖励模型整体偏移也不影响训练方向。
+**Q11：和 PPO 比 GRPO 去掉 critic 的代价？**
+> **标准**：方差略升（baseline 质量不如 value），省一个网络的显存和训练不稳。
+> **加分**：轨迹任务 horizon 短、组内对比信号够；若未来上闭环多步决策，value 可能回来。
 
 ---
 
 ## C. VLA 与风险场相关
 
-**Q8：为什么用 128 个 object query？怎么确定的？**
+**Q12：object query 128 怎么定？**
+> **标准**：64/128/256 网格搜索，128 平衡漏检与算力；强交互目标很少超 50。
+> **加分**：128 节点交互图 shape 好看，方便 top-k sparse attention；空 query 学「无目标」是 DETR 传统。
 
-> **标准回答**：128 是通过实验确定的。太少（如 32）不够覆盖场景中的所有交通参与者，太多（如 512）计算量大且很多 query 是冗余的。实际场景中同时交互的目标通常不超过 50-100 个。
->
-> **加分回答**：128 个 query 对应 128 节点交互图，可以显式建模两两之间的博弈关系（邻接矩阵 128×128）。这比稀疏 token 方案更能捕捉"这辆车让我"还是"那辆车抢行"这种交互语义。
+**Q13：风险场 vs occupancy？**
+> **标准**：occupancy 管几何有没有；风险场管危险程度、时间演化、交互来源。
+> **加分**：旁车未压线但速度指向我们，occ 空、risk 亮；α 门控把交互前移到表征，z_risk 给生成/门控/评分三处复用。
 
-**Q9：风险场和传统的 occupancy prediction 有什么区别？**
+**Q14：双专家数据不均衡怎么训？**
+> **标准**：Base 全量，LTE 难例子集+热启动，门控用风险熵软混合。
+> **加分**：LTE 不从零训防早期噪声；难例来自失败回放+熵 top-k+合成 cut-in；软路由有梯度、硬路由断。
 
-> **标准回答**：Occupancy prediction 预测每个格子是否被占用（0/1），是几何层面的。风险场预测每个格子的碰撞风险（连续值），是**交互层面**的——考虑了其他交通参与者的意图和博弈关系。
->
-> **加分回答**：风险场多了三个维度的信息：1）**时间演化**（32×32×8，未来 8 步的风险变化）；2）**交互关系**（通过 α 软门控聚合所有 agent 的影响）；3）**风险语义**（z_risk 编码可以直接给下游用，不只是占用/空闲）。
+**Q15：Risk-Init 和训练一致吗？**
+> **标准**：必须一致——训练时 `x0=head(z_risk)+ε`，推理同式，否则 mismatch。
+> **加分**：这是条件 FM 的 `p_0(·|c)`；纯推理换初始化是常见 bug，可以主动说踩过。
 
-**Q10：Base 和 LTE 双专家怎么训练？数据不均衡怎么办？**
-
-> **标准回答**：Base 专家在全量数据上训练，LTE 只在长尾高危样本上训练。门控网络用风险场熵作为输入，学习"什么时候该用哪个专家"。
->
-> **加分回答**：长尾数据天然稀少（21%），直接训练 LTE 会过拟合。我们的做法是：1）SFT 阶段引入在线难例挖掘，自动筛选高难度样本；2）LTE 初始化自 Base 的权重（不是从零开始）；3）门控用熵而非硬标签，允许两个专家的输出平滑混合。
+**Q16：导航语言怎么进网络？**
+> **标准**：文本塔 embedding 池化进 cond，和 BEV/z_risk 拼接。
+> **加分**：可 cross-attn token 级；指令换向（left/right）要做 counterfactual 测试防语言不敏感。
 
 ---
 
-## D. WAM 与可信域相关
+## D. 世界模型与 WAM 相关
 
-**Q11：为什么说"世界模型预测天然可信"是一个缺陷？**
+**Q17：「世界模型预测天然可信」为什么是缺陷？**
+> **标准**：OOD 时预测偏，规划器不知道偏，盲信就撞。应把 WM 输出当证据不当裁决。
+> **加分**：类比「不知道自己不知道」；我们双层路由=知道边界；监控 fallback 率。
 
-> **标准回答**：传统方案默认世界模型的预测是准确的，直接拿来做规划。但在 OOD 输入下（训练时没遇到过的场景），世界模型的预测可能偏差很大，而规划器不知道这个预测不可靠，会"盲目相信"它，导致碰撞或越界。
->
-> **加分回答**：类比一个人做判断——如果你不知道自己的知识边界，就会在不懂的领域自信地给出错误答案。我们方案的核心是把世界模型预测视为"决策证据"而非"裁决依据"，增加一个可信度评估层，知道自己什么时候不知道。
+**Q18：逆一致性具体怎么做？防什么？**
+> **标准**：`s,a->s'` 再 `s',a->s` 闭环 MSE；防模型忽略 a。
+> **加分**：类比 CycleGAN cycle；forward 要有动力学监督防恒等双射作弊；stopgrad 防钻空子。
 
-**Q12：逆一致性约束具体怎么实现的？**
+**Q19：可信路由实时性？**
+> **标准**：路由本身几个 MLP，微秒级；WM 前向才是开销。
+> **加分**：先能量/support 轻量门控，OOD 直接 fallback 不跑完整 WM——条件计算。
 
-> **标准回答**：正向：给定状态 s 和动作 a，预测下一状态 s'。逆向：给定 s' 和动作 a'，尝试恢复 s。约束要求正向和逆向的结果一致。
->
-> **加分回答**：如果不加这个约束，模型可能完全忽略动作输入——因为忽略动作也能让正向 loss 很小（只依赖当前状态）。逆一致性强迫模型"真正使用"动作信息，因为只有用了动作，正逆才能闭环。这在数学上类似 cycle consistency loss（CycleGAN 的思想）。
+**Q20：四条隐变量为什么同一条流？**
+> **标准**：共享 t，同刻 (traj,conseq) 对齐；分头各积分会错位。
+> **加分**：loss 分量加权；中途可读 support 做早停；和「predict-then-check」对比。
 
-**Q13：可信路由在实际部署中怎么保证实时性？**
-
-> **标准回答**：可信路由本身是一个轻量级的打分操作（几个 MLP 层），计算量可以忽略。主要开销在世界模型的前向推理，但我们可以做条件计算——只有可信的场景才完整推理世界模型，不可信的直接走传统规划。
->
-> **加分回答**：实际上做的是"先评估再推理"：1）先用支持域检测（轻量）判断是否在训练分布内；2）在分布内才激活世界模型；3）不在分布内直接 fallback。这样大部分常规场景走快速路径，只有需要时才走完整路径。
+**Q21：阈值怎么定？故障注入测什么？**
+> **标准**：验证集扫 τ，信任率-碰撞率曲线拐点取保守侧。
+> **加分**：故障注入（镜头遮挡、OOD 车）看 fallback 召回；线上盯信任率、fallback PDMS、KL。
 
 ---
 
 ## E. JEPA 相关
 
-**Q14：JEPA 和 MAE（Masked Autoencoder）有什么区别？**
+**Q22：JEPA vs MAE？**
+> **标准**：MAE 像素重建，JEPA 表征预测；算力与语义聚焦差异。
+> **加分**：多模态未来下像素回归出鬼影；JEPA 代价=无显似然，靠 EMA/正则/任务头。
 
-> **标准回答**：MAE 在像素空间重建被遮住的部分，JEPA 在表征空间预测被遮住部分的抽象表征。MAE 会花大量算力在无关细节（纹理、光照）上，JEPA 只关注语义。
->
-> **加分回答**：用考试类比——MAE 要求你把被遮住的每个像素都画出来（难且大部分没用），JEPA 只要求你回答"被遮住的是什么"（抓核心语义）。实测在 linear probing 上 JEPA 逼近对比学习，但在计数、深度预测等低层任务上反超 MAE。
+**Q23：坍缩三道防线分工？**
+> **标准**：stopgrad 不对答案；EMA 慢半拍；VICReg 几何禁塌。
+> **加分**：只 stopgrad 无 EMA 仍可能慢慢漂移坍缩；VICReg 三项方差/协方差/不变性各防什么——方差防重合、协方差防维度复制、不变性防语义抖。
 
-**Q15：表征坍缩怎么防止？EMA 和 stop-gradient 分别起什么作用？**
+**Q24：I-JEPA 和 V-JEPA？哪个是世界模型？**
+> **标准**：I 补空间现在，V 预测时间未来；V 是世界模型。
+> **加分**：我们 Stage1 帧间目标=V-JEPA 路线，时序条件还有 t→t+1 的时间嵌入。
 
-> **标准回答**：表征坍缩是所有输出都变成常向量，loss=0 但没学到东西。EMA 让 Target Encoder 变化很慢，stop-gradient 阻止梯度传给 Target Encoder。这样 Context Encoder 必须"真正理解"才能预测 Target 的输出。
->
-> **加分回答**：类比师生游戏——如果老师配合学生（一起被训练），老师会悄悄把谜底放简单，学生什么都没学到。EMA + stop-grad 让老师不动，学生只能真正去猜。我们项目还额外用了 VICReg 正则（方差+协方差约束）作为第三道防线。
+**Q25：三阶段为什么先冻 WM？**
+> **标准**：防评分头梯度把预训练表征打歪；表征稳了再联合。
+> **加分**：Stage2 本质大号 linear probing；Stage3 才解感知；类比 LLM：先训 LM 再对齐。
 
-**Q16：为什么用 JEPA 而不是直接用扩散模型做世界模型？**
+**Q26：65536 怎么选？排序 loss 为什么不用 MSE？**
+> **标准**：path×speed 256×256，隐空间批量分，chunk 防显存。
+> **加分**：listwise 对齐官方序，和 GRPO 组内同思想；MSE 被高分常规样本主导、长尾序学不到。
 
-> **标准回答**：三个原因：1）**效率**——不生成像素，只预测一个向量，快得多；2）**物理一致性**——像素级生成可能画出穿墙的车，表征空间可以注入几何先验；3）**可解释性**——表征可以直接喂给规划头，不需要先解码成像素再读语义。
->
-> **加分回答**：从历史脉络看——扩散模型兴起后，人们用它生成视频做世界模型（如 DriveDreamer），但计算太贵。JEPA 提出"表征空间预测"替代方案，保留了预测能力但丢掉了像素重建。这是 LeCun 一直倡导的方向：预测抽象状态，不预测无关细节。
-
-**Q17：65536 条密集轨迹是怎么生成的？选哪条？**
-
-> **标准回答**：用 Path/Velocity 因子化解耦生成器——把轨迹分解为"路径"（空间形状）和"速度"（时间分配）两个独立维度，分别生成后组合。65536 = 256 条路径 × 256 种速度模式。选择用 JEPA 隐空间评分器，融合双 Cycle-Energy 信号，用排序学习对齐 NAVSIM PDMS 指标。
->
-> **加分回答**：因子化解耦的好处是组合爆炸——路径和速度独立生成，可以覆盖远超朴素枚举的轨迹空间。评分在隐空间完成（不生成像素），所以即使 65536 条也很快。排序学习比回归更鲁棒，因为 PDMS 是乘积指标，绝对数值不重要，相对排序才重要。
-
----
-
-## F. 综合与开放性问题
-
-**Q18：你的三个项目之间有什么关系？**
-
-> **标准回答**：三个项目是一条递进的技术路线：
-> - **RiskField-VLA**：用风险场增强 VLA 的感知，用 Flow Matching 生成轨迹，用 Flow-GRPO 做后训练——解决"生成什么轨迹"的问题
-> - **TrustDrive-WAM**：加入世界模型，联合建模动作和后果，增加可信路由——解决"轨迹后果如何评估"的问题
-> - **JEPA-DRIVE**：用 JEPA 替代像素世界模型，在表征空间完成全部预测——解决"世界模型如何高效且物理可信"的问题
->
-> **加分回答**：从优化目标看——VLA 关注"生成更好的轨迹"，WAM 关注"更准确地评估后果"，JEPA 关注"更高效地预测未来"。三者合起来就是"感知-预测-生成-评估"的完整闭环。
-
-**Q19：如果让你重新做这三个项目，你会改什么？**
-
-> **标准回答**：1）RiskField-VLA 的风险场是手工设计的特征，我会尝试端到端学习风险表征；2）TrustDrive-WAM 的可信路由阈值是手动调的，我会用元学习自动学；3）JEPA-DRIVE 的三阶段训练比较复杂，我会尝试更紧密的联合训练。
->
-> **加分回答**：更宏观地说——三个项目都在 NAVSIM 这一个 benchmark 上，我会增加真实路测的闭环评测。另外，三个项目的奖励/评分函数都是基于规则的（PDM 打分器），长期看应该用学习的奖励模型（RLHF 式）。
-
-**Q20：你怎么看端到端自动驾驶的未来？**
-
-> **标准回答**：端到端是趋势，因为它数据驱动、上限高。但纯端到端缺乏可解释性和安全保障，所以需要世界模型提供"想象"能力，需要可信域提供安全边界。
->
-> **加分回答**：我认为未来是"端到端 + 世界模型 + 强化学习"的三位一体——端到端做感知和生成，世界模型做后果预测和安全验证，强化学习做持续优化。我的三个项目正好覆盖了这三个方向，这也是我认为最有前途的技术路线。
-
-**Q21：（压力面）你的 PDMS 0.8713，但你说 21% corner case 分数趋近于 0，那你的提升到底在哪？**
-
-> **标准回答**：0.8713 是整体 PDMS，corner case 那 21% 单独看确实是 0 分，但我们的方案把这部分从 0 提升到了一个正数，所以整体分数从基线的约 0.75 提升到 0.87。常规场景的 79% 我们没有损失性能。
->
-> **加分回答**：更准确地说——基线在 corner case 上得分接近 0（因为乘积指标，碰撞就归零），我们的风险场方案让模型"看到"了这些风险，生成了避让轨迹，把这部分从 0 拉到了 0.5-0.6 左右。整体提升的贡献主要来自这 21% 的修复，而不是常规场景的微调。
-
-**Q22：（压力面）你用 LoRA 微调，是不是说明你的方法不够强？全参微调是不是更好？**
-
-> **标准回答**：LoRA 不是"妥协"，而是"选择"。全参微调确实可能更强，但会破坏预训练知识、需要更多数据、显存开销大。在 RL 后训练场景下，我们只微调 0.5% 参数就达到了显著提升，说明方法本身是有效的。
->
-> **加分回答**：而且 RL 后训练和 SFT 不同——SFT 需要大量数据来覆盖任务分布，RL 只需要 reward 信号。LoRA 的低秩假设（任务改动是低秩的）在 RL 场景下更成立，因为 reward 引导的改动往往集中在少数关键方向。如果全参微调，反而容易 reward hacking。
-
-**Q23：（压力面）Flow-GRPO 论文是腾讯 ARC Lab 的，你只是复现，有什么创新？**
-
-> **标准回答**：我们不是简单复现——我们把 Flow-GRPO 从图像生成迁移到了自动驾驶轨迹生成，做了三个适配：1）ODE 转 SDE 的轨迹采样求解 log-prob；2）PPO-clip + KL 约束的精细化策略优化；3）PDM + Agent 级归因打分器的双闭环监督。还引入了在线难例挖掘。
->
-> **加分回答**：论文的 Flow-GRPO 是在 FLUX 上做的文生图，我们的场景完全不同——轨迹是低维的（2D），奖励是乘积指标（PDMS），场景有长尾分布。直接套用会失败，需要针对这些特点做算法适配。这就是我们的贡献。
-
-**Q24：（压力面）JEPA-DRIVE 的 PDMS 0.7285 比另外两个项目低很多，是不是 JEPA 不行？**
-
-> **标准回答**：0.7285 是基线版本，还没有做完整的 Flow-GRPO 后训练。而且 JEPA-DRIVE 是全自监督训练、无需人工标注的，对比的公平性不同。另外三个项目的目标不同——JEPA-DRIVE 重点验证的是"表征空间预测范式是否可行"，不是追求最高分。
->
-> **加分回答**：坦率说，JEPA 路线目前确实不如像素生成成熟，主要瓶颈是：1）隐空间评分器的对齐精度；2）65536 条轨迹的选择效率；3）跨模态对齐的稳定性。但它的优势——效率、物理一致性、无标注——是另外两个项目不具备的。0.7285 证明了范式可行，后续加 RL 后训练有明确的提升空间。
-
-**Q25：（压力面）如果让你在真实车上部署，你觉得最大的挑战是什么？**
-
-> **标准回答**：三个挑战：1）**实时性**——Flow Matching 推理 32 步 + GRPO 的 SDE 采样，在车端算力上可能不够；2）**安全性**——任何生成模型都可能出错，需要可信路由做兜底；3）**数据分布**——训练数据和真实路况的 gap，特别是 OOD 场景。
->
-> **加分回答**：我认为最核心的挑战是**验证**——如何证明系统在所有场景下都安全？NAVSIM 是开环评测，真实是闭环的。我们的可信域方案是应对这个挑战的一种思路（知道自己什么时候不确定），但离完整的安全论证还有距离。这也是为什么行业还在 L2+ 徘徊，真正的 L4 需要更严格的安全框架。
+**Q27：0.7285 是不是范式失败？**
+> **标准**：无标注+未打满 RL 的基线；消融去 Stage2 更低，瓶颈在对齐。
+> **加分**：预期接 GRPO 后 0.78+；主动给数字拆解，不回避。
 
 ---
 
-## G. 快速自测清单
+## F. 综合与开放题
 
-面试前快速过一遍：
+**Q28：三个项目什么关系？**
+> **标准**：VLA=生成更好的轨迹；WAM=联合评估后果+可信路由；JEPA=高效无像素世界模型。感知-预测-生成-评估闭环。
+> **加分**：优化目标递进——生成质量 → 后果准确 → 预测效率与物理一致；方法论横线=Flow Matching 与组内相对信号。
 
-- [ ] Flow Matching 的训练 loss 和推理过程？
-- [ ] DDPM vs Flow Matching 的三个核心区别？
-- [ ] GRPO 的 advantage 怎么算？为什么不用 critic？
-- [ ] Flow-GRPO 如何解决连续空间 log_prob 不可算的问题？
-- [ ] PPO-clip 的作用和原理？
-- [ ] LoRA 的数学公式和为什么只更新 0.5% 参数？
-- [ ] VLA 的三个模态分别是什么？
-- [ ] Object Query 的作用和 128 个怎么用？
-- [ ] 风险场和 occupancy 的区别？
-- [ ] Base + LTE 双专家的门控机制？
-- [ ] WAM 的"联合动作-后果流"是什么意思？
-- [ ] 可信域/支持域的定义和作用？
-- [ ] 逆一致性约束防止什么问题？
-- [ ] JEPA 和 MAE 的核心区别？
-- [ ] EMA + stop-gradient 如何防止表征坍缩？
-- [ ] I-JEPA vs V-JEPA 的区别？
-- [ ] 三个项目的技术路线和相互关系？
-- [ ] PDMS 的乘积指标意味着什么？
-- [ ] OOD 场景下世界模型为什么危险？
-- [ ] 你的三个项目各自的 PDMS 分数？
+**Q29：重做会改什么？**
+> **标准**：风险场端到端学；阈值元学习；JEPA 三阶段更紧联合。
+> **加分**：加闭环指标；奖励从规则 PDM 走向学习型；三个项目统一到一套 adapter 热切换的代码库。
+
+**Q30：端到端未来怎么看？**
+> **标准**：趋势是 E2E+世界模型+RL 三位一体。
+> **加分**：E2E 给上限，世界模型给想象与安全验证，RL 给对齐；可信域是上车前提。
+
+**Q31（压）：0.8713 但 21% 场景趋近 0，提升在哪？**
+> **标准**：乘积指标下修复的是从 0 到正的子集，常规 79% 不掉。
+> **加分**：给拆解数字（长尾 0→0.5+），说明涨分结构=修一票否决项。
+
+**Q32（压）：LoRA 是不是不够强？**
+> **标准**：选择不是妥协；RL 低秩假设成立。
+> **加分**：全参在标量奖励下更易 hack；ref=关 adapter 工程也依赖 LoRA 结构。
+
+**Q33（压）：Flow-GRPO 是腾讯的，你做了什么？**
+> **标准**：迁移到轨迹：ODE→SDE、PPO-clip+KL、PDM+agent 归因、难例挖掘。
+> **加分**：文生图 vs 轨迹的差异列表（低维、乘积奖励、长尾分布），点明直接套会挂的三处。
+
+**Q34（压）：JEPA 分低是不是 JEPA 不行？**
+> 见 Q27。
+
+**Q35（压）：上车最大挑战？**
+> **标准**：实时性、安全兜底、分布 gap。
+> **加分**：最核心是**验证**——开环 0.87 不等于闭环安全；可信路由是安全论证一块拼图，完整还要 RSS/HJ/最小风险策略；体现边界感。
+
+**Q36（压）：你简历里「独立完成」具体指什么？有没有水分？**
+> **标准**：按模块列 ownership——风险场/生成器/GRPO 是我；BEV 主干是共用。
+> **加分**：能当场写出哪几个文件、loss 权重为什么取 0.1/0.05、默认超参；被问测试用例能举「关 adapter 复现 ref 分数」这类自测。
+
+**Q37（压）：如果 GRPO 训崩了你怎么 debug？**
+> **标准**：看三曲线——reward、KL、组内 std；再看 clip 比例。
+> **加分**：顺序：1) reward 涨 KL 爆→提 beta/降 lr；2) reward 不动 std≈0→难例/加多样性；3) reward 突跳→查打分器 hack；4) grad nan→查 log std 下溢、clamp σ；5) 先 overfit 一个场景组过拟合通路再 scale。
+
+**Q38（压）：世界模型和轨迹预测网络区别？**
+> **标准**：预测网络输出他车分布；世界模型含自车动作条件、能反事实 rollout、可带后果/支持域头。
+> **加分**：WAM 还联合动作生成，不只是条件预测；接路由就从「预测模块」升「决策证据模块」。
+
+**Q39：最近论文里和你工作最相关的一篇？**
+> **准备稿**：π₀（FM+动作专家）、Flow-GRPO（我们后训练直系）、JEPA/V-JEPA（第三项目）、NAVSIM（评测）、RDT-2（离散训练连续推理——防被 FAST/RVQ 细节问穿）。每篇准备 30 秒「解决了什么/和我差异」。
+
+**Q40：手推一下 FM 的一步更新 / 高斯 log-prob（白板）**
+> **标准板书**：
+> `x_t=(1-t)x0+t x1`；`∂x/∂t=x1-x0`；loss=MSE。
+> `log N(x;μ,σ²)=-½Σ((x-μ)/σ)² - D log σ - (D/2)log 2π`。
+> **加分**：再写 ratio=`exp(lp_new-lp_old)`，clip 区间，指出对 μ 的梯度链到 v_θ。
 
 ---
 
-*这篇文档覆盖了三大项目的全部核心知识点。建议按"第一部分通读 → 第二部分手写伪代码 → 第三部分自问自答"的顺序复习。*
+## G. 快速自测清单（面试前 30 分钟扫一遍）
+
+- [ ] Flow Matching 训练 loss 目标是速度还是噪声？
+- [ ] Euler 推理伪代码能默写吗？dt 和 t 的广播 shape？
+- [ ] ODE 为什么没有 log_prob？SDE 化保什么不变？
+- [ ] 高斯 log-prob 公式？ratio 怎么用 exp 差值算？
+- [ ] PPO clip 方向：adv>0 时 clip 哪边？
+- [ ] KL 的 ref model 怎么构造（关 LoRA）？
+- [ ] 组内 advantage 的 view(-1,G) 为什么不能全局？
+- [ ] 128 query、32x32x8 风险场每个数字的含义？
+- [ ] alpha softmax 之后 sum=1 代表什么？
+- [ ] Base/LTE 门控输入为什么是熵不是标签？
+- [ ] Risk-Init 训练和推理必须一致的哪一行？
+- [ ] WAM 四条隐变量维度 60/32/16/8 怎么来的？
+- [ ] 可信路由两层各判什么？fallback 用什么轨迹？
+- [ ] 逆一致性防什么？怎么防恒等作弊？
+- [ ] JEPA 三阶段各自冻结/解冻谁？
+- [ ] Target encoder 为什么不能进 optimizer？
+- [ ] VICReg 三项 loss 各防什么？
+- [ ] 排序 loss 和 MSE 在 PDMS 上的差别？
+- [ ] path×speed 怎么得到 65536？
+- [ ] 三个项目的 PDMS：0.8713 / 0.8012 / 0.7285
+- [ ] 每个项目「我负责的三件事」各一句话
+- [ ] 开环 NAVSIM 和闭环上车的 gap 怎么答？
+- [ ] GRPO 训崩的 debug 顺序？
+- [ ] π₀ 原版有没有 FAST？RDT-2 推理走不走 RVQ？
+
+---
+
+## H. 附录：常见追问链预演（面试官连环挖坑）
+
+**链 1：Flow Matching -> SDE -> log_prob -> LoRA**
+1. FM 是确定性的吧？→ 是，ODE。
+2. 那 GRPO 的 log π 从哪来？→ 采样改 SDE，高斯转移。
+3. 改 SDE 还能学原来的速度场吗？→ 漂移加 score 补偿保边际，训练目标不变。
+4. 梯度怎么到大模型？→ log-prob→mean→v_θ→只 LoRA A/B。
+5. 为什么不全参？→ 见 Q8。
+
+**链 2：风险场 -> 熵门控 -> 双专家 -> RL**
+1. 为什么不用 occ？→ 交互与时间维。
+2. 熵高为什么用 LTE？→ 长尾分布在 LTE。
+3. 门控可微吗？→ softmax(熵) 可微，端到端。
+4. RL 阶段动不动门控？→ 动，同样挂 LoRA；监控两专家激活比例漂移。
+
+**链 3：世界模型 -> 支持域 -> 路由 -> 安全论证**
+1. 凭什么敢信 WM？→ 不全信，双层路由。
+2. 支持域怎么算？→ 训练分布能量/密度，JEPA 项目里是 cycle energy。
+3. 阈值哪来？→ 验证集曲线拐点+故障注入。
+4. 最终安全谁兜底？→ RSS/HJ/最小风险，项目边界说清楚。
+
+**链 4：JEPA -> 坍缩 -> EMA -> 评分头**
+1. 会不会全塌了？→ 三道防线。
+2. EMA 系数多少？0.996，太小跟太快可能共谋，太大欠拟合。
+3. 为什么排序不回归？→ 官方乘积+序数评测。
+4. 分低怪谁？→ 给消融数字，瓶颈在对齐与 RL 未打满。
+
+---
+
+*复习路径建议：先读第一部分把名词打成常识 -> 对着第二部分手写一遍 FM 和 GRPO 的训练步 -> 用第二补章的四份话术各录 3 分钟自述 -> 第三部分自问自答并过一遍追问链。*
