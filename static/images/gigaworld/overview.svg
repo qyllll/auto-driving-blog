@@ -1,0 +1,82 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1140 640" font-family="'Noto Sans SC','PingFang SC','Microsoft YaHei',sans-serif">
+  <defs>
+    <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#3b5bab"/>
+    </marker>
+  </defs>
+  <rect x="0" y="0" width="1140" height="640" fill="#ffffff"/>
+  <text x="570" y="30" text-anchor="middle" font-size="20" font-weight="bold" fill="#1a2b57">GigaWorld-0 总架构：世界模型 = VLA 的数据引擎</text>
+
+  <!-- Video line -->
+  <rect x="30" y="55" width="540" height="340" rx="14" fill="#f4f7ff" stroke="#3b5bab" stroke-width="1.6"/>
+  <text x="50" y="82" font-size="16" font-weight="bold" fill="#3b5bab">GigaWorld-0-Video：视频生成线（1 基座 + 3 后训练）</text>
+  <rect x="50" y="95" width="500" height="88" rx="10" fill="#dbe7ff" stroke="#3b5bab"/>
+  <text x="70" y="120" font-size="14" font-weight="bold" fill="#1a2b57">Video-Dreamer 视频基座（图文 -> 视频 IT2V）</text>
+  <text x="70" y="143" font-size="13" fill="#333">Flow Matching + 3D-VAE(时4/空8/空8, 16ch) + 稀疏注意力 DiT + MoE(4专家选2)</text>
+  <text x="70" y="166" font-size="13" fill="#333">T5 文本条件 | 3D-RoPE | 480x768 x 61 帧 | 邻域稀疏注意力 NATTEN</text>
+  <line x1="300" y1="183" x2="300" y2="208" stroke="#3b5bab" stroke-width="2" marker-end="url(#ar)"/>
+  <line x1="125" y1="208" x2="475" y2="208" stroke="#3b5bab" stroke-width="2"/>
+  <line x1="125" y1="208" x2="125" y2="222" stroke="#3b5bab" stroke-width="2" marker-end="url(#ar)"/>
+  <line x1="300" y1="208" x2="300" y2="222" stroke="#3b5bab" stroke-width="2" marker-end="url(#ar)"/>
+  <line x1="475" y1="208" x2="475" y2="222" stroke="#3b5bab" stroke-width="2" marker-end="url(#ar)"/>
+  <rect x="50" y="222" width="150" height="76" rx="8" fill="#ffffff" stroke="#7a97d8"/>
+  <text x="125" y="243" text-anchor="middle" font-size="13" font-weight="bold" fill="#1a2b57">AppearanceTransfer</text>
+  <text x="125" y="264" text-anchor="middle" font-size="12" fill="#444">文本改外观</text>
+  <text x="125" y="284" text-anchor="middle" font-size="12" fill="#444">real2real / sim2real</text>
+  <rect x="225" y="222" width="150" height="76" rx="8" fill="#ffffff" stroke="#7a97d8"/>
+  <text x="300" y="243" text-anchor="middle" font-size="13" font-weight="bold" fill="#1a2b57">ViewTransfer</text>
+  <text x="300" y="264" text-anchor="middle" font-size="12" fill="#444">单视角 -&gt; 任意新视角</text>
+  <text x="300" y="284" text-anchor="middle" font-size="12" fill="#444">同步变换机械臂动作</text>
+  <rect x="400" y="222" width="150" height="76" rx="8" fill="#ffffff" stroke="#7a97d8"/>
+  <text x="475" y="243" text-anchor="middle" font-size="13" font-weight="bold" fill="#1a2b57">MimicTransfer</text>
+  <text x="475" y="264" text-anchor="middle" font-size="12" fill="#444">人手示教视频</text>
+  <text x="475" y="284" text-anchor="middle" font-size="12" fill="#444">-&gt; 机械臂操作视频</text>
+  <text x="50" y="322" font-size="12.5" fill="#555">控制分支：条件视频过 3D-VAE，与噪声 latent 通道拼接后走压缩 MLP（不用 ControlNet）</text>
+  <text x="50" y="345" font-size="12.5" fill="#555">生成加速：去噪步蒸馏（几十步 -&gt; 1 步）+ FP8 推理 = 50x+；多视角沿宽度拼全景自回归一致</text>
+  <text x="50" y="368" font-size="12.5" fill="#555">数据质检：几何一致 / 多视角一致 / 文本对齐 / 物理合理 -&gt; 综合分决定预训练、微调或丢弃</text>
+
+  <!-- 3D line -->
+  <rect x="600" y="55" width="510" height="340" rx="14" fill="#f3fbf6" stroke="#2f8f5b" stroke-width="1.6"/>
+  <text x="620" y="82" font-size="16" font-weight="bold" fill="#2f8f5b">GigaWorld-0-3D：3D 场景线（4 模块流水线）</text>
+  <rect x="620" y="95" width="228" height="78" rx="8" fill="#ffffff" stroke="#59ac82"/>
+  <text x="734" y="118" text-anchor="middle" font-size="13.5" font-weight="bold" fill="#1a2b57">3D-FG 前景资产</text>
+  <text x="734" y="139" text-anchor="middle" font-size="12" fill="#444">照片 / 文生图 -&gt; 双重质检</text>
+  <text x="734" y="159" text-anchor="middle" font-size="12" fill="#444">-&gt; Trellis -&gt; URDF 资产</text>
+  <rect x="868" y="95" width="228" height="78" rx="8" fill="#ffffff" stroke="#59ac82"/>
+  <text x="982" y="118" text-anchor="middle" font-size="13.5" font-weight="bold" fill="#1a2b57">3D-BG 背景重建</text>
+  <text x="982" y="139" text-anchor="middle" font-size="12" fill="#444">稀疏视角 3DGRUT 初建</text>
+  <text x="982" y="159" text-anchor="middle" font-size="12" fill="#444">-&gt; 视角修复 -&gt; 稠密 3DGS</text>
+  <path d="M734,173 L734,192 L855,192 L855,206" fill="none" stroke="#2f8f5b" stroke-width="2" marker-end="url(#ar)"/>
+  <path d="M982,173 L982,192 L855,192" fill="none" stroke="#2f8f5b" stroke-width="2" marker-end="url(#ar)"/>
+  <rect x="620" y="208" width="476" height="70" rx="8" fill="#ffffff" stroke="#59ac82"/>
+  <text x="858" y="231" text-anchor="middle" font-size="13.5" font-weight="bold" fill="#1a2b57">3D-Phys 物理赋能</text>
+  <text x="858" y="252" text-anchor="middle" font-size="12" fill="#444">Qwen3-VL 物理专家估质量/摩擦 + 关节可微系统辨识(f,p,d) + 弹簧-质点软体</text>
+  <line x1="858" y1="278" x2="858" y2="296" stroke="#2f8f5b" stroke-width="2" marker-end="url(#ar)"/>
+  <rect x="620" y="298" width="476" height="70" rx="8" fill="#ffffff" stroke="#59ac82"/>
+  <text x="858" y="321" text-anchor="middle" font-size="13.5" font-weight="bold" fill="#1a2b57">3D-Act 动作生成</text>
+  <text x="858" y="342" text-anchor="middle" font-size="12" fill="#444">简单场景 MimicGen 位姿扩展 | 复杂场景 RLPD 在线 RL 冷启动</text>
+  <text x="620" y="387" font-size="12.5" fill="#555">输出：跨视角几何一致、物理可执行的渲染场景与轨迹</text>
+
+  <!-- GigaTrain -->
+  <rect x="180" y="424" width="790" height="70" rx="14" fill="#fff6ec" stroke="#d98324" stroke-width="1.6"/>
+  <text x="575" y="450" text-anchor="middle" font-size="15" font-weight="bold" fill="#b0620a">GigaTrain 训练底座</text>
+  <text x="575" y="472" text-anchor="middle" font-size="12.5" fill="#555">DeepSpeed ZeRO0-3 / FSDP-2 x 混合精度(FP16/BF16/FP8) x 稀疏注意力 NATTEN x 梯度累积/检查点/EMA</text>
+  <text x="575" y="489" text-anchor="middle" font-size="12.5" fill="#555">8xH20, batch 32：FSDP-2 + FP8 + 稀疏 = 25.38 s/step, 73 GB；上 4 路 MoE 需对 FFN 开激活检查点</text>
+  <line x1="300" y1="424" x2="300" y2="400" stroke="#d98324" stroke-width="2" marker-end="url(#ar)"/>
+  <text x="312" y="416" font-size="12" fill="#b0620a">支撑视频基座训练</text>
+
+  <!-- data flow row -->
+  <path d="M100,395 L100,536" fill="none" stroke="#3b5bab" stroke-width="2" marker-end="url(#ar)"/>
+  <path d="M1040,395 L1040,536" fill="none" stroke="#2f8f5b" stroke-width="2" marker-end="url(#ar)"/>
+  <rect x="30" y="540" width="340" height="72" rx="12" fill="#eef3ff" stroke="#3b5bab" stroke-width="1.6"/>
+  <text x="200" y="568" text-anchor="middle" font-size="14.5" font-weight="bold" fill="#1a2b57">合成具身交互数据</text>
+  <text x="200" y="592" text-anchor="middle" font-size="12.5" fill="#444">纹理丰富 x 几何一致 x 物理可信 x 指令对齐</text>
+  <line x1="370" y1="576" x2="432" y2="576" stroke="#3b5bab" stroke-width="2" marker-end="url(#ar)"/>
+  <rect x="436" y="540" width="330" height="72" rx="12" fill="#eef3ff" stroke="#3b5bab" stroke-width="1.6"/>
+  <text x="601" y="568" text-anchor="middle" font-size="14.5" font-weight="bold" fill="#1a2b57">GigaBrain-0 VLA 策略</text>
+  <text x="601" y="592" text-anchor="middle" font-size="12.5" fill="#444">只用合成数据训练，全程零真实机器人交互</text>
+  <line x1="766" y1="576" x2="824" y2="576" stroke="#3b5bab" stroke-width="2" marker-end="url(#ar)"/>
+  <rect x="828" y="540" width="282" height="72" rx="12" fill="#eef3ff" stroke="#3b5bab" stroke-width="1.6"/>
+  <text x="969" y="568" text-anchor="middle" font-size="14.5" font-weight="bold" fill="#1a2b57">实机部署成功</text>
+  <text x="969" y="592" text-anchor="middle" font-size="12.5" fill="#444">G1 人形 + PiPER 双臂：叠衣服/倒果汁/收餐桌</text>
+</svg>

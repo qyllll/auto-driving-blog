@@ -1,0 +1,82 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1160 640" font-family="'Noto Sans SC','PingFang SC','Microsoft YaHei',sans-serif">
+  <defs>
+    <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#3b5bab"/>
+    </marker>
+  </defs>
+  <rect x="0" y="0" width="1160" height="640" fill="#ffffff"/>
+  <text x="580" y="30" text-anchor="middle" font-size="20" font-weight="bold" fill="#1a2b57">三个后训练模型共用的轻量控制分支（论文 Fig.4）</text>
+
+  <!-- pipeline -->
+  <rect x="30" y="58" width="215" height="86" rx="10" fill="#ffe9e0" stroke="#d98324"/>
+  <text x="137" y="86" text-anchor="middle" font-size="14" font-weight="bold" fill="#8a4b00">视频条件 1 / 条件 2</text>
+  <text x="137" y="109" text-anchor="middle" font-size="12.5" fill="#664">深度、法线、渲染机械臂、</text>
+  <text x="137" y="130" text-anchor="middle" font-size="12.5" fill="#664">掩码背景等几何/结构先验</text>
+  <line x1="245" y1="101" x2="290" y2="101" stroke="#3b5bab" stroke-width="2" marker-end="url(#ar)"/>
+  <rect x="294" y="58" width="180" height="86" rx="10" fill="#e7f2ff" stroke="#3b5bab"/>
+  <text x="384" y="96" text-anchor="middle" font-size="14" font-weight="bold" fill="#1a2b57">3D-VAE 编码</text>
+  <text x="384" y="120" text-anchor="middle" font-size="12.5" fill="#444">条件视频 -&gt; latent</text>
+  <line x1="474" y1="101" x2="519" y2="101" stroke="#3b5bab" stroke-width="2" marker-end="url(#ar)"/>
+  <rect x="523" y="58" width="215" height="86" rx="10" fill="#e7f2ff" stroke="#3b5bab"/>
+  <text x="630" y="90" text-anchor="middle" font-size="14" font-weight="bold" fill="#1a2b57">通道维拼接</text>
+  <text x="630" y="113" text-anchor="middle" font-size="12.5" fill="#444">控制 latent 与噪声 latent</text>
+  <text x="630" y="134" text-anchor="middle" font-size="12.5" fill="#444">沿 channel concat 在一起</text>
+  <line x1="738" y1="101" x2="783" y2="101" stroke="#3b5bab" stroke-width="2" marker-end="url(#ar)"/>
+  <rect x="787" y="58" width="185" height="86" rx="10" fill="#e7f2ff" stroke="#3b5bab"/>
+  <text x="879" y="90" text-anchor="middle" font-size="14" font-weight="bold" fill="#1a2b57">Multi Perception</text>
+  <text x="879" y="113" text-anchor="middle" font-size="14" font-weight="bold" fill="#1a2b57">压缩 MLP</text>
+  <text x="879" y="134" text-anchor="middle" font-size="12.5" fill="#444">降回 DiT 输入通道数</text>
+  <line x1="972" y1="101" x2="1017" y2="101" stroke="#3b5bab" stroke-width="2" marker-end="url(#ar)"/>
+  <rect x="1021" y="58" width="110" height="86" rx="10" fill="#dbe7ff" stroke="#3b5bab"/>
+  <text x="1076" y="96" text-anchor="middle" font-size="14" font-weight="bold" fill="#1a2b57">DiT</text>
+  <text x="1076" y="120" text-anchor="middle" font-size="12.5" fill="#444">latent tokens</text>
+
+  <!-- why not controlnet -->
+  <rect x="30" y="168" width="1100" height="52" rx="10" fill="#fff0ee" stroke="#d05040" stroke-width="1.5"/>
+  <text x="580" y="190" text-anchor="middle" font-size="14.5" font-weight="bold" fill="#a03020">为什么不用 ControlNet？</text>
+  <text x="580" y="211" text-anchor="middle" font-size="13" fill="#663">ControlNet 要复制一整套骨干；基座 FFN 是 MoE，复制一层 = 复制 4 个专家，参数量直接爆炸 -&gt; 改用通道拼接 + MLP</text>
+
+  <!-- three models -->
+  <text x="580" y="262" text-anchor="middle" font-size="16" font-weight="bold" fill="#1a2b57">三个后训练模型各自的条件与监督目标</text>
+
+  <rect x="30" y="280" width="360" height="300" rx="14" fill="#f4f7ff" stroke="#3b5bab" stroke-width="1.6"/>
+  <text x="210" y="310" text-anchor="middle" font-size="15.5" font-weight="bold" fill="#3b5bab">AppearanceTransfer 外观迁移</text>
+  <text x="50" y="340" font-size="13" font-weight="bold" fill="#1a2b57">条件 1：深度图</text>
+  <text x="50" y="361" font-size="12.5" fill="#444">VideoDepthAnything 从真实/仿真视频估计</text>
+  <text x="50" y="389" font-size="13" font-weight="bold" fill="#1a2b57">条件 2：法线图</text>
+  <text x="50" y="410" font-size="12.5" fill="#444">LOTUS 估计，归一化后复制成 3 通道</text>
+  <text x="50" y="438" font-size="13" font-weight="bold" fill="#1a2b57">文本：外观指令</text>
+  <text x="50" y="459" font-size="12.5" fill="#444">独立改前景/背景的材质、颜色、光照</text>
+  <text x="50" y="492" font-size="13" font-weight="bold" fill="#1a2b57">能力</text>
+  <text x="50" y="513" font-size="12.5" fill="#444">real2real：真实视频换外观</text>
+  <text x="50" y="534" font-size="12.5" fill="#444">sim2real：仿真渲染 -&gt; 照片级（补 sim2real 差距）</text>
+  <text x="50" y="558" font-size="12.5" fill="#444">几何与运动完全保持不变</text>
+
+  <rect x="400" y="280" width="360" height="300" rx="14" fill="#f4f7ff" stroke="#3b5bab" stroke-width="1.6"/>
+  <text x="580" y="310" text-anchor="middle" font-size="15.5" font-weight="bold" fill="#3b5bab">ViewTransfer 视角迁移</text>
+  <text x="420" y="340" font-size="13" font-weight="bold" fill="#1a2b57">条件 1：背景（双重重投影）</text>
+  <text x="420" y="361" font-size="12.5" fill="#444">MoGe 深度把 V_A warp 到 W_B 再投回 W_A，</text>
+  <text x="420" y="382" font-size="12.5" fill="#444">机械臂区域掩掉，只留背景几何</text>
+  <text x="420" y="410" font-size="13" font-weight="bold" fill="#1a2b57">条件 2：机械臂渲染</text>
+  <text x="420" y="431" font-size="12.5" fill="#444">变换后动作 K 在物理仿真器里渲染臂视频</text>
+  <text x="420" y="459" font-size="13" font-weight="bold" fill="#1a2b57">监督：原视频 V_A（自监督）</text>
+  <text x="420" y="480" font-size="12.5" fill="#444">真实多视角对 (V_A,V_B) 不存在，用重投影造</text>
+  <text x="420" y="513" font-size="13" font-weight="bold" fill="#1a2b57">能力</text>
+  <text x="420" y="534" font-size="12.5" fill="#444">单条真实视频 -&gt; 任意新视角 + 新视角下的动作</text>
+  <text x="420" y="558" font-size="12.5" fill="#444">给 VLA 做视角增广，免多机位采集</text>
+
+  <rect x="770" y="280" width="360" height="300" rx="14" fill="#f4f7ff" stroke="#3b5bab" stroke-width="1.6"/>
+  <text x="950" y="310" text-anchor="middle" font-size="15.5" font-weight="bold" fill="#3b5bab">MimicTransfer 人手 -&gt; 机械臂</text>
+  <text x="790" y="340" font-size="13" font-weight="bold" fill="#1a2b57">条件 1：背景（掩掉机械臂）</text>
+  <text x="790" y="361" font-size="12.5" fill="#444">保留场景上下文，屏蔽外观差异</text>
+  <text x="790" y="389" font-size="13" font-weight="bold" fill="#1a2b57">条件 2：仿真机械臂</text>
+  <text x="790" y="410" font-size="12.5" fill="#444">按原臂轨迹驱动仿真器渲染"类人手"视频</text>
+  <text x="790" y="438" font-size="13" font-weight="bold" fill="#1a2b57">监督：原始机械臂操作视频</text>
+  <text x="790" y="459" font-size="12.5" fill="#444">难点：没有"人手-机械臂"对齐视频对，</text>
+  <text x="790" y="480" font-size="12.5" fill="#444">所以只用臂视频自造条件对</text>
+  <text x="790" y="513" font-size="13" font-weight="bold" fill="#1a2b57">能力</text>
+  <text x="790" y="534" font-size="12.5" fill="#444">第一人称人手示教视频 -&gt; 机械臂操作视频，</text>
+  <text x="790" y="558" font-size="12.5" fill="#444">白嫖海量低成本人手数据</text>
+
+  <text x="580" y="614" text-anchor="middle" font-size="13" fill="#555">三个模型都冻结基座、只训控制分支：后训练成本低，且基座能力不掉</text>
+</svg>

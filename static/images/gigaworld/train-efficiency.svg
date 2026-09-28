@@ -1,0 +1,63 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 500" font-family="'Noto Sans SC','PingFang SC','Microsoft YaHei',sans-serif">
+  <rect x="0" y="0" width="1100" height="500" fill="#ffffff"/>
+  <text x="550" y="30" text-anchor="middle" font-size="20" font-weight="bold" fill="#1a2b57">GigaTrain 消融（论文 Table 2，FSDP-2 列，8xH20 / batch 32）</text>
+
+  <!-- left: time -->
+  <text x="290" y="72" text-anchor="middle" font-size="16" font-weight="bold" fill="#b0620a">每步耗时（秒/step，越低越好）</text>
+  <line x1="70" y1="330" x2="530" y2="330" stroke="#999" stroke-width="1.5"/>
+  <line x1="70" y1="100" x2="70" y2="330" stroke="#999" stroke-width="1.5"/>
+  <text x="60" y="334" text-anchor="end" font-size="12" fill="#666">0</text>
+  <text x="60" y="214" text-anchor="end" font-size="12" fill="#666">20</text>
+  <text x="60" y="104" text-anchor="end" font-size="12" fill="#666">40</text>
+  <line x1="70" y1="214" x2="530" y2="214" stroke="#ddd" stroke-dasharray="4 4"/>
+  <line x1="70" y1="104" x2="530" y2="104" stroke="#ddd" stroke-dasharray="4 4"/>
+  <!-- bars: scale 40 -> 210px (y=330 baseline) -->
+  <rect x="110" y="156" width="70" height="174" fill="#7a97d8" rx="4"/>
+  <text x="145" y="147" text-anchor="middle" font-size="13" font-weight="bold" fill="#1a2b57">33.19</text>
+  <text x="145" y="352" text-anchor="middle" font-size="12.5" fill="#444">基线</text>
+  <text x="145" y="370" text-anchor="middle" font-size="12" fill="#888">BF16</text>
+  <rect x="215" y="174" width="70" height="156" fill="#f0a04b" rx="4"/>
+  <text x="250" y="165" text-anchor="middle" font-size="13" font-weight="bold" fill="#8a4b00">29.53</text>
+  <text x="250" y="352" text-anchor="middle" font-size="12.5" fill="#444">+FP8</text>
+  <text x="250" y="370" text-anchor="middle" font-size="12" fill="#888">-11%</text>
+  <rect x="320" y="197" width="70" height="133" fill="#2f8f5b" rx="4"/>
+  <text x="355" y="188" text-anchor="middle" font-size="13" font-weight="bold" fill="#17663d">25.38</text>
+  <text x="355" y="352" text-anchor="middle" font-size="12.5" fill="#444">+FP8+稀疏</text>
+  <text x="355" y="370" text-anchor="middle" font-size="12" fill="#888">-24%</text>
+  <rect x="425" y="156" width="70" height="174" fill="#c0504d" rx="4"/>
+  <text x="460" y="147" text-anchor="middle" font-size="13" font-weight="bold" fill="#8a2020">33.38</text>
+  <text x="460" y="352" text-anchor="middle" font-size="12.5" fill="#444">再上MoE</text>
+  <text x="460" y="370" text-anchor="middle" font-size="12" fill="#888">+激活检查点</text>
+
+  <!-- right: memory -->
+  <text x="820" y="72" text-anchor="middle" font-size="16" font-weight="bold" fill="#b0620a">显存（GB，越低越好）</text>
+  <line x1="600" y1="330" x2="1060" y2="330" stroke="#999" stroke-width="1.5"/>
+  <line x1="600" y1="100" x2="600" y2="330" stroke="#999" stroke-width="1.5"/>
+  <text x="590" y="334" text-anchor="end" font-size="12" fill="#666">0</text>
+  <text x="590" y="214" text-anchor="end" font-size="12" fill="#666">50</text>
+  <text x="590" y="104" text-anchor="end" font-size="12" fill="#666">100</text>
+  <line x1="600" y1="214" x2="1060" y2="214" stroke="#ddd" stroke-dasharray="4 4"/>
+  <line x1="600" y1="104" x2="1060" y2="104" stroke="#ddd" stroke-dasharray="4 4"/>
+  <!-- 87.3 / 70.2 / 71.4 / 72.3 GB, scale 100 -> 210px -->
+  <rect x="640" y="147" width="70" height="183" fill="#7a97d8" rx="4"/>
+  <text x="675" y="138" text-anchor="middle" font-size="13" font-weight="bold" fill="#1a2b57">87.3</text>
+  <text x="675" y="352" text-anchor="middle" font-size="12.5" fill="#444">基线</text>
+  <text x="675" y="370" text-anchor="middle" font-size="12" fill="#888">89355 MB</text>
+  <rect x="745" y="182" width="70" height="148" fill="#f0a04b" rx="4"/>
+  <text x="780" y="173" text-anchor="middle" font-size="13" font-weight="bold" fill="#8a4b00">70.2</text>
+  <text x="780" y="352" text-anchor="middle" font-size="12.5" fill="#444">+FP8</text>
+  <text x="780" y="370" text-anchor="middle" font-size="12" fill="#888">71857 MB</text>
+  <rect x="850" y="179" width="70" height="151" fill="#2f8f5b" rx="4"/>
+  <text x="885" y="170" text-anchor="middle" font-size="13" font-weight="bold" fill="#17663d">71.4</text>
+  <text x="885" y="352" text-anchor="middle" font-size="12.5" fill="#444">+FP8+稀疏</text>
+  <text x="885" y="370" text-anchor="middle" font-size="12" fill="#888">73131 MB</text>
+  <rect x="955" y="177" width="70" height="153" fill="#c0504d" rx="4"/>
+  <text x="990" y="168" text-anchor="middle" font-size="13" font-weight="bold" fill="#8a2020">72.3</text>
+  <text x="990" y="352" text-anchor="middle" font-size="12.5" fill="#444">再上MoE</text>
+  <text x="990" y="370" text-anchor="middle" font-size="12" fill="#888">73997 MB</text>
+
+  <!-- notes -->
+  <rect x="70" y="400" width="990" height="76" rx="10" fill="#fff6ec" stroke="#d98324"/>
+  <text x="90" y="426" font-size="13.5" fill="#555">读法：FP8 同时降显存与时延（三种并行框架一致）；NATTEN 稀疏注意力在 FP8 之上再省 ~14% 时延；</text>
+  <text x="90" y="452" font-size="13.5" fill="#555">MoE 让耗时回到 33 秒量级（参数量 + FFN 激活检查点的代价），但显存仍被 FSDP-2 压在 72 GB；ZeRO-0 上 MoE 直接 OOM。</text>
+</svg>

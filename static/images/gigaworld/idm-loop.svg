@@ -1,0 +1,60 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1160 560" font-family="'Noto Sans SC','PingFang SC','Microsoft YaHei',sans-serif">
+  <defs>
+    <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#3b5bab"/>
+    </marker>
+    <marker id="arg" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#2f8f5b"/>
+    </marker>
+  </defs>
+  <rect x="0" y="0" width="1160" height="560" fill="#ffffff"/>
+  <text x="580" y="30" text-anchor="middle" font-size="20" font-weight="bold" fill="#1a2b57">Dreamer + IDM：不碰真机也能造 VLA 监督对</text>
+
+  <rect x="30" y="70" width="240" height="100" rx="12" fill="#e7f2ff" stroke="#3b5bab" stroke-width="1.6"/>
+  <text x="150" y="100" text-anchor="middle" font-size="14.5" font-weight="bold" fill="#1a2b57">同一初始帧</text>
+  <text x="150" y="124" text-anchor="middle" font-size="13" fill="#444">+ 文本指令 A / B / C ...</text>
+  <text x="150" y="148" text-anchor="middle" font-size="13" fill="#444">（同一场景、不同任务）</text>
+  <line x1="270" y1="120" x2="322" y2="120" stroke="#3b5bab" stroke-width="2" marker-end="url(#ar)"/>
+
+  <rect x="326" y="70" width="250" height="100" rx="12" fill="#dbe7ff" stroke="#3b5bab" stroke-width="1.6"/>
+  <text x="451" y="104" text-anchor="middle" font-size="14.5" font-weight="bold" fill="#1a2b57">Video-Dreamer 生成</text>
+  <text x="451" y="128" text-anchor="middle" font-size="13" fill="#444">时序连贯的操作视频 V</text>
+  <text x="451" y="152" text-anchor="middle" font-size="13" fill="#444">刚体抓取 / 叠衣服等软体均可</text>
+  <line x1="576" y1="120" x2="628" y2="120" stroke="#3b5bab" stroke-width="2" marker-end="url(#ar)"/>
+
+  <rect x="632" y="70" width="250" height="100" rx="12" fill="#ffe9e0" stroke="#d98324" stroke-width="1.6"/>
+  <text x="757" y="100" text-anchor="middle" font-size="14.5" font-weight="bold" fill="#8a4b00">SAM 分割掩码</text>
+  <text x="757" y="124" text-anchor="middle" font-size="13" fill="#664">把机械臂区域从画面裁出</text>
+  <text x="757" y="148" text-anchor="middle" font-size="13" fill="#664">（掩码训练，抗杂乱背景）</text>
+  <line x1="882" y1="120" x2="934" y2="120" stroke="#d98324" stroke-width="2" marker-end="url(#ar)"/>
+
+  <rect x="938" y="70" width="192" height="100" rx="12" fill="#efeaff" stroke="#7a5cd6" stroke-width="1.6"/>
+  <text x="1034" y="104" text-anchor="middle" font-size="14.5" font-weight="bold" fill="#4a3aa0">GigaWorld-0-IDM</text>
+  <text x="1034" y="128" text-anchor="middle" font-size="13" fill="#444">逆动力学模型</text>
+  <text x="1034" y="152" text-anchor="middle" font-size="13" fill="#444">视频 -&gt; 关节角轨迹</text>
+
+  <path d="M1034,170 L1034,230" fill="none" stroke="#7a5cd6" stroke-width="2" marker-end="url(#ar)"/>
+  <rect x="880" y="234" width="306" height="92" rx="12" fill="#f4f7ff" stroke="#7a5cd6" stroke-width="1.6"/>
+  <text x="1033" y="264" text-anchor="middle" font-size="14.5" font-weight="bold" fill="#4a3aa0">预测 12 关节 + 2 夹爪自由度</text>
+  <text x="1033" y="289" text-anchor="middle" font-size="13" fill="#444">theta_1:T = f_IDM(V)</text>
+  <text x="1033" y="313" text-anchor="middle" font-size="13" fill="#444">与真值轨迹高度对齐（论文 Fig.3）</text>
+
+  <path d="M880,280 L700,280" fill="none" stroke="#2f8f5b" stroke-width="2" marker-end="url(#arg)"/>
+  <rect x="420" y="234" width="276" height="92" rx="12" fill="#d9f5e4" stroke="#2f8f5b" stroke-width="1.6"/>
+  <text x="558" y="264" text-anchor="middle" font-size="14.5" font-weight="bold" fill="#17663d">配对数据 (V, theta_1:T)</text>
+  <text x="558" y="289" text-anchor="middle" font-size="13" fill="#336">视频 + 动作时序对齐的监督信号</text>
+  <text x="558" y="313" text-anchor="middle" font-size="13" fill="#336">零真实机器人交互、零遥操作</text>
+
+  <path d="M420,280 L250,280" fill="none" stroke="#2f8f5b" stroke-width="2" marker-end="url(#arg)"/>
+  <rect x="30" y="234" width="216" height="92" rx="12" fill="#eef3ff" stroke="#3b5bab" stroke-width="1.6"/>
+  <text x="138" y="264" text-anchor="middle" font-size="14.5" font-weight="bold" fill="#1a2b57">GigaBrain-0 VLA</text>
+  <text x="138" y="289" text-anchor="middle" font-size="13" fill="#444">行为克隆训练</text>
+  <text x="138" y="313" text-anchor="middle" font-size="13" fill="#444">obs + instruction -&gt; 动作</text>
+
+  <rect x="30" y="370" width="1100" height="150" rx="14" fill="#fff6ec" stroke="#d98324" stroke-width="1.5"/>
+  <text x="580" y="400" text-anchor="middle" font-size="15" font-weight="bold" fill="#b0620a">这条链路为什么成立（三个关键点）</text>
+  <text x="60" y="430" font-size="13.5" fill="#555">1) 生成多样性：同初始帧换文本就换任务，Dreamer 一次采样 = 一条新轨迹，数据分布由指令任意扩</text>
+  <text x="60" y="458" font-size="13.5" fill="#555">2) 动作可恢复：视频里机械臂运动被 IDM 读出 -&gt; 视频与动作天然对齐，比"视频预测 + 单独策略"少一次对齐误差</text>
+  <text x="60" y="486" font-size="13.5" fill="#555">3) 掩码训练：只喂 SAM 裁出的臂区域，背景杂乱不再污染回归（论文 Fig.3：12 关节全部贴合真值）</text>
+  <text x="60" y="512" font-size="13.5" fill="#8a4b00">代价：IDM 精度上限 = 数据质量上限；论文用未见任务测试集验证泛化，报告的是"相对对齐"而非绝对成功率</text>
+</svg>
