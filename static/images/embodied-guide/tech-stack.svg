@@ -1,0 +1,89 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1060" height="740" viewBox="0 0 1060 740" font-family="Noto Sans CJK SC, WenQuanYi Zen Hei, sans-serif">
+  <defs>
+    <linearGradient id="blue1" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#2563eb"/><stop offset="1" stop-color="#3b82f6"/>
+    </linearGradient>
+    <linearGradient id="blue2" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#7c3aed"/><stop offset="1" stop-color="#8b5cf6"/>
+    </linearGradient>
+    <linearGradient id="amber" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#d97706"/><stop offset="1" stop-color="#f59e0b"/>
+    </linearGradient>
+    <marker id="arrL" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto">
+      <path d="M0,1 L9,5 L0,9 z" fill="#64748b"/>
+    </marker>
+  </defs>
+
+  <rect width="1060" height="740" fill="#f8fafc"/>
+  <text x="530" y="44" text-anchor="middle" font-size="26" font-weight="bold" fill="#0f172a">具身智能技术栈：一座六层大厦</text>
+  <text x="530" y="72" text-anchor="middle" font-size="14" fill="#64748b">自动驾驶的经验搬得动中间四层；最底下的两层（本体 + 控制）和「动作空间」是全新的课</text>
+
+  <!-- Layer rows: bottom L1 at y=640, top L6 at y=120 -->
+  <!-- L6 系统与部署 -->
+  <g>
+    <rect x="140" y="108" width="700" height="76" rx="10" fill="url(#blue1)" opacity="0.92"/>
+    <text x="164" y="140" font-size="18" font-weight="bold" fill="#ffffff">L6 · 系统与部署</text>
+    <text x="164" y="166" font-size="14" fill="#dbeafe">ROS2 通信 · 推理加速与量化 · 实时性保障 · 安全熔断 · 云端大脑 + 端侧小脑</text>
+  </g>
+  <!-- L5 仿真与评测 -->
+  <g>
+    <rect x="140" y="196" width="700" height="76" rx="10" fill="url(#blue1)" opacity="0.86"/>
+    <text x="164" y="228" font-size="18" font-weight="bold" fill="#ffffff">L5 · 仿真与评测</text>
+    <text x="164" y="254" font-size="14" fill="#dbeafe">Isaac Lab / MuJoCo / ManiSkill · Sim2Real 鸿沟 · LIBERO / RoboCasa · 开环 vs 闭环评测</text>
+  </g>
+  <!-- L4 数据引擎 -->
+  <g>
+    <rect x="140" y="284" width="700" height="76" rx="10" fill="url(#blue1)" opacity="0.80"/>
+    <text x="164" y="316" font-size="18" font-weight="bold" fill="#ffffff">L4 · 数据引擎</text>
+    <text x="164" y="342" font-size="14" fill="#dbeafe">遥操作采集 · 人类视频学习 · Real2Sim 合成 · 数据配比 · 失败归因与自适应采数</text>
+  </g>
+  <!-- L3 大脑 -->
+  <g>
+    <rect x="140" y="372" width="700" height="88" rx="10" fill="url(#blue2)" opacity="0.92"/>
+    <text x="164" y="404" font-size="18" font-weight="bold" fill="#ffffff">L3 · 智能「大脑」</text>
+    <text x="164" y="430" font-size="14" fill="#ede9fe">VLA 端到端策略 · 世界模型 / WAM · VLM 语义推理 · 后训练 RL（GRPO / DAgger / RSI）</text>
+    <rect x="576" y="384" width="252" height="26" rx="13" fill="#fef3c7" stroke="#f59e0b"/>
+    <text x="702" y="402" text-anchor="middle" font-size="13" font-weight="bold" fill="#92400e">新知识：动作空间与操作语义</text>
+  </g>
+  <!-- L2 小脑 -->
+  <g>
+    <rect x="140" y="472" width="700" height="76" rx="10" fill="url(#amber)" opacity="0.90"/>
+    <text x="164" y="504" font-size="18" font-weight="bold" fill="#ffffff">L2 · 运动控制「小脑」</text>
+    <text x="164" y="530" font-size="14" fill="#fef3c7">正/逆运动学 · 雅可比 · 阻抗与力控 · 轨迹插补 · 千赫兹级实时控制环</text>
+  </g>
+  <!-- L1 本体 -->
+  <g>
+    <rect x="140" y="560" width="700" height="76" rx="10" fill="url(#amber)" opacity="0.84"/>
+    <text x="164" y="592" font-size="18" font-weight="bold" fill="#ffffff">L1 · 本体硬件层</text>
+    <text x="164" y="618" font-size="14" fill="#fef3c7">人形 / 双臂 / 轮式本体 · 关节电机 · 夹爪与灵巧手 · 相机 / 力矩 / 触觉 / IMU 传感器</text>
+  </g>
+
+  <!-- left connector line -->
+  <line x1="118" y1="146" x2="118" y2="598" stroke="#94a3b8" stroke-width="2"/>
+  <line x1="118" y1="598" x2="134" y2="598" stroke="#94a3b8" stroke-width="2" marker-end="url(#arrL)"/>
+  <text x="106" y="372" text-anchor="middle" font-size="13" fill="#64748b" transform="rotate(-90 106 372)">越往下越「硬」· 越往上越「软」</text>
+
+  <!-- right brackets -->
+  <rect x="866" y="108" width="176" height="352" rx="10" fill="#eff6ff" stroke="#3b82f6" stroke-dasharray="6 4"/>
+  <text x="954" y="140" text-anchor="middle" font-size="15" font-weight="bold" fill="#1d4ed8">自驾背景</text>
+  <text x="954" y="162" text-anchor="middle" font-size="15" font-weight="bold" fill="#1d4ed8">基本可迁移</text>
+  <text x="954" y="196" text-anchor="middle" font-size="13" fill="#1e40af">· 端到端范式</text>
+  <text x="954" y="220" text-anchor="middle" font-size="13" fill="#1e40af">· 扩散 / Flow Matching</text>
+  <text x="954" y="244" text-anchor="middle" font-size="13" fill="#1e40af">· RL 后训练（GRPO）</text>
+  <text x="954" y="268" text-anchor="middle" font-size="13" fill="#1e40af">· 世界模型直觉</text>
+  <text x="954" y="292" text-anchor="middle" font-size="13" fill="#1e40af">· 数据闭环方法论</text>
+  <text x="954" y="316" text-anchor="middle" font-size="13" fill="#1e40af">· 仿真评测与回归</text>
+  <text x="954" y="340" text-anchor="middle" font-size="13" fill="#1e40af">· 部署加速经验</text>
+  <text x="954" y="384" text-anchor="middle" font-size="13" fill="#64748b">方法论通用，</text>
+  <text x="954" y="406" text-anchor="middle" font-size="13" fill="#64748b">对象要从「车」</text>
+  <text x="954" y="428" text-anchor="middle" font-size="13" fill="#64748b">换成「手臂」</text>
+
+  <rect x="866" y="472" width="176" height="164" rx="10" fill="#fffbeb" stroke="#f59e0b" stroke-dasharray="6 4"/>
+  <text x="954" y="504" text-anchor="middle" font-size="15" font-weight="bold" fill="#b45309">入职前要补</text>
+  <text x="954" y="538" text-anchor="middle" font-size="13" fill="#92400e">· 机器人学基础</text>
+  <text x="954" y="562" text-anchor="middle" font-size="13" fill="#92400e">· 动作空间与遥操作</text>
+  <text x="954" y="586" text-anchor="middle" font-size="13" fill="#92400e">· 操作学习数据集</text>
+  <text x="954" y="610" text-anchor="middle" font-size="13" fill="#92400e">· 触碰与接触力学</text>
+
+  <text x="530" y="700" text-anchor="middle" font-size="13" fill="#94a3b8">大脑（L3）是资本流向：2026 上半年具身融资超一半流向「大脑派」，其中 VLA 占 42%、世界模型占 27%</text>
+</svg>

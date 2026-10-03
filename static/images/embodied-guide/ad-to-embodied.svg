@@ -1,0 +1,84 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="800" viewBox="0 0 1080 800" font-family="Noto Sans CJK SC, WenQuanYi Zen Hei, sans-serif">
+  <defs>
+    <marker id="ar" markerWidth="12" markerHeight="10" refX="10" refY="5" orient="auto">
+      <path d="M0,1 L11,5 L0,9 z" fill="#64748b"/>
+    </marker>
+  </defs>
+  <rect width="1080" height="800" fill="#f8fafc"/>
+  <text x="540" y="42" text-anchor="middle" font-size="26" font-weight="bold" fill="#0f172a">自动驾驶 → 具身智能：能力迁移地图</text>
+
+  <text x="265" y="84" text-anchor="middle" font-size="17" font-weight="bold" fill="#1d4ed8">你在自驾练的</text>
+  <text x="815" y="84" text-anchor="middle" font-size="17" font-weight="bold" fill="#6d28d9">具身里的对应物</text>
+
+  <g font-size="15">
+    <!-- row template: left rect, arrow, right rect -->
+    <g>
+      <rect x="70" y="100" width="390" height="54" rx="8" fill="#dbeafe" stroke="#93c5fd"/>
+      <text x="265" y="133" text-anchor="middle" fill="#1e3a8a">BEV / 3D 感知、占据网络</text>
+      <line x1="470" y1="127" x2="600" y2="127" stroke="#64748b" stroke-width="2.4" marker-end="url(#ar)"/>
+      <rect x="620" y="100" width="390" height="54" rx="8" fill="#ede9fe" stroke="#c4b5fd"/>
+      <text x="815" y="133" text-anchor="middle" fill="#4c1d95">工作空间理解：物体 6D 位姿与可操作性</text>
+    </g>
+    <g>
+      <rect x="70" y="164" width="390" height="54" rx="8" fill="#dbeafe" stroke="#93c5fd"/>
+      <text x="265" y="197" text-anchor="middle" fill="#1e3a8a">轨迹规划（秒级 horizon）</text>
+      <line x1="470" y1="191" x2="600" y2="191" stroke="#64748b" stroke-width="2.4" marker-end="url(#ar)"/>
+      <rect x="620" y="164" width="390" height="54" rx="8" fill="#ede9fe" stroke="#c4b5fd"/>
+      <text x="815" y="197" text-anchor="middle" fill="#4c1d95">动作块 Action Chunk：关节 / 末端 10~100 步</text>
+    </g>
+    <g>
+      <rect x="70" y="228" width="390" height="54" rx="8" fill="#dbeafe" stroke="#93c5fd"/>
+      <text x="265" y="261" text-anchor="middle" fill="#1e3a8a">端到端：UniAD / VAD</text>
+      <line x1="470" y1="255" x2="600" y2="255" stroke="#64748b" stroke-width="2.4" marker-end="url(#ar)"/>
+      <rect x="620" y="228" width="390" height="54" rx="8" fill="#ede9fe" stroke="#c4b5fd"/>
+      <text x="815" y="261" text-anchor="middle" fill="#4c1d95">VLA：图像 + 语言指令 → 动作</text>
+    </g>
+    <g>
+      <rect x="70" y="292" width="390" height="54" rx="8" fill="#dbeafe" stroke="#93c5fd"/>
+      <text x="265" y="325" text-anchor="middle" fill="#1e3a8a">扩散 / Flow Matching 规划器</text>
+      <line x1="470" y1="319" x2="600" y2="319" stroke="#64748b" stroke-width="2.4" marker-end="url(#ar)"/>
+      <rect x="620" y="292" width="390" height="54" rx="8" fill="#ede9fe" stroke="#c4b5fd"/>
+      <text x="815" y="325" text-anchor="middle" fill="#4c1d95">Diffusion Policy / flow-matching 动作专家</text>
+    </g>
+    <g>
+      <rect x="70" y="356" width="390" height="54" rx="8" fill="#dbeafe" stroke="#93c5fd"/>
+      <text x="265" y="389" text-anchor="middle" fill="#1e3a8a">RL 后训练：GRPO / RLHF</text>
+      <line x1="470" y1="383" x2="600" y2="383" stroke="#64748b" stroke-width="2.4" marker-end="url(#ar)"/>
+      <rect x="620" y="356" width="390" height="54" rx="8" fill="#ede9fe" stroke="#c4b5fd"/>
+      <text x="815" y="389" text-anchor="middle" fill="#4c1d95">机器人 RL：策略微调、DAgger、递归自改进</text>
+    </g>
+    <g>
+      <rect x="70" y="420" width="390" height="54" rx="8" fill="#dbeafe" stroke="#93c5fd"/>
+      <text x="265" y="453" text-anchor="middle" fill="#1e3a8a">驾驶世界模型：Cosmos / Dreamer</text>
+      <line x1="470" y1="447" x2="600" y2="447" stroke="#64748b" stroke-width="2.4" marker-end="url(#ar)"/>
+      <rect x="620" y="420" width="390" height="54" rx="8" fill="#ede9fe" stroke="#c4b5fd"/>
+      <text x="815" y="453" text-anchor="middle" fill="#4c1d95">具身世界模型：联合预测 state + action</text>
+    </g>
+    <g>
+      <rect x="70" y="484" width="390" height="54" rx="8" fill="#dbeafe" stroke="#93c5fd"/>
+      <text x="265" y="517" text-anchor="middle" fill="#1e3a8a">数据闭环 / 长尾场景挖掘</text>
+      <line x1="470" y1="511" x2="600" y2="511" stroke="#64748b" stroke-width="2.4" marker-end="url(#ar)"/>
+      <rect x="620" y="484" width="390" height="54" rx="8" fill="#ede9fe" stroke="#c4b5fd"/>
+      <text x="815" y="517" text-anchor="middle" fill="#4c1d95">失败归因 + 自适应采数（数据跟着弱点走）</text>
+    </g>
+    <g>
+      <rect x="70" y="548" width="390" height="54" rx="8" fill="#dbeafe" stroke="#93c5fd"/>
+      <text x="265" y="581" text-anchor="middle" fill="#1e3a8a">开环 / 闭环评测（NAVSIM 类）</text>
+      <line x1="470" y1="575" x2="600" y2="575" stroke="#64748b" stroke-width="2.4" marker-end="url(#ar)"/>
+      <rect x="620" y="548" width="390" height="54" rx="8" fill="#ede9fe" stroke="#c4b5fd"/>
+      <text x="815" y="581" text-anchor="middle" fill="#4c1d95">LIBERO / RoboCasa 仿真评测 + 真机试验</text>
+    </g>
+    <g>
+      <rect x="70" y="612" width="390" height="54" rx="8" fill="#dbeafe" stroke="#93c5fd"/>
+      <text x="265" y="645" text-anchor="middle" fill="#1e3a8a">车端部署：TensorRT / C++</text>
+      <line x1="470" y1="639" x2="600" y2="639" stroke="#64748b" stroke-width="2.4" marker-end="url(#ar)"/>
+      <rect x="620" y="612" width="390" height="54" rx="8" fill="#ede9fe" stroke="#c4b5fd"/>
+      <text x="815" y="645" text-anchor="middle" fill="#4c1d95">ROS2 + 端侧小脑：云边协同实时控制</text>
+    </g>
+  </g>
+
+  <rect x="70" y="688" width="940" height="88" rx="10" fill="#fff7ed" stroke="#fdba74"/>
+  <text x="540" y="716" text-anchor="middle" font-size="15" font-weight="bold" fill="#9a3412">五个不能直接搬的差异（面试必聊）：</text>
+  <text x="540" y="742" text-anchor="middle" font-size="14" fill="#9a3412">数据量级（车载海量 vs 真机稀缺）· 接触力学（轮胎 vs 夹爪）· 控制频率（10Hz 规划 vs 1kHz 控制）</text>
+  <text x="540" y="766" text-anchor="middle" font-size="14" fill="#9a3412">可重置性（一次路采 vs 千次仿真重置）· 安全形态（兜底规则 vs 熔断 + 物理限位）</text>
+</svg>
