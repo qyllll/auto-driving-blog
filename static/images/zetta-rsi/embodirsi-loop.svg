@@ -1,0 +1,100 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1240" height="730" viewBox="0 0 1240 730" font-family="Noto Sans CJK SC, sans-serif">
+  <rect width="1240" height="730" fill="#fbfaf7"/>
+  <text x="620" y="36" text-anchor="middle" font-size="21" font-weight="bold" fill="#1a1a2e">EmbodiRSI：Real2Sim2Real 里的递归自我改进（RSI）闭环</text>
+  <!-- stage 1: real2sim -->
+  <rect x="30" y="66" width="290" height="300" rx="10" fill="#eef4fb" stroke="#9dbfe0" stroke-width="2"/>
+  <text x="175" y="92" text-anchor="middle" font-size="15.5" font-weight="bold" fill="#00458f">① Real2Sim：建可执行环境</text>
+  <rect x="46" y="106" width="258" height="66" rx="6" fill="#fff" stroke="#00458f"/>
+  <text x="175" y="127" text-anchor="middle" font-size="12.5" fill="#333">场景 agent 识别物体 → SAM 3 取掩码</text>
+  <text x="175" y="145" text-anchor="middle" font-size="12.5" fill="#333">→ SAM 3D 重建带纹理网格</text>
+  <text x="175" y="163" text-anchor="middle" font-size="12.5" fill="#333">→ 自适应碰撞修正（保支撑/容纳关系）</text>
+  <rect x="46" y="182" width="258" height="60" rx="6" fill="#fff" stroke="#00458f"/>
+  <text x="175" y="203" text-anchor="middle" font-size="12.5" fill="#333">轨迹 agent：物体空间路径 → GraspGen</text>
+  <text x="175" y="221" text-anchor="middle" font-size="12.5" fill="#333">→ cuRobo 验证（碰撞/多视角/可执行）</text>
+  <text x="175" y="238" text-anchor="middle" font-size="12.5" fill="#333">不通过则修复重验或拒绝</text>
+  <rect x="46" y="252" width="258" height="52" rx="6" fill="#fff7e6" stroke="#d89614"/>
+  <text x="175" y="273" text-anchor="middle" font-size="12.5" fill="#333">路点锚定源/目标位姿，reset 后</text>
+  <text x="175" y="291" text-anchor="middle" font-size="12.5" fill="#333">重定基 + 从当前关节态重新规划</text>
+  <text x="175" y="340" text-anchor="middle" font-size="12.5" font-weight="bold" fill="#00458f">初始示范 D0 → 训练种子策略 π0（π0.5 初始化）</text>
+  <!-- stage 2: rsi loop -->
+  <rect x="345" y="66" width="545" height="560" rx="10" fill="#fdf2f2" stroke="#e0a8a8" stroke-width="2"/>
+  <text x="617" y="92" text-anchor="middle" font-size="15.5" font-weight="bold" fill="#8b0000">② RSI 递归循环（每轮 k：πk → 反馈 → 新经验 → πk+1）</text>
+  <!-- rollout -->
+  <rect x="365" y="108" width="505" height="70" rx="6" fill="#fff" stroke="#8b0000"/>
+  <text x="617" y="130" text-anchor="middle" font-size="13" font-weight="bold" fill="#8b0000">Agentic Rollout Monitor（回合内监控）</text>
+  <text x="617" y="150" text-anchor="middle" font-size="12.5" fill="#333">时序图像窗 + 动作历史 + 仿真物体/机器人状态 → y_t ∈ {continue, recover, complete}</text>
+  <text x="617" y="169" text-anchor="middle" font-size="12.5" fill="#555">视觉判抓空/滑移/错放 + 几何校验；受置信度、冷却、次数预算、持物测试四重门控</text>
+  <!-- two mechanisms -->
+  <rect x="365" y="194" width="245" height="164" rx="6" fill="#fff" stroke="#8b0000" stroke-width="2"/>
+  <text x="487" y="216" text-anchor="middle" font-size="13.5" font-weight="bold" fill="#8b0000">机制 A · 协作式纠错 CEC</text>
+  <text x="487" y="236" text-anchor="middle" font-size="12.5" fill="#333">（回合内 · 不 reset）</text>
+  <text x="487" y="256" text-anchor="middle" font-size="12.5" fill="#333">从策略「实际到达的失败态」</text>
+  <text x="487" y="274" text-anchor="middle" font-size="12.5" fill="#333">恢复，而非重播干净示范：</text>
+  <text x="487" y="294" text-anchor="middle" font-size="12.5" fill="#333">T_g = T_o^cur (T_o^0)^{-1} T_g^0</text>
+  <text x="487" y="314" text-anchor="middle" font-size="12.5" fill="#333">标称抓取位姿随物体平移</text>
+  <text x="487" y="334" text-anchor="middle" font-size="12.5" fill="#555">暂停仿真做诊断/规划，恢复后</text>
+  <text x="487" y="351" text-anchor="middle" font-size="12.5" fill="#555">交还策略 → 收集「不完美态监督」</text>
+  <rect x="625" y="194" width="245" height="164" rx="6" fill="#fff" stroke="#8b0000" stroke-width="2"/>
+  <text x="747" y="216" text-anchor="middle" font-size="13.5" font-weight="bold" fill="#8b0000">机制 B · 自适应采数 ADC</text>
+  <text x="747" y="236" text-anchor="middle" font-size="12.5" fill="#333">（跨回合 · 改分布）</text>
+  <text x="747" y="256" text-anchor="middle" font-size="12.5" fill="#333">归因失败到源物体 reset /</text>
+  <text x="747" y="274" text-anchor="middle" font-size="12.5" fill="#333">目标锚点 reset（或皆非）</text>
+  <text x="747" y="294" text-anchor="middle" font-size="12.5" fill="#333">网格化归因失败率 r̂ = U/N</text>
+  <text x="747" y="314" text-anchor="middle" font-size="12.5" fill="#333">p_{k+1} = (1-α)p0 + α·p_hard</text>
+  <text x="747" y="334" text-anchor="middle" font-size="12.5" fill="#555">把下一轮专家示范生成导向</text>
+  <text x="747" y="351" text-anchor="middle" font-size="12.5" fill="#555">当前策略的顽固弱点区域</text>
+  <!-- accumulate & update -->
+  <rect x="365" y="374" width="505" height="96" rx="6" fill="#fff" stroke="#8b0000"/>
+  <text x="617" y="396" text-anchor="middle" font-size="13" font-weight="bold" fill="#8b0000">经验累积 + 优势标注 + 策略更新</text>
+  <text x="617" y="416" text-anchor="middle" font-size="12.5" fill="#333">D_{k+1} = D_k ∪ D_roll（含纠错后的成功回合，每回合只计一次）∪ D_new</text>
+  <text x="617" y="436" text-anchor="middle" font-size="12.5" fill="#333">RECAP 式价值模型标注：z_t = 1[Â_t &gt; δ]，Â = R + V(o_{t+n}) − V(o_t)</text>
+  <text x="617" y="456" text-anchor="middle" font-size="12.5" fill="#333">BC 损失 ℒπ = E[ ℓ_BC( πθ(·|o,l,z), a ) ]——优势以文本条件形式喂给策略</text>
+  <!-- round labels -->
+  <rect x="365" y="486" width="505" height="56" rx="6" fill="#fff7e6" stroke="#d89614"/>
+  <text x="617" y="508" text-anchor="middle" font-size="13" font-weight="bold" fill="#b06f00">递归预算（预先固定，反馈只在额度内定向）</text>
+  <text x="617" y="528" text-anchor="middle" font-size="12.5" fill="#333">R0 / R1 / R2 = 50 / 200 / 400 条累计保留仿真轨迹（每子任务）</text>
+  <text x="617" y="576" text-anchor="middle" font-size="13" fill="#333">回合内恢复只在训练期启用；评测期纯策略自治（重试是学出来的行为）</text>
+  <text x="617" y="600" text-anchor="middle" font-size="13" font-weight="bold" fill="#8b0000">仿真成功 50.4% → 70.7% → 83.5%（R0→R1→R2，14 子任务场景均衡）</text>
+  <!-- stage 3: sim2real -->
+  <rect x="915" y="66" width="295" height="300" rx="10" fill="#e8f5ee" stroke="#7fb89a" stroke-width="2"/>
+  <text x="1062" y="92" text-anchor="middle" font-size="15.5" font-weight="bold" fill="#1e7a4f">③ Sim2Real：少量真机微调</text>
+  <rect x="931" y="106" width="263" height="66" rx="6" fill="#fff" stroke="#1e7a4f"/>
+  <text x="1062" y="127" text-anchor="middle" font-size="12.5" fill="#333">每子任务仅 10 条真机</text>
+  <text x="1062" y="145" text-anchor="middle" font-size="12.5" fill="#333">人机协同 HIL 纠正轨迹</text>
+  <text x="1062" y="163" text-anchor="middle" font-size="12.5" fill="#333">（修抓不稳、放不准的残差）</text>
+  <rect x="931" y="182" width="263" height="60" rx="6" fill="#fff" stroke="#1e7a4f"/>
+  <text x="1062" y="203" text-anchor="middle" font-size="12.5" fill="#333">同一学习配方继续训练</text>
+  <text x="1062" y="221" text-anchor="middle" font-size="12.5" fill="#333">评测关闭一切外部接管</text>
+  <rect x="931" y="252" width="263" height="52" rx="6" fill="#fff" stroke="#1e7a4f" stroke-width="2"/>
+  <text x="1062" y="273" text-anchor="middle" font-size="13" font-weight="bold" fill="#1e7a4f">真机自治成功 83.1%</text>
+  <text x="1062" y="292" text-anchor="middle" font-size="12.5" fill="#333">vs 纯真实 200 条示范 75.0%</text>
+  <!-- arrows -->
+  <defs>
+    <marker id="a1" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#00458f"/></marker>
+    <marker id="a2" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#8b0000"/></marker>
+    <marker id="a3" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#1e7a4f"/></marker>
+  </defs>
+  <line x1="320" y1="366" x2="345" y2="366" stroke="#00458f" stroke-width="3" marker-end="url(#a1)"/>
+  <line x1="345" y1="366" x2="320" y2="366" stroke="#00458f" stroke-width="0"/>
+  <text x="332" y="355" text-anchor="middle" font-size="12" fill="#00458f">建场</text>
+  <line x1="890" y1="200" x2="915" y2="200" stroke="#1e7a4f" stroke-width="3" marker-end="url(#a3)"/>
+  <text x="902" y="190" text-anchor="middle" font-size="12" fill="#1e7a4f">迁移</text>
+  <path d="M 1062 366 C 1062 430, 940 470, 880 470" fill="none" stroke="#1e7a4f" stroke-width="2.5" stroke-dasharray="7 5" marker-end="url(#a3)"/>
+  <text x="1000" y="452" text-anchor="middle" font-size="12.5" fill="#1e7a4f">部署观测/目标反馈</text>
+  <!-- bottom note -->
+  <rect x="30" y="386" width="290" height="240" rx="10" fill="#fff7e6" stroke="#d89614" stroke-width="2"/>
+  <text x="175" y="412" text-anchor="middle" font-size="14.5" font-weight="bold" fill="#b06f00">为什么需要递归？</text>
+  <text x="175" y="438" text-anchor="middle" font-size="12.5" fill="#333">策略一变，弱点就变：</text>
+  <text x="175" y="458" text-anchor="middle" font-size="12.5" fill="#333">旧弱点被修掉，错误会</text>
+  <text x="175" y="478" text-anchor="middle" font-size="12.5" fill="#333">集中到新的状态/构型。</text>
+  <text x="175" y="504" text-anchor="middle" font-size="12.5" fill="#333">固定数据集 = 练习题不</text>
+  <text x="175" y="524" text-anchor="middle" font-size="12.5" fill="#333">随水平变化的刷题机器。</text>
+  <text x="175" y="550" text-anchor="middle" font-size="12.5" fill="#b06f00" font-weight="bold">RSI = 让练习题跟着</text>
+  <text x="175" y="570" text-anchor="middle" font-size="12.5" fill="#b06f00" font-weight="bold">当前水平动态生成。</text>
+  <text x="175" y="600" text-anchor="middle" font-size="12.5" fill="#555">仿真场景全程复用：</text>
+  <text x="175" y="618" text-anchor="middle" font-size="12.5" fill="#555">热身/评测/诊断/造数</text>
+  <!-- robot note -->
+  <rect x="30" y="646" width="1180" height="66" rx="10" fill="#f4f4f4" stroke="#ccc"/>
+  <text x="620" y="672" text-anchor="middle" font-size="13" fill="#333">实验平台：14-DoF 双臂 ALOHA（头部 + 双腕相机），3 个场景 14 子任务（办公室 6 / 厨房 4 / 家务 4），GPT-5.5 智能体系统 + Isaac Sim</text>
+  <text x="620" y="696" text-anchor="middle" font-size="13" fill="#333">关键消融（同 400 条预算）：自适应采数 vs 静态采数 = 仿真 +20.6pp、真机微调前 +12.9pp、微调后 +14.2pp——反馈的价值在数据配比上，不在数据量上</text>
+</svg>

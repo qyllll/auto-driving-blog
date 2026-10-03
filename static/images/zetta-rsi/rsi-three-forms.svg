@@ -1,0 +1,71 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1240" height="640" viewBox="0 0 1240 640" font-family="Noto Sans CJK SC, sans-serif">
+  <rect width="1240" height="640" fill="#fbfaf7"/>
+  <text x="620" y="36" text-anchor="middle" font-size="21" font-weight="bold" fill="#1a1a2e">RSI 在具身智能的三种落地形态：递归的「对象」不同，闭环就不同</text>
+  <text x="620" y="66" text-anchor="middle" font-size="14" fill="#555">同一个 RSI 内核（反馈 → 持久改进 → 再反馈），被三篇 2026 工作装进了三个不同的「变速箱」</text>
+  <!-- form 1: Zetta -->
+  <rect x="30" y="92" width="385" height="500" rx="12" fill="#fff7e6" stroke="#d89614" stroke-width="2.5"/>
+  <text x="222" y="124" text-anchor="middle" font-size="17" font-weight="bold" fill="#b06f00">形态一 · 工具链递归</text>
+  <text x="222" y="150" text-anchor="middle" font-size="15" font-weight="bold" fill="#b06f00">Zetta（harness 自进化）</text>
+  <line x1="60" y1="166" x2="385" y2="166" stroke="#d89614"/>
+  <text x="222" y="192" text-anchor="middle" font-size="13.5" font-weight="bold" fill="#333">递归对象：代码（评论家 C / 恢复 R / 工具 T）</text>
+  <text x="222" y="216" text-anchor="middle" font-size="13.5" font-weight="bold" fill="#333">不递归：底座策略 π 权重（全程冻结）</text>
+  <text x="222" y="250" text-anchor="middle" font-size="13" fill="#333">· 反馈信号：真实（仿真）执行成功率</text>
+  <text x="222" y="274" text-anchor="middle" font-size="13" fill="#333">· 持久化：验证门控的版本化技能包</text>
+  <text x="222" y="298" text-anchor="middle" font-size="13" fill="#333">· 搜索空间：代码空间（无梯度 SGD）</text>
+  <text x="222" y="322" text-anchor="middle" font-size="13" fill="#333">· 时间尺度：动作级 + 批次级 + 迭代级</text>
+  <rect x="55" y="344" width="335" height="96" rx="8" fill="#fff" stroke="#d89614"/>
+  <text x="222" y="368" text-anchor="middle" font-size="13" fill="#333">类比：不换司机（策略），而是给车装</text>
+  <text x="222" y="388" text-anchor="middle" font-size="13" fill="#333">越装越聪明的仪表盘 + 备用操作手册，</text>
+  <text x="222" y="408" text-anchor="middle" font-size="13" fill="#333">手册（技能库）越用越厚</text>
+  <text x="222" y="430" text-anchor="middle" font-size="12.5" fill="#8b0000">（对应 LLM 线的：提示词/工具/技能库递归）</text>
+  <text x="222" y="474" text-anchor="middle" font-size="13.5" font-weight="bold" fill="#b06f00">证据：LIBERO-Pro Goal-T 31% → 92.5%</text>
+  <text x="222" y="496" text-anchor="middle" font-size="13.5" font-weight="bold" fill="#b06f00">RoboCasa 18 任务 73.56% → 93.56%</text>
+  <text x="222" y="524" text-anchor="middle" font-size="13" fill="#333">技能零样本迁移：PnP 三任务 64% → 84%</text>
+  <text x="222" y="546" text-anchor="middle" font-size="13" fill="#333">「Aha 时刻」：15%→95%（Wine Bottle in Bowl）</text>
+  <text x="222" y="572" text-anchor="middle" font-size="12.5" fill="#555">短板：仅仿真验证，真机 sim2real 未做</text>
+  <!-- form 2: EmbodiRSI -->
+  <rect x="427" y="92" width="385" height="500" rx="12" fill="#fdf2f2" stroke="#e0a8a8" stroke-width="2.5"/>
+  <text x="619" y="124" text-anchor="middle" font-size="17" font-weight="bold" fill="#8b0000">形态二 · 数据递归</text>
+  <text x="619" y="150" text-anchor="middle" font-size="15" font-weight="bold" fill="#8b0000">EmbodiRSI（经验分布自进化）</text>
+  <line x1="457" y1="166" x2="782" y2="166" stroke="#8b0000"/>
+  <text x="619" y="192" text-anchor="middle" font-size="13.5" font-weight="bold" fill="#333">递归对象：策略权重 + 训练数据分布 p_k(c)</text>
+  <text x="619" y="216" text-anchor="middle" font-size="13.5" font-weight="bold" fill="#333">不递归：学习配方（BC + 优势条件化固定）</text>
+  <text x="619" y="250" text-anchor="middle" font-size="13" fill="#333">· 反馈信号：rollout 失败归因（网格化）</text>
+  <text x="619" y="274" text-anchor="middle" font-size="13" fill="#333">· 持久化：累积数据集 D_k 与更新后 π_k</text>
+  <text x="619" y="298" text-anchor="middle" font-size="13" fill="#333">· 搜索空间：采样配置空间（源物体/目标锚）</text>
+  <text x="619" y="322" text-anchor="middle" font-size="13" fill="#333">· 时间尺度：回合内（纠错）+ 跨回合（采数）</text>
+  <rect x="452" y="344" width="335" height="96" rx="8" fill="#fff" stroke="#8b0000"/>
+  <text x="619" y="368" text-anchor="middle" font-size="13" fill="#333">类比：教练（agent）盯你练球，</text>
+  <text x="619" y="388" text-anchor="middle" font-size="13" fill="#333">专挑你老失误的球路发球（ADC），</text>
+  <text x="619" y="408" text-anchor="middle" font-size="13" fill="#333">还从你打歪的位置手把手纠正（CEC）</text>
+  <text x="619" y="430" text-anchor="middle" font-size="12.5" fill="#8b0000">（对应 LLM 线的：课程/数据递归，DAgger 后裔）</text>
+  <text x="619" y="474" text-anchor="middle" font-size="13.5" font-weight="bold" fill="#8b0000">证据：仿真 50.4% → 83.5%（2 轮 RSI）</text>
+  <text x="619" y="496" text-anchor="middle" font-size="13.5" font-weight="bold" fill="#8b0000">真机 83.1%（400 仿真 + 10 真机/子任务）</text>
+  <text x="619" y="524" text-anchor="middle" font-size="13" fill="#333">vs 纯真实 200 条示范 75.0%（真实数据 1/20）</text>
+  <text x="619" y="546" text-anchor="middle" font-size="13" fill="#333">同预算消融：自适应采数 +20.6pp（仿真）</text>
+  <text x="619" y="572" text-anchor="middle" font-size="12.5" fill="#555">短板：单场景特化，跨场景泛化待验证</text>
+  <!-- form 3: world model -->
+  <rect x="824" y="92" width="386" height="500" rx="12" fill="#eef4fb" stroke="#9dbfe0" stroke-width="2.5"/>
+  <text x="1017" y="124" text-anchor="middle" font-size="17" font-weight="bold" fill="#00458f">形态三 · 世界模型递归（想象）</text>
+  <text x="1017" y="150" text-anchor="middle" font-size="15" font-weight="bold" fill="#00458f">RISE / Dream-RSI（梦境自进化）</text>
+  <line x1="854" y1="166" x2="1180" y2="166" stroke="#00458f"/>
+  <text x="1017" y="192" text-anchor="middle" font-size="13.5" font-weight="bold" fill="#333">递归对象：策略（在想象 rollout 中 RL）</text>
+  <text x="1017" y="216" text-anchor="middle" font-size="13.5" font-weight="bold" fill="#333">/ 元探索策略（在回放世界中自我评估）</text>
+  <text x="1017" y="250" text-anchor="middle" font-size="13" fill="#333">· 反馈信号：价值模型给的想象优势</text>
+  <text x="1017" y="274" text-anchor="middle" font-size="13" fill="#333">· 持久化：更新后的策略/探索策略</text>
+  <text x="1017" y="298" text-anchor="middle" font-size="13" fill="#333">· 搜索空间：动作轨迹（世界模型内）</text>
+  <text x="1017" y="322" text-anchor="middle" font-size="13" fill="#333">· 成本：无真机交互，纯想象空间</text>
+  <rect x="849" y="344" width="336" height="96" rx="8" fill="#fff" stroke="#00458f"/>
+  <text x="1017" y="368" text-anchor="middle" font-size="13" fill="#333">类比：躺在床上复盘整场比赛，</text>
+  <text x="1017" y="388" text-anchor="middle" font-size="13" fill="#333">脑子里的模拟对手陪你练，</text>
+  <text x="1017" y="408" text-anchor="middle" font-size="13" fill="#333">练出的招下场才验证</text>
+  <text x="1017" y="430" text-anchor="middle" font-size="12.5" fill="#00458f">（对应 LLM 线的：世界模型/MCTS 自我博弈）</text>
+  <text x="1017" y="474" text-anchor="middle" font-size="13.5" font-weight="bold" fill="#00458f">RISE：真机三任务 +35/45/35pp</text>
+  <text x="1017" y="496" text-anchor="middle" font-size="13.5" font-weight="bold" fill="#00458f">（动态分拣/背包装填/关箱）</text>
+  <text x="1017" y="524" text-anchor="middle" font-size="13" fill="#333">Dream-RSI：回放模拟器 = 世界模型</text>
+  <text x="1017" y="546" text-anchor="middle" font-size="13" fill="#333">递归元探索（算法/内核/数学优化）</text>
+  <text x="1017" y="572" text-anchor="middle" font-size="12.5" fill="#555">短板：受限于世界模型保真度（想象偏差）</text>
+  <!-- bottom -->
+  <rect x="30" y="606" width="1180" height="24" rx="6" fill="#f0efe9"/>
+  <text x="620" y="623" text-anchor="middle" font-size="13.5" fill="#333">选型直觉：怕伤策略 → 递归工具链（Zetta）；缺数据 → 递归数据分布（EmbodiRSI）；怕真机贵 → 递归想象空间（RISE/Dream-RSI）</text>
+</svg>

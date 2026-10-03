@@ -1,0 +1,83 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1240" height="700" viewBox="0 0 1240 700" font-family="Noto Sans CJK SC, sans-serif">
+  <rect width="1240" height="700" fill="#fbfaf7"/>
+  <text x="620" y="36" text-anchor="middle" font-size="21" font-weight="bold" fill="#1a1a2e">RSI（递归自我改进）谱系：从 1965 年的思想实验到 2026 年的具身系统</text>
+  <!-- lane labels -->
+  <text x="30" y="118" font-size="15" font-weight="bold" fill="#8b0000">概念 / 理论线</text>
+  <text x="30" y="420" font-size="15" font-weight="bold" fill="#00458f">具身 / 机器人线</text>
+  <!-- concept lane background -->
+  <rect x="28" y="132" width="1184" height="230" rx="10" fill="#fdf2f2" stroke="#e8c4c4"/>
+  <!-- robot lane background -->
+  <rect x="28" y="434" width="1184" height="230" rx="10" fill="#eef4fb" stroke="#bcd4ec"/>
+  <!-- concept timeline arrow -->
+  <line x1="55" y1="248" x2="1185" y2="248" stroke="#8b0000" stroke-width="3"/>
+  <polygon points="1185,248 1172,241 1172,255" fill="#8b0000"/>
+  <!-- concept nodes -->
+  <g font-size="13" text-anchor="middle">
+    <circle cx="140" cy="248" r="9" fill="#8b0000"/>
+    <rect x="72" y="150" width="136" height="78" rx="8" fill="#fff" stroke="#8b0000" stroke-width="2"/>
+    <text x="140" y="170" font-weight="bold" fill="#8b0000">1965 I.J. Good</text>
+    <text x="140" y="190" fill="#333">《Speculations</text>
+    <text x="140" y="207" fill="#333">…Ultraintelligent Machine》</text>
+    <text x="140" y="224" fill="#8b0000" font-weight="bold">智能爆炸 = RSI 源头</text>
+    <circle cx="400" cy="248" r="9" fill="#8b0000"/>
+    <rect x="316" y="150" width="168" height="78" rx="8" fill="#fff" stroke="#8b0000" stroke-width="2"/>
+    <text x="400" y="170" font-weight="bold" fill="#8b0000">1987–2011 Schmidhuber</text>
+    <text x="400" y="190" fill="#333">元层可证明自我改进：</text>
+    <text x="400" y="207" fill="#333">Gödel Machine / OOPS</text>
+    <text x="400" y="224" fill="#333">PowerPlay（永远在学新招）</text>
+    <circle cx="660" cy="248" r="9" fill="#8b0000"/>
+    <rect x="582" y="150" width="156" height="78" rx="8" fill="#fff" stroke="#8b0000" stroke-width="2"/>
+    <text x="660" y="170" font-weight="bold" fill="#8b0000">2023 LLM 自我改进潮</text>
+    <text x="660" y="190" fill="#333">Reflexion / Self-Refine</text>
+    <text x="660" y="207" fill="#333">Voyager 技能库 / OPRO</text>
+    <text x="660" y="224" fill="#333">（文本反思 = 数字域 RSI）</text>
+    <circle cx="905" cy="248" r="9" fill="#8b0000"/>
+    <rect x="822" y="150" width="166" height="78" rx="8" fill="#fff" stroke="#8b0000" stroke-width="2"/>
+    <text x="905" y="170" font-weight="bold" fill="#8b0000">2026 RSI 分级综述</text>
+    <text x="905" y="190" fill="#333">《The Last AI Built by</text>
+    <text x="905" y="207" fill="#333">Humans》L1–L5 自主度分级</text>
+    <text x="905" y="224" fill="#333">+ HCI 指数量化差距</text>
+    <circle cx="1120" cy="248" r="9" fill="#8b0000"/>
+    <text x="1120" y="290" fill="#555" font-size="12">CASAD / O3 / EM</text>
+    <text x="1120" y="307" fill="#555" font-size="12">自我重写系统</text>
+  </g>
+  <!-- concept lane bottom labels -->
+  <text x="620" y="345" text-anchor="middle" font-size="13" fill="#8b0000">核心思想：系统把自己产生的反馈，固化为「让下一次改进更有效」的持久变化</text>
+  <!-- robot timeline arrow -->
+  <line x1="55" y1="550" x2="1185" y2="550" stroke="#00458f" stroke-width="3"/>
+  <polygon points="1185,550 1172,543 1172,557" fill="#00458f"/>
+  <g font-size="13" text-anchor="middle">
+    <circle cx="130" cy="550" r="9" fill="#00458f"/>
+    <rect x="64" y="452" width="132" height="78" rx="8" fill="#fff" stroke="#00458f" stroke-width="2"/>
+    <text x="130" y="472" font-weight="bold" fill="#00458f">2011 DAgger</text>
+    <text x="130" y="492" fill="#333">策略诱导状态</text>
+    <text x="130" y="509" fill="#333">回放给专家标注</text>
+    <text x="130" y="526" fill="#00458f">（递归采数雏形）</text>
+    <circle cx="375" cy="550" r="9" fill="#00458f"/>
+    <rect x="300" y="452" width="150" height="78" rx="8" fill="#fff" stroke="#00458f" stroke-width="2"/>
+    <text x="375" y="472" font-weight="bold" fill="#00458f">2023 RoboCat</text>
+    <text x="375" y="492" fill="#333">用自己的尝试采数据</text>
+    <text x="375" y="509" fill="#333">训下一代通才模型</text>
+    <text x="375" y="526" fill="#333">（自我循环先驱）</text>
+    <circle cx="590" cy="550" r="9" fill="#00458f"/>
+    <rect x="512" y="452" width="156" height="78" rx="8" fill="#fff" stroke="#00458f" stroke-width="2"/>
+    <text x="590" y="472" font-weight="bold" fill="#00458f">2024–2025 SOAR / RECAP</text>
+    <text x="590" y="492" fill="#333">基础模型自主采数学习</text>
+    <text x="590" y="509" fill="#333">RECAP：优势条件化</text>
+    <text x="590" y="526" fill="#333">（示范+自主+纠错混合）</text>
+    <circle cx="820" cy="550" r="9" fill="#00458f"/>
+    <rect x="742" y="452" width="156" height="78" rx="8" fill="#fff" stroke="#00458f" stroke-width="2"/>
+    <text x="820" y="472" font-weight="bold" fill="#00458f">2026 世界模型派</text>
+    <text x="820" y="492" fill="#333">RISE：想象空间里 RL</text>
+    <text x="820" y="509" fill="#333">Dream-RSI：回放世界</text>
+    <text x="820" y="526" fill="#333">做递归元探索</text>
+    <circle cx="1045" cy="550" r="11" fill="#d84315" stroke="#fff" stroke-width="2"/>
+    <rect x="962" y="452" width="166" height="78" rx="8" fill="#fff" stroke="#d84315" stroke-width="3"/>
+    <text x="1045" y="472" font-weight="bold" fill="#d84315">2026 本文两主角</text>
+    <text x="1045" y="492" fill="#333">EmbodiRSI：策略递归</text>
+    <text x="1045" y="509" fill="#333">Zetta：工具链递归</text>
+    <text x="1045" y="526" fill="#d84315" font-weight="bold">（递归的对象不同）</text>
+  </g>
+  <text x="620" y="600" text-anchor="middle" font-size="13" fill="#00458f">核心思想：机器人用「自己当前策略的执行反馈」决定下一轮练什么、怎么练</text>
+  <text x="620" y="660" text-anchor="middle" font-size="14" fill="#555">两条线在 2026 年合流：递归自我改进从「改提示词 / 改策略权重」走向「改代码工具链（Zetta）与改数据采集分布（EmbodiRSI）」</text>
+</svg>
