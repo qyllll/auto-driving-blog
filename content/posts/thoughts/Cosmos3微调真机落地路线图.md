@@ -4,7 +4,7 @@ date: 2026-10-09T21:30:00+08:00
 draft: false
 categories: ["技术指南"]
 tags: ["🤖 具身智能", "🎬世界模型", "🛠️工程实践", "🧬VLA", "🏢 天机"]
-summary: "写给用Cosmos 3微调驱动真机机械臂（天机Marvin）抓可乐却一个月没跑通的团队：系统调研Cosmos生态落地项目——Cosmos Policy原版配方、NVIDIA官方SFT cookbook、首篇WAM sim2real论文、1.6节实测检索的GitHub现成仓库（完整后训练管线/SAM3视频评测/推理加速runtime）；解剖‘动作丝滑但抓不到/联训视频太慢/视频幻觉’三大症状；第七节按官方源码拆解策略模式联合输出（latent画布9槽位、一次去噪全出、三个耦合矛盾），给出‘推理必须产出未来视频’的四模式正面方案与七角度排查树；回答100条遥操数据够不够、MuJoCo还是Isaac Sim、开环闭环怎么测，附四周重建计划与自驾→具身方法论映射。"
+summary: "写给用Cosmos 3微调驱动真机机械臂（天机Marvin）抓可乐却一个月没跑通的团队：系统调研Cosmos生态落地项目——Cosmos Policy原版配方、NVIDIA官方SFT cookbook、首篇WAM sim2real论文、1.6节实测检索的GitHub现成仓库、1.7节精读官方Edge端侧部署教程（延迟哲学/损失对齐/训练规模现实）；解剖‘动作丝滑但抓不到/联训视频太慢/视频幻觉’三大症状；第七节按官方源码拆解策略模式联合输出（latent画布9槽位、一次去噪全出、三个耦合矛盾），给出‘推理必须产出未来视频’的四模式正面方案与七角度排查树；回答100条遥操数据够不够、MuJoCo还是Isaac Sim、开环闭环怎么测，附四周重建计划与自驾→具身方法论映射。"
 weight: 99
 ---
 
@@ -38,6 +38,7 @@ weight: 99
 7. **架构上抄两条官方路线二选一**：走 Cosmos 3 官方 action-policy SFT（cosmos-framework，有 DROID/LIBERO/RoboCasa 三份开箱配方），或者走 Cosmos Policy 的 latent frame injection（NVlabs/cosmos-policy，有 cookbook + HF 检查点 + 真机 ALOHA 先例）。不要自创架构。
 8. **从抓可乐到会议室整理是分层问题**：先用100条把"抓"打成稳定原子技能（成功率>80%），再谈任务序列（VLM 规划 + 技能调用）。直接上长程任务是当前阶段不可能完成的目标。
 9. **优先级：动作先行，视频陪跑，价值殿后**（7.6节裁决）。任务指标只认动作；NVIDIA 自己的论文路线也是先策略模式93.6%、再价值规划+12.5pp。视频在联合模式下与动作共享采样，会随动作一起变好——设"先把视频做好"为里程碑是错误的，它的正确身份是异步预览+IoU健康度监控（P1）。卡死时的免费实验：拿官方 Cosmos Policy ALOHA 权重跑你们的部署栈，一刀切开"工程问题"还是"模型问题"（6.1节逃生通道）。
+10. **两个被官方教程矫正的误区**（1.7节）：①"必须百毫秒推理"——官方 Edge 端侧是1.53秒/块 vs 2.13秒覆盖时长，**时延小于块覆盖时长就能连续运动**，先重定义你们的"慢"；②"照抄官方配置就能训"——官方全量SFT是256张GB200×68小时的事，你们必须走 LoRA+缩 batch，同时抄它的两个便宜细节：动作头全新初始化+5×lr、视觉loss加权对齐动作loss量级。
 
 ## 一、别人是怎么做的：Cosmos 生态落地项目全景盘点
 
@@ -191,6 +192,46 @@ nvidia-cosmos/cosmos-cookbook (478★) ← 后训练脚本合集
 1. **管线结构**抄 so101-cosmos-nano-policy：服务端/仿真端分离、单 CLI 入口、接口 flag 集中管理——这正是你们缺的"接口契约"的代码形态。
 2. **视频评测**抄 cosmos3-so101-armnet-eval：前向动力学自回归出视频 + SAM3 IoU 打分，让"未来视频"既有产出又有质量数字。
 3. **推理提速**抄 cosmos-lite：量化（GenW8A8）+ 2步 UniPC，4090 上亚秒级——比学术蒸馏路线近得多，今天就能试。
+
+###1.7 官方教程精读：Cosmos 3 Edge 端侧部署（NVIDIA 官方博客，2026-08-19）
+
+[NVIDIA 官方博客《Post-Train NVIDIA Cosmos 3 Edge for On-Device Robot Control》](https://developer.nvidia.com/blog/post-train-nvidia-cosmos-3-edge-for-on-device-robot-control/)是目前**唯一一篇官方手把手的"Cosmos3→真机策略"端到端教程**（后训练→Jetson Thor 服务端→receding-horizon 控制→RoboLab 闭环评测）。逐条汲取如下——它对你们的价值不亚于 Cosmos Policy 论文，因为它是**工程版**。
+
+**这篇教程在干嘛**：把 4B 的 Cosmos 3 Edge（内含 2B Nemotron reasoner 的 omni 模型，与 Nano/Super 同一物理世界预训练）后训练成 DROID 策略，**直接跑在机器人本体的 Jetson Thor 上**（BF16 权重约 9GB，无需数据中心 GPU），RoboLab 120 任务闭环 22.9%（对照：Nano 36.8%）。
+
+**配置表逐行拆解（Table 1，DROID Edge 口径——多处直接矫正你们的做法）**：
+
+| 官方设置 | 数值 | 对你们的启示 |
+| --- | --- | --- |
+| 动作空间 | joint_pos **8维绝对关节位置**（7关节+夹爪） | 关节空间动作天然有界 |
+| 归一化 | **裸关节值，不归一化** | 用关节空间就别做归一化——**少一整类训推不一致风险**（对照你们：若天机用关节位置控制，这是最简路线；若用末端位姿才需要归一化） |
+| 动作头 | **全新初始化**：encoder+MLP+embedding tokens，**5×学习率** | 基座本来没有动作接口，后训练新建；动作头要单独给高学习率——你们若全网统一lr，动作头很可能欠训 |
+| 损失平衡 | **视觉 flow-matching loss 加权去对齐动作 loss 的量级** | 这就是7.5节角度4的官方答案：不是拍脑袋设权重，而是**让两个 loss 量级匹配**，防止单方主导——你们"联训就慢/视频抢戏"的病根药方 |
+| 观测画布 | 腕部360×640 叠在两个外视180×320 上 → **540×640** | 画布几何官方口径：固定排布+固定分辨率，写进接口契约 |
+| 动作块 | **32步 @15Hz**（≈2.13秒运动） | 见下面的延迟哲学 |
+| 训练规模 | global batch 8192（HSDP 32×8=256 ranks）；官方验证 run **64节点×4=256张 GB200、约68小时**（~17.4K GB200时）；配置表为10K迭代（长余弦 cycle 100K，每1K存checkpoint） | **残酷的现实检查**：官方全量SFT是256张GB200级别的事。你们照抄配方必须配套改造：LoRA（so101 项目路线，~48h单机可跑）或大幅缩 global batch + 调 lr——**直接抄 batch 8192 是不存在的选项** |
+| 数据闸门 | Cosmos3-DROID：7.6万条**成功**轨迹、350小时、86任务、564场景；三步准备：**过滤空闲帧 → 只留成功演示 → 训练时随机裁剪/缩放/色彩抖动** | 与6.2节一致，补上"过滤空闲/非任务帧"这一具体闸门 |
+| 协议 | 服务端说 **OpenPI WebSocket 协议**（DROID 生态通用），客户端 `openpi_client` 直连 | 你们的客户端不用自己写协议——官方 `action_policy_server_robolab` + openpi_client 即插即用 |
+
+**延迟哲学——对"太慢"症状的根本性矫正（本节最重要的一条）**：
+
+> Edge 在 Jetson AGX Thor T5000 上**每个动作块推理约1.53秒**，而一个动作块覆盖约**2.13秒**的运动——**推理时延 < 动作块覆盖时长，就能连续运动**：执行当前块的前16步（15Hz）期间下一块已在算，重规划用**真实测得的关节位置**（state-conditioned）从"手臂实际在哪"续起，自带纠偏。
+
+翻译给你们听：**官方端侧方案根本不是"百毫秒级实时"，而是1.5秒级推理照样连续干活**。你们把"推理慢到不可用"重新定义一下——如果1.5秒能连续动，那"慢"的真正问题只剩：①是否阻塞了动作下发（串行解码视频之类，7.5节角度1）；②是否低到无法在关键节点重规划（接触瞬间）。**按这个标准重新测你们的延迟，大概率"慢"的问题会缩小一半。**
+
+**另外三条直接可用的情报**：
+
+1. **官方服务端开一个开关就返回"想象的 rollout 视频"**（原文：starting the server with video decoding enabled returns the policy's imagined rollout alongside the actions）——领导要的"推理产出未来视频"在**官方边缘部署路径里就是一等公民选项**，与动作同响应返回。7.2节 M1 的合法性再添官方背书。
+2. **部署彩蛋**：Thor 上要 `TORCHDYNAMO_DISABLE=1`（eager 模式）——官方 Triton 轮子缺 sm_110a kernel。你们若未来跑 Jetson（注意：**天机 Marvin Pro 数采平台本身就用 Jetson Orin AGX 64G**，Edge 的 9GB BF16 理论上塞得下），这类坑提前记下。
+3. **基座选型校准预期**：Edge（4B）在 RoboLab 120 任务大杂烩上也只有 22.9%——**官方基线在多任务泛化上本来就不高**。你们的任务是单任务专精（抓可乐），有100条针对性数据，应该远高于这个数字才对；反过来，如果你们的仿真回归台在单任务上还达不到50%+，说明确实有工程/数据问题，不是"模型本来就菜"。
+
+**Aigen 案例（教程附赠的合成数据视角）**：用 Cosmos 后训练生成杂草/作物的多样化合成图像，除草系统**只用1%真实数据**训练即达到强性能——对应你们阶段二的"视频模型当数据工厂"路线（GigaWorld-0同款思路）。
+
+**给天机项目的三条落地建议（从本节直接推出）**：
+
+1. **动作空间走关节位置+不归一化**（如果任务允许）——把训推不一致风险砍掉一大块，这是官方 DROID 口径。
+2. **损失权重抄官方做法**：视觉 loss 加权对齐动作 loss 量级，而不是拍一个固定系数。
+3. **训练规模务实化**：全量 SFT 别想（256×GB200），走 LoRA + 小 global batch + 对照收敛损失表（1.1节）判断是否训到位；官方每1K存checkpoint的习惯照抄，方便挑早停点。
 
 ## 二、三个症状的病理学：逐个解剖
 
@@ -424,11 +465,13 @@ F6 指令/语义   走向了别的物体(语义 grounding 错)
 | 开关 | 推荐起点 | 依据 |
 | --- | --- | --- |
 | 动作块长度 chunk | 16~32（RoboCasa官方32，LIBERO16） | 太长=开环漂移，太短=重规划频繁 |
-| 控制频率 | 与遥操一致（20fps是官方常用值） | 训推一致铁律 |
-| 未来视频loss权重 | 阶段一调低或单独消融 | 症状二的直接对策；Cosmos Policy里视频类只占50%且1步去噪 |
-| 图像增广 | 开（aug+JPEG压缩） | Cosmos Policy官方就这么防过拟合 |
+| 控制频率 | 与遥操一致（20fps是官方常用值；Edge教程用15Hz） | 训推一致铁律 |
+| 未来视频loss权重 | **视觉 flow-matching loss 加权去对齐动作 loss 的量级**（1.7节官方Edge做法），而不是拍固定系数；阶段一可再单独消融 | 症状二的直接对策；官方口径 |
+| 动作头初始化 | **全新初始化（encoder+MLP+tokens）+ 5×学习率**（1.7节官方做法） | 基座没有现成动作接口；全网统一lr会欠训动作头 |
+| 归一化 | 关节空间动作 → **不归一化**（官方DROID口径）；末端位姿才需要 | 砍掉一整类训推不一致风险 |
+| 图像增广 | 开（随机裁剪/缩放/色彩抖动 + JPEG压缩） | Cosmos Policy/Edge教程都这么防过拟合 |
 | EMA | 开 | 扩散训练标配 |
-| 训练步数判定 | 对照收敛损失表，不看"跑了几小时" | 1.1节数值 |
+| 训练步数判定 | 对照收敛损失表，不看"跑了几小时"；每1K存checkpoint挑早停点 | 1.1节数值 + Edge教程习惯 |
 
 ## 七、推理与部署：产出未来视频与低延迟如何兼得
 
@@ -499,13 +542,15 @@ RoboCasa/ALOHA多一路相机,画布变成11槽,结构相同。
 
 ### 7.4 延迟预算表（从官方数字反推的可行配置）
 
+**先立一个官方口径的延迟哲学（1.7节 Edge 教程，矫正"必须百毫秒"的误区）**：Edge 在 Jetson Thor 上单块推理约 **1.53秒**，而动作块覆盖约 **2.13秒**运动——**推理时延只要小于动作块覆盖时长，执行前缀+重规划就能连续运动**（官方循环：执行32步中的前16步@15Hz，期间下一块算完；重规划用真实关节位续起）。所以重新定义你们的"慢"：真正要消灭的不是绝对延迟，而是①阻塞动作下发的串行环节（角度1）、②关键节点（接触瞬间）等不起的重规划空窗。按这个标准重测，"慢"的问题通常缩小一半。
+
 | 组件 | 参考值 | 手段 |
 | --- | --- | --- |
 | 动作去噪 | **5步**（Cosmos Policy官方） | 不要默认20~50步 |
 | 视频去噪 | **1步（M1并行）/ 2步（cosmos-lite实测）** | 与动作同前向并行；M4才用高步数 |
 | CFG | 只开时间步区间（官方 [960,1001]）；FD预览可 guidance 1.0 | 省一半引导开销 + 消语义幻觉 |
 | VAE解码 | M1/M2 按需解码（要给人看才解） | latent 阶段不影响动作路径 |
-| 服务形态 | 异步流式（官方policy server / `/v1/videos`） | 动作块先回传，视频帧异步补 |
+| 服务形态 | 异步流式（官方policy server / `/v1/videos`；Edge服务端开 video decoding 即随动作返回想象rollout） | 动作块先回传，视频帧异步补 |
 | 量化 | GenW8A8：Edge 582→331ms，Nano 2403→959ms | cosmos-lite 现成产物 |
 | 上限手段 | 蒸馏单步（F3A路线）、Edge版基座 | 阶段二再上 |
 
@@ -662,6 +707,8 @@ RoboCasa/ALOHA多一路相机,画布变成11槽,结构相同。
 - 论文弹药清单：[zhiheng-ma/awesome-video-action-models](https://github.com/zhiheng-ma/awesome-video-action-models)；数据增广：[cosmos-aug](https://github.com/userdarius/cosmos-aug)、[EmbodiedDataTransfer](https://github.com/Miical/EmbodiedDataTransfer)、[SO-101-Video-Augmentation](https://github.com/hkolla1611/SO-101-Video-Augmentation)
 
 **一手配方（按优先级）**：
+
+- [官方端到端教程：Post-Train Cosmos 3 Edge for On-Device Robot Control](https://developer.nvidia.com/blog/post-train-nvidia-cosmos-3-edge-for-on-device-robot-control/)（1.7节精读：训练规模现实、损失对齐、延迟哲学、OpenPI 服务端、Jetson 部署）
 
 - [Cosmos Policy Cookbook（latent frame injection 完整配方）](https://nvidia-cosmos.github.io/cosmos-cookbook/recipes/post_training/predict2/cosmos_policy/post_training.html) ｜ 论文 [arXiv 2601.16163](https://arxiv.org/abs/2601.16163) ｜ 代码 [NVlabs/cosmos-policy](https://github.com/NVlabs/cosmos-policy)
 - [NVIDIA/cosmos 的 Cosmos3 action SFT cookbooks](https://github.com/NVIDIA/cosmos/tree/main/cookbooks/cosmos3/generator/action/finetune)（DROID/LIBERO/RoboCasa 三配方 + policy server + RoboLab 客户端）
