@@ -4,7 +4,7 @@ date: 2026-10-09T18:00:00+08:00
 draft: false
 categories: ["知识点拆解"]
 tags: ["🤖具身", "🎬世界模型", "🧬VLA", "📊模型对比"]
-summary: "2026年具身智能最热的范式转向：世界行动模型（WAM）。本文盘点NVIDIA、BFL、GigaAI、蚂蚁、清华/上交/北大港大等团队的15+个WAM，逐个讲架构与成绩，详解RoboDojo/RoboLab-120榜单，提炼六大架构流派与七条趋势。"
+summary: "2026年具身智能最热的范式转向：世界行动模型（WAM）。本文盘点NVIDIA、BFL、GigaAI、蚂蚁、清华/上交/北大港大等团队的15+个WAM，逐个讲架构与成绩，详解RoboDojo/RoboLab-120榜单，提炼六大架构流派与七条趋势；含4.3 Cosmos Policy与4.4 DreamDojo两篇加长详解（latent frame injection三模式+价值头规划、44k小时人类视频+连续latent action预训练世界模型）。"
 weight: 3
 ---
 
@@ -18,6 +18,7 @@ weight: 3
 
 - **WAM = 世界模型 + 动作模型的联合分布**：一个模型同时预测"接下来画面怎么变"（视频/世界流）和"我该怎么动"（动作流），用视频预测给策略注入物理先验。
 - **"WAM"一词是 NVIDIA 发明的**（DreamZero，2026年2月），但技术谱系更早：UniPi 的"先想象再执行"、GR 系列、WorldVLA、Cosmos Policy、Motus 都是前身；学术圈也常叫 VAM（Video-Action Model）。
+- **两篇加长详解值得精读**（4.3/4.4）：**Cosmos Policy**——latent frame injection 三模式 + 价值头 best-of-N，185条真机数据做到93.6%，证明"微调视频生成器就是SOTA策略"；**DreamDojo**——44k小时人类视频 + 连续latent action 预训练的基础世界模型，蒸馏到10.8 FPS，把 WAM 的用途从涨点扩展到"策略评测与规划的模拟器"。
 - **六大架构流派已经分化**：两段式（想象→执行）、联合双向、因果可选视频、训练用推理弃、异步双频、动作即视觉token——效率与统一性的取舍是分野主线。
 - **榜单现状（截至2026年10月）**：RoboDojo 仿真榜（官方 2026-08-26 版）前 15 名中 WAM 只占 4 席（X-WAM #10、GigaWorld-Policy-0 #13、LingBot-VLA #15、AHA-WAM #17、Fast-WAM #19），但新一波（PatchWAM 29.39、OpenWAM-α）已经杀到前列；RoboLab-120 上 WAM 则全线上位（FLUX 3 Action 42.92 > OASIS 39.0 > Cosmos-3-Nano-Policy 36.8 > π0.5 28.0 > DreamZero 25.7）。
 - **训练时建模正在取代测试时想象**：Fast-WAM、GigaWorld-Policy、ABot-M0 一代都不再在推理时跑视频扩散，延迟压到 190–225ms，和 π0.5 一个量级。
@@ -57,9 +58,10 @@ p(未来视频, 动作 | 历史观测, 指令)
 2023-24 GR-1/GR-2    视频预训练的VLM接动作头，"以视频理解带动作"
 2024   WorldVLA      把世界模型与VLA装进一个自回归框架
 2024-25 UWM等        观测token与动作token直接拼接，单流联合建模
-2025   Cosmos Policy 微调视频生成器（Cosmos Predict2）直接出动作
 2025   mimic/VAM     视频动作模型（Video-Action Model）口径
 2025.12 Motus        MoT三专家统一五种模式，latent action解锁动作预训练
+2026.01 Cosmos Policy 微调视频生成器(Cosmos Predict2)直接出动作,三模式+价值头
+2026.02 DreamDojo     44k小时人类视频+连续latent action预训练基础世界模型
 2026.02 DreamZero    NVIDIA正式命名"World-Action Model"
 2026下半年  快速分化  训练用推理弃 / 异步双频 / Action-as-Patch / 开源基建
 ```
@@ -100,7 +102,7 @@ p(未来视频, 动作 | 历史观测, 指令)
   代表：PatchWAM          优点：架构极简  缺点：路线很新、证据少
 ```
 
-一个很有信息量的旁证来自 OpenWAM（斯坦福/NUS系开源框架，详见4.9）：它把"世界与动作以何种注意力结构交互"做成受控消融，结论是**视频→动作的单向信息流 + 专门的动作容量 + 联合去噪**三者缺一不可——纯两段式（先看视频再IDM）反而掉点。这解释了为什么流派B/C成为了2026年的主流。
+一个很有信息量的旁证来自 OpenWAM（斯坦福/NUS系开源框架，详见4.10）：它把"世界与动作以何种注意力结构交互"做成受控消融，结论是**视频→动作的单向信息流 + 专门的动作容量 + 联合去噪**三者缺一不可——纯两段式（先看视频再IDM）反而掉点。这解释了为什么流派B/C成为了2026年的主流。
 
 ## 三、发展时间线：十个月，从一篇论文到一个生态
 
@@ -110,13 +112,13 @@ p(未来视频, 动作 | 历史观测, 指令)
 
 三个节奏值得注意：
 
-1. **2025年12月—2026年2月：奠基期**。Motus（12月15日）证明MoT统一框架能同时拿到世界模型、VLA、IDM五种模式；一个月后 Cosmos Policy 首次证明"微调视频生成器直接出动作"可行；再一个月后 NVIDIA 用 DreamZero 正式命名 WAM 并立下"实时7Hz闭环"的标杆。
+1. **2025年12月—2026年2月：奠基期**。Motus（12月15日）证明MoT统一框架能同时拿到世界模型、VLA、IDM五种模式；一个月后 Cosmos Policy 首次证明"微调视频生成器直接出动作"可行；2月6日 DreamDojo 用44k小时人类视频把世界模型推到"基础模型"量级；再十天后 NVIDIA 用 DreamZero 正式命名 WAM 并立下"实时7Hz闭环"的标杆。
 2. **2026年3月—6月：效率革命期**。Fast-WAM（3月）和 GigaWorld-Policy（3月）先后证明推理时不必跑视频；AHA-WAM（6月）用异步双频把闭环推到24Hz；同期 NVIDIA 发布 Cosmos 3 全家桶。
 3. **2026年7月—9月：基建与榜单期**。RoboDojo（7月，港大/北大/清华）给了统一的仿真+真机战场；ABot-M0.5 把 WAM 带进移动操作；9月三个星：FLUX 3 Action 登顶 RoboLab-120、OpenWAM 开源46个检查点、PatchWAM 用"动作即patch"拿下 RoboDojo 当时最高分。
 
 ## 四、重点模型逐个看：团队、架构、成绩、一句话点评
 
-以下按时间顺序讲12个工作。每个模型给出：团队与时间、arXiv/报告出处、架构要点、训练配方、报告成绩、一句话点评。所有成绩均带评测口径；不同基准之间**不可直接比较**（第五、七节详述）。
+以下按时间与重要性讲13个工作。每个模型给出：团队与时间、arXiv/报告出处、架构要点、训练配方、报告成绩、一句话点评（4.3 Cosmos Policy 与 4.4 DreamDojo 为加长版详解）。所有成绩均带评测口径；不同基准之间**不可直接比较**（第五、七节详述）。
 
 ###4.1 DreamZero（NVIDIA，2026年2月）——"WAM"这个词的发明者
 
@@ -135,47 +137,96 @@ p(未来视频, 动作 | 历史观测, 指令)
 
 ###4.3 Cosmos Policy 与 Cosmos 3（NVIDIA，2026年1月/6月）——视频基座的工业化路线
 
-- **出处**：Cosmos Policy（Kim et al., 2026，GigaWorld-Policy 论文中引用的对照工作）；Cosmos 3：[arXiv 2606.02800](https://arxiv.org/abs/2606.02800)。本地有[《Cosmos 3 世界基础模型精读》](/posts/paper-reading/cosmos3-世界基础模型精读/)逐章拆解。
-- **架构**：Cosmos Policy 直接把视频生成器 Cosmos Predict2 微调成策略；Cosmos 3 则升级为 Mixture-of-Transformers **双塔**（Reasoner 理解塔 + Generator 生成塔），支持文本/图像/视频/音频/机器人动作五模态，配套 OpenMDW-1.1 许可证。Nano-Policy（16B）继承这套基座。
-- **成绩**：Cosmos Policy 在 RoboCasa 上67.1%、真机平均0.58（GigaWorld 论文口径）、推理1413ms；Cosmos-3-Nano-Policy 在 RoboLab-120 上36.8%（仅次于 F3A 与 OASIS，**高于 π0.5 的28.0**），Edge-Policy 22.9%。
-- **点评**：NVIDIA 的打法是**基座工业化**：一套视频基座通吃世界模型、合成数据、策略三条产品线。Nano-Policy 用16B打出了36.8，但 FLUX 3 Action 用7B打42.9、π0.5 用3.3B打28.0——"以大打小"的效率账在 WAM 时代变得非常微妙。对 MOT/Flow-GRPO 方向的读者来说，Cosmos 系列最值得精读的是"生成塔如何为动作专家供血"的数据管线。
+- **出处**：Cosmos Policy（[arXiv 2601.16163](https://arxiv.org/abs/2601.16163)，Kim et al.，NVIDIA+Stanford，ICLR 2026；代码 [NVlabs/cosmos-policy](https://github.com/NVlabs/cosmos-policy)，[Cosmos Cookbook 配方](https://nvidia-cosmos.github.io/cosmos-cookbook/recipes/post_training/predict2/cosmos_policy/post_training.html)，HF 检查点 `nvidia/Cosmos-Policy-ALOHA-Predict2-2B`）；Cosmos 3：[arXiv 2606.02800](https://arxiv.org/abs/2606.02800)。本地有[《Cosmos 3 世界基础模型精读》](/posts/paper-reading/cosmos3-世界基础模型精读/)逐章拆解，以及[《Cosmos3微调真机落地路线图》](/posts/thoughts/cosmos3微调真机落地路线图/)把这套配方落到真机的逐项拆解。
 
-###4.4 GigaWorld-Policy（GigaAI，2026年3月）——"动作为中心"的因果设计
+**核心机制：latent frame injection（把视频生成器"改造成"策略的最小手术）**
+
+Cosmos Policy 不给动作造独立专家，而是把观测、动作、未来本体、未来图像、价值全部摆进**同一条 latent 画布**，靠"哪段干净、哪段加噪"在同一个模型里切换三种模式：
+
+```text
+策略模式  [s]              → [a, s', V]     ← 部署只跑这个（当前观测出动作）
+世界模式  [s, a]           → [s', V]        ← 给定动作想象世界（训练用）
+价值模式  [s, a, s']       → [V]            ← 判定一条轨迹会不会成功
+训练 batch 配比: 策略50% / 世界25% / 价值25%
+```
+
+三个被反复引用的设计细节：
+
+1. **动作分支不读"预测出来的视频"**：策略模式下动作从当前观测直接条件生成，未来图像是同一次去噪的兄弟输出——**视频画错不连坐动作**，"视频说抓到了但动作没抓到"在这个框架里是正常现象。
+2. **不对称去噪**：动作5~10步、未来图像1步——视频只需粗轮廓，不需要精细去噪；这是"联合出动作+视频又不慢"的官方答案。
+3. **价值头替代"看视频判断"**：V(s) 用648条混合策略 rollout 单独微调，推理时做 best-of-N 规划——**用学出来的价值判断成败，而不是解读生成的视频**（视频幻觉的制度性解法）。
+
+**训练配方（官方超参，可直接平移的起点）**
+
+| 项 | 官方值 |
+| --- | --- |
+| 数据 | 真机 ALOHA 四任务共约**185条**（叠衬衫15/糖果入碗45/糖果入袋45/茄子摆盘80）；LIBERO、RoboCasa 均为每任务50条 |
+| 规模 | batch 200、**5万步**、lr 1e-4、chunk 50、8×H100×48小时（≈1000万样本访问） |
+| 噪声 | 训练 70% log-normal + 30% 均匀混合；推理 σ∈[4,80] |
+| 图像 | 随机增广 + JPEG压缩 + 翻转全开（`trained_with_image_aug`、`use_jpeg_compression`） |
+| 收敛判据 | 动作L1 **0.010~0.015**、未来本体L1≈0.007、未来图像latent L1 0.05~0.09、价值L1≈0.007 |
+
+**成绩**
+
+| 场景 | 数据量 | 结果 |
+| --- | --- | --- |
+| LIBERO（仿真40任务） | 约2000条（每任务50） | 平均 **98.5%**，超 π0.5 |
+| RoboCasa | 每任务50条 | 67.1%（P2）/ 71.1%（P2.5），官方口径"**6×更少演示**" |
+| 真机 ALOHA（4任务） | 185条 | 平均 **93.6%**；价值规划 best-of-N 再 **+12.5pp** |
+| 推理代价 | — | 1413ms/动作块（GigaWorld 论文实测口径）、仅6GB显存 |
+
+- **架构（Cosmos 3 侧）**：升级为 Mixture-of-Transformers **双塔**（Reasoner 理解塔 + Generator 生成塔），支持文本/图像/视频/音频/机器人动作五模态，配套 OpenMDW-1.1 许可证；Nano-Policy（16B）继承这套基座。Cosmos-3-Nano-Policy 在 RoboLab-120 上 36.8%（仅次于 F3A 与 OASIS，**高于 π0.5 的28.0**），Edge-Policy 22.9%。
+- **点评**：NVIDIA 的打法是**基座工业化**：一套视频基座通吃世界模型、合成数据、策略三条产品线。Cosmos Policy 的历史意义是**第一次证明"微调现成视频生成器"就能拿到 SOTA 真机策略**——不用从头训 VLA，latent frame injection 此后成为 Cosmos 3、F3A 等一串后继工作的模板；它的三模式 batch 配比则是"一个模型多任务共训"的标准答案。短板也在榜单上摆着：真机平均0.58（GigaWorld口径）低于 Motus 0.76，说明配方会随基准进化。Nano-Policy 用16B打36.8、FLUX 3 Action 用7B打42.9——"以大打小"的效率账在 WAM 时代变得非常微妙。对 MOT/Flow-GRPO 方向的读者，Cosmos 系列最值得精读的是"生成塔如何为动作专家供血"的数据管线。
+
+###4.4 DreamDojo（NVIDIA+HKUST+Berkeley+UT Austin 等，2026年2月）——44k小时人类视频喂出来的基础世界模型
+
+- **出处**：[arXiv 2602.06949](https://arxiv.org/abs/2602.06949)（2026-02-06 提交，ICML 2026）；项目页 [dreamdojo-world.github.io](https://dreamdojo-world.github.io/)；作者含 Linxi "Jim" Fan、Yuke Zhu、Joel Jang、Pieter Abbeel、Jitendra Malik（NVIDIA/UT Austin 系），与 HKUST、Berkeley、UW、Stanford、KAIST、UofT、UCSD 联合。
+- **定位：本文里"世界流压倒动作流"的极端样本**。其他 WAM 都是"为了更好的策略顺带建模世界"，DreamDojo 反过来：**先造一个能被动作操控的通用世界模型，策略与评测只是它的下游应用**。骨干直接初始化自 Cosmos-Predict2.5——它同时也是 NVIDIA Cosmos 生态的上游变体。
+- **数据（全文盘点里的规模之最）**：DreamDojo-HV **44,711小时第一人称人类视频**，世界模型预训练史上最大视频混合——相对此前最大数据集：**时长15×、技能96×、场景2000×**；与 In-lab、EgoDex 按 1:2:10 采样比混合预训练。
+- **机制：连续 latent action 当"世界语"**（解决"人类视频没有动作标签"）：
+  - 训练一个 VAE 式**时空 Transformer** 潜动作模型：编码器吃两帧 (f_t, f_{t+1})，经信息瓶颈压出低维潜动作 â_t；解码器用 â_t + 首帧重构下一帧。
+  - 这个**本体无关的潜动作**与时间步 embedding 一起注入骨干 DiT 的各块——人手和夹爪长得再不一样，"怎么动"被统一编码，**本体鸿沟（embodiment gap）由此跨过**，44k 小时无标注视频全部变成可教的监督信号。
+  - 与 Motus 的光流 latent action、LingBot-VA 2.0 的共享 latent 空间殊途同归：**让视频携带动作监督，是 WAM 数据飞轮的共同答案**。
+- **后训练与蒸馏**：适配新本体时**重置动作条件层**、在小规模目标机器人数据上微调（GR-1、宇树 G1、AgiBot、YAM；视频采样~10Hz、13帧一窗=首帧条件帧+12步相对动作）；蒸馏管线把生成加速到 **10.81 FPS 实时**，自回归长程生成**稳定运行超过1分钟**且上下文一致性更好。
+- **成绩与用途**：首个在未见物体/新环境上表现出**零样本 OOD 泛化**的灵巧操作级世界模型（同底座 Cosmos-Predict2.5 直接后训练的对照明显更弱）；后训练后兼具物理理解与精确动作可控性。三类应用：**实时遥操（live teleoperation）、策略评测（不碰真机就能评策略）、基于模型的规划（model-based planning）**。
+- **点评**：① 44k 小时人类视频是本文第一节"数据复用优势"的最强证据——VLA 只能吃带动作标注的机器人数据，世界模型能把**整个人类活动视频库**变成预训练语料；② 它把 WAM 的价值从"涨点工具"扩展成"**评测与规划的模拟器**"——策略评测不占真机、可反复重放，这是榜单分数之外的第二条价值链（与真机项目"先建回归台再谈训练"的思路同构）；③ 短板同样清晰：没有动作真值的世界模型，精细控制仍必须靠目标机器人后训练+蒸馏——**"世界的想象可以零样本，控制的精度不能"**。在六大流派里它最接近"世界模型+潜动作"的纯正血统，读它是为了理解 WAM 的另一半天空。
+
+###4.5 GigaWorld-Policy（GigaAI，2026年3月）——"动作为中心"的因果设计
 
 - **出处**：[arXiv 2603.17240](https://arxiv.org/abs/2603.17240)（Ye et al.）；同门姊妹工作 GigaWorld-0 是纯合成数据引擎（本地有[《GigaWorld-0 数据引擎精读》](/posts/paper-reading/gigaworld-0数据引擎精读/)），VLA 只吃合成数据训练。
 - **架构**：**因果WAM**（流派C）：用因果注意力mask死死保证"未来视频token不许影响当前动作"；预测顺序是**先动作、后视频**——视频以动作为条件生成，物理因果链在架构里显式成立。推理时视频分支可整个关闭：**9×快于 Motus（对齐 π0.5 的225ms量级），机器人操作成功率反超7%**。视频基座 Wan2.2-5B DiT。
 - **成绩**：RoboTwin 2.0 相对 π0.5 提升95%；真机四任务平均：Motus 0.76 > π0.5 0.69 ≈ GigaBrain-0（配套VLA）0.68 > Cosmos Policy 0.58。RoboDojo 榜：GigaWorld-Policy-0 得分6.2（#13）。
 - **点评**：**训练时有想象力、推理时零成本**的旗手，也是"视频辅助可以只发生在训练期"这一论点的最强证据。因果mask这个细节看似小，实则解决了联合建模的污染问题——这条经验已被 Fast-WAM、ABot-M0 等多篇工作印证。
 
-###4.5 Fast-WAM（清华朱军/赵航系，2026年3月）——"测试时想象力是必需品吗？"
+###4.6 Fast-WAM（清华朱军/赵航系，2026年3月）——"测试时想象力是必需品吗？"
 
 - **出处**：[arXiv 2603.16666](https://arxiv.org/abs/2603.16666)（Tianyuan Yuan 等，清华）。
 - **架构**：以 Wan2.2-5B 视频DiT为骨干做视频-动作**训练期共训**，但部署时**完全不跑视频去噪**（流派D）——未来视频只在训练中作为中间监督，推理时模型"参数化地"记住了想象能力。190ms/动作块，比"先想象再执行"快4倍。
 - **成绩**：LIBERO、RoboTwin 2.0、真机任务上与想象式方法打平或更好（RIFT 论文复测其 LIBERO 为96.8）；RoboDojo 得分3.5（#19）。
 - **点评**：**思想实验式的一篇**：把"测试时想象"从 WAM 的必要条件降级为可选项，直接引爆了下半年的效率竞赛。它在 RoboDojo 上的3.5和在 LIBERO 上的~97 形成刺眼反差——同一个模型，换个战场就从学霸变学渣，这正好引出第五节的"基准口径"问题。后续 Rift（[arXiv 2608.11521](https://arxiv.org/abs/2608.11521)）用学习式 anticipation token 一次前向构建未来KV缓存，把 LIBERO 推到98.8且保持247ms，可视为该流派的精修版。
 
-###4.6 AHA-WAM（上海交大姚望/穆瑶组，2026年6月）——异步双频：慢规划，快执行
+###4.7 AHA-WAM（上海交大姚望/穆瑶组，2026年6月）——异步双频：慢规划，快执行
 
 - **出处**：[arXiv 2606.09811](https://arxiv.org/abs/2606.09811)；一作 Jisong Cai，通讯含 Yao Mu（上交）。
 - **架构**：**双DiT异步**（流派E）。视频DiT（4.99B，Wan2.2-5B初始化）当**低频世界规划器**：带滚动KV记忆，维护长程场景演化的可复用层间latent上下文；动作DiT（1.02B）当**高频执行器**：每次闭环只查询这份上下文、不去噪视频；再加1.22B的OVCR（观测引导视频上下文路由）模块让复用的上下文跟上最新观测，总计约7.23B。配套 horizon-adaptive offset 训练让规划器与执行器的相位差被显式建模。
 - **成绩**：RoboTwin 2.0 平均92.80%（clean 93.4 / randomized 92.2），且**完全不用机器人数据预训练**；真机4任务78.3%（同表：π0.5 76.7、Fast-WAM 68.3、Motus 21.7）；闭环24.17Hz，比 Fast-WAM 快4.59倍。RoboDojo 得分4.8（#17）。
 - **点评**：**把"世界模型的算力摊销"这件事做成了显式架构**——视频分支算一次、动作分支用多次，这是异步派的核心经济账。真机上压过 π0.5 但 RoboDojo 只有4.8分，说明它的强项是"视频预训练零机器人数据"的冷启动，弱项是长程开放任务。GitHub（SereneC/AHA-WAM）与HF检查点已开源。
 
-###4.7 X-WAM（2026年4月）——统一4D：视频之外还要几何
+###4.8 X-WAM（2026年4月）——统一4D：视频之外还要几何
 
 - **出处**：[arXiv 2604.26694](https://arxiv.org/abs/2604.26694)（Unified 4D World Action Modeling from Video Priors with Asynchronous Denoising）。
 - **架构**：在视频先验之上做**多视角RGB-D视频+动作**的统一生成（流派B+E混合）：把预训练DiT最后几个block复制出一个**深度预测分支**，用最小代价把2D像素模型升级为带几何的4D世界；去噪过程异步化，优先保证动作快速交付、视频慢工出细活。
 - **成绩**：预训练5800+小时机器人数据；RoboCasa 79.2%（对照：Cosmos Policy 67.1、UWM 60.8）；RoboTwin 2.0 平均90.7%。RoboDojo 得分7.7（#10，WAM里的最高名次之一）。
 - **点评**：回答了"像素世界够不够"——操作本质是接触动力学，**没有几何的想象是纸上谈兵**。深度分支只复制DiT尾部block的轻量设计很经济，值得做 MOT 相关工作的读者借鉴。
 
-###4.8 LingBot-VA / LingBot-VA 2.0（蚂蚁 Robbyant，2026年1月/7月）——自回归因果世界模型
+###4.9 LingBot-VA / LingBot-VA 2.0（蚂蚁 Robbyant，2026年1月/7月）——自回归因果世界模型
 
 - **出处**：LingBot-VA：[arXiv 2601.21998](https://arxiv.org/abs/2601.21998)，RSS 2026；LingBot-VA 2.0：[arXiv 2607.08639](https://arxiv.org/abs/2607.08639)。Robbyant（蚂蚁集团旗下具身智能公司）出品，代码开源在 Robbyant/lingbot-va，HF 上已有 LeRobot 格式检查点。
 - **架构**：**自回归扩散**（流派C/E）：5.3B双流MoT建在 Wan2.2-5B 栈上（causal视频VAE + UMT5文本编码器），视频latent与动作token交错排成一条自回归序列，跨chunk用KV缓存接力；推理时视频流与动作流各用独立的流匹配调度器，支持异步执行。2.0版进一步**原生化**：先建观测与动作共享的语义latent空间，再在上面学因果动力学，并用自监督latent action让**无动作标注的网络视频也携带动作监督**。
 - **成绩**：RoboTwin 2.0 上首批冲过90+：50任务平均92.9（easy）/91.6（hard），领先 Motus（88.7/87.0）与 π0.5（82.7/76.8）；LIBERO 平均98.5（其中Object 99.6）。代价：约2270ms/动作块（RIFT 论文实测，约为 Fast-WAM 的9.6倍）——自回归世界建模的延迟账单很厚。
 - **点评**：**"世界模型作为长程记忆"路线的代表**：KV缓存让长任务不漂移，长程任务指标（LIBERO-Long 98.5）确实受益。2.0的"共享latent空间+latent action"与 Motus 的光流latent action殊途同归——**让视频数据携带动作监督，是WAM数据飞轮的核心**。RoboDojo 上 LingBot-VLA 得分5.5（#15）。
 
-###4.9 OpenWAM 与 OpenWAM-α（NUS/清华/北大/港大/浙大/港中文/上交，2026年9月）——WAM的"检测器"与开源基建
+###4.10 OpenWAM 与 OpenWAM-α（NUS/清华/北大/港大/浙大/港中文/上交，2026年9月）——WAM的"检测器"与开源基建
 
 - **出处**：[arXiv 2609.07398](https://arxiv.org/abs/2609.07398)；项目 openwam-official.github.io；Lin Shao（NUS）与 Hang Zhao（清华）共同指导；46个检查点在 HF 的 OpenWAM org 开源。
 - **架构**：两件套。**OpenWAM-Infra**：把WAM设计空间拆成可组合模块——6种架构变体、5种视频骨干、4种视觉编码器、4种注意力mask，统一训练/推理/部署/评测接口。**OpenWAM-α**：用受控实验蒸馏出的三原则（①上游知识要经由足够强的生成骨干与紧凑latent空间迁移；②世界-动作协同需要专门的动作容量+显式世界→动作信息流+同步联合去噪；③具身预训练主要改善分布外泛化）拼装出来的**双系统模型**：世界与动作互相可见、单阶段共训、80维统一动作空间。
@@ -183,21 +234,21 @@ p(未来视频, 动作 | 历史观测, 指令)
 - **成绩**：LIBERO 99.3（超过 Fast-WAM 97.6、LingBot-VA 98.5、π0.5 96.9）；RoboTwin 2.0-Full 93.85；**RoboDojo 仿真榜17.18分/11.92% SR**；**RoboDojo 真机榜37.6分/24.4% SR**——直接把 π0.5 保持的22.9/12.8%纪录翻了近一倍。
 - **点评**：**这个领域最缺的不是又一个SOTA，而是"到底什么有效"的受控答案**——OpenWAM 补的就是这个空。它的受控消融给第六节"训练配方共性"提供了最硬的证据；真机榜的断层领先则说明双系统+共训的上限远未到头。想自己复现/魔改WAM的团队，从它的46个检查点入手是当前性价比最高的路径。
 
-###4.10 PatchWAM（2026年9月）——"动作即视觉token"的极简主义
+###4.11 PatchWAM（2026年9月）——"动作即视觉token"的极简主义
 
 - **出处**：[arXiv 2609.25961](https://arxiv.org/abs/2609.25961)；站在 ImageWAM 肩膀上。
 - **架构**：**Action-as-Patch**（流派F）：设计一个固定的动作-视觉latent映射，把每个动作步直接当成视觉latent序列里的一个"patch"，**彻底删掉专门的动作DiT**——一个视频模型通吃想象与控制。
 - **成绩**：截至2026年9月15日 RoboDojo 得分29.39（当时全榜最高）；RoboTwin 平均96.12（增广演示口径）；LIBERO-Plus 91.8。论文顺带列了各基准WAM侧SoTA：RoboTwin全量-MotuBrain、RoboTwin C2R-4D-WAM、LIBERO-ABot-M0.5、LIBERO-Plus-ImageWAM、RoboDojo-OpenWAM-α（本文写作时已被PatchWAM自身超越）。
 - **点评**：**"世界与动作还需要两套专家吗"的终极一问**。删掉动作DiT之后速度与简洁性双赢，但动作的控制精度是否会退化成"像素级近似"仍待真机检验。9月15日之后榜单又添了数轮更新，29.39的王座未必坐得久——盯榜时要带时间戳思维。
 
-###4.11 FLUX 3 Action（Black Forest Labs，2026年9月）——RoboLab-120的新王
+###4.12 FLUX 3 Action（Black Forest Labs，2026年9月）——RoboLab-120的新王
 
 - **出处**：官方技术报告（bfl.ai，无arXiv编号）；本地有[《FLUX 3 Action 世界行动模型精读》](/posts/paper-reading/flux3action世界行动模型精读/)，20张图逐图拆解。
 - **架构**：7B WAM，由图像生成模型 FLUX 3 骨干改造；**Guided Distillation** 与 **Logit Distillation** 双管齐下把教师多步去噪压成单步策略（控制循环图见精读）；另有与 Astra VLA 组成的**混合策略**（WAM管高风险决策、VLA管高频控制），整机成本低至8.77美元/月。
 - **成绩**：RoboLab-120（F3A口径）42.92总分登顶——**高于 OASIS 39.0、Cosmos-3-Nano-Policy 36.8、π0.5 28.0、DreamZero 25.7**；蒸馏后引导式42.2、单步38.3仍保持第一；推理加速1.34~2.28倍于 π0.5、1.52~3.95倍于 Cosmos FP8。
 - **点评**：**把FLUX图像生成栈的蒸馏手艺平移到具身**的胜利，也是"7B打赢16B和14B"的效率样本。它与 π0.5 的混合策略说明：厂商最终交付的不会是单一范式，而是**WAM+VLA的组合产品**——这可能是本赛道的终局形态之一。
 
-###4.12 其他值得知道的名字
+###4.13 其他值得知道的名字
 
 - **ABot-M0 / M0.5**（2026年7月，[arXiv 2607.00678](https://arxiv.org/abs/2607.00678)）：**移动操作**方向的统一WAM（本地有[逐图精读](/posts/paper-reading/论文精读-2607-00678/)）；在 LIBERO 上被 PatchWAM 引为 WAM 侧SoTA；RoboDojo 得分3.7（#18）。WAM 从桌面双臂走向"腿+臂+导航"是2026年中的重要扩散。
 - **LingBot-VA 2.0 / RIFT / 4D-WAM / MotuBrain / ImageWAM**：分别代表原生预训练、免rollout未来缓存、4D几何、RoboTwin全量冠军、LIBERO-Plus冠军等细分旗号，名字会反复出现在各论文的SoTA引用里，读榜时认得出即可。
@@ -389,6 +440,8 @@ p(未来视频, 动作 | 历史观测, 指令)
 **一手论文与报告**（按引用顺序）：
 
 - 综述：[World-Action Models for Robot Learning and Control: A Survey（2609.16074）](https://arxiv.org/abs/2609.16074)；[WAM短教程（2607.00836）](https://arxiv.org/abs/2607.00836)
+- Cosmos Policy：[2601.16163](https://arxiv.org/abs/2601.16163)（ICLR 2026）｜代码 [NVlabs/cosmos-policy](https://github.com/NVlabs/cosmos-policy)｜[Cookbook 配方](https://nvidia-cosmos.github.io/cosmos-cookbook/recipes/post_training/predict2/cosmos_policy/post_training.html)
+- DreamDojo：[2602.06949](https://arxiv.org/abs/2602.06949)（ICML 2026）｜[项目页 dreamdojo-world.github.io](https://dreamdojo-world.github.io/)
 - DreamZero：[2602.15922](https://arxiv.org/abs/2602.15922)｜Motus：[2512.13030](https://arxiv.org/abs/2512.13030)（CVPR 2026）｜Cosmos 3：[2606.02800](https://arxiv.org/abs/2606.02800)
 - GigaWorld-Policy：[2603.17240](https://arxiv.org/abs/2603.17240)｜Fast-WAM：[2603.16666](https://arxiv.org/abs/2603.16666)｜Rift：[2608.11521](https://arxiv.org/abs/2608.11521)
 - AHA-WAM：[2606.09811](https://arxiv.org/abs/2606.09811)｜X-WAM：[2604.26694](https://arxiv.org/abs/2604.26694)
