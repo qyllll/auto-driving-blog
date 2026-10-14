@@ -4,7 +4,7 @@ date: 2026-10-09T21:30:00+08:00
 draft: false
 categories: ["技术指南"]
 tags: ["🤖 具身智能", "🎬世界模型", "🛠️工程实践", "🧬VLA", "🏢 天机"]
-summary: "写给用Cosmos 3微调驱动真机机械臂（天机Marvin）抓可乐却一个月没跑通的团队：系统调研Cosmos生态落地项目——Cosmos Policy原版配方、NVIDIA官方SFT cookbook、首篇WAM sim2real论文、1.6节实测检索的GitHub现成仓库、1.7节精读官方Edge端侧部署教程、1.8节真实两阶段RTC管线逐项拆解（193条双任务数据、chunk32→64动机剖析、损失权重量级判定法、嫌疑排序S0~S7）；解剖‘动作丝滑但抓不到/联训视频太慢/视频幻觉’三大症状；第八节按官方源码拆解策略模式联合输出，给出四模式正面方案与七角度排查树；回答数据够不够、不重采的数据扩增路线（视觉增广/仿真合成/视频工厂）、MuJoCo还是Isaac Sim、开环闭环怎么测；新增第五节MuJoCo仿真训练全流程（四层失败定位、必调物理参数、脚本专家采数据、仿真混真机训练、固定种子回归台、域随机化sim2real对齐清单）与7.4训练预算（步数公式+锚点表：一版≈15万优化步@batch64=1000万样本，真机阶段二仅2%预算）和收敛四道闸G1~G4、真机/仿真两套具体训练方案，附四周重建计划与自驾→具身方法论映射。"
+summary: "写给用Cosmos 3微调驱动真机机械臂（天机Marvin）抓可乐却一个月没跑通的团队：系统调研Cosmos生态落地项目——Cosmos Policy原版配方、NVIDIA官方SFT cookbook、首篇WAM sim2real论文、1.6节实测检索的GitHub现成仓库、1.7节精读官方Edge端侧部署教程与损失平衡三级出处（Cosmos 3报告§4.2.2→cosmos-framework源码→教程Table 1，官方带动作配方一律loss_scale 10/10）、1.8节真实两阶段RTC管线逐项拆解（193条双任务数据、chunk32→64动机剖析、损失权重量级判定法、嫌疑排序S0~S7）；解剖‘动作丝滑但抓不到/联训视频太慢/视频幻觉’三大症状；第八节按官方源码拆解策略模式联合输出，给出四模式正面方案与七角度排查树；回答数据够不够、不重采的数据扩增路线（视觉增广/仿真合成/视频工厂）、MuJoCo还是Isaac Sim、开环闭环怎么测；新增第五节MuJoCo仿真训练全流程（四层失败定位、必调物理参数、脚本专家采数据、仿真混真机训练、固定种子回归台、域随机化sim2real对齐清单）与7.4训练预算（步数公式+锚点表：一版≈15万优化步@batch64=1000万样本，真机阶段二仅2%预算）和收敛四道闸G1~G4、真机/仿真两套具体训练方案，附四周重建计划与自驾→具身方法论映射。"
 weight: 99
 ---
 
@@ -38,7 +38,7 @@ weight: 99
 7. **架构上抄两条官方路线二选一**：走 Cosmos 3 官方 action-policy SFT（cosmos-framework，有 DROID/LIBERO/RoboCasa 三份开箱配方），或者走 Cosmos Policy 的 latent frame injection（NVlabs/cosmos-policy，有 cookbook + HF 检查点 + 真机 ALOHA 先例）。不要自创架构。
 8. **从抓可乐到会议室整理是分层问题**：先用100条把"抓"打成稳定原子技能（成功率>80%），再谈任务序列（VLM 规划 + 技能调用）。直接上长程任务是当前阶段不可能完成的目标。
 9. **优先级：动作先行，视频陪跑，价值殿后**（8.6节裁决）。任务指标只认动作；NVIDIA 自己的论文路线也是先策略模式93.6%、再价值规划+12.5pp。视频在联合模式下与动作共享采样，会随动作一起变好——设"先把视频做好"为里程碑是错误的，它的正确身份是异步预览+IoU健康度监控（P1）。卡死时的免费实验：拿官方 Cosmos Policy ALOHA 权重跑你们的部署栈，一刀切开"工程问题"还是"模型问题"（7.1节逃生通道）。
-10. **两个被官方教程矫正的误区**（1.7节）：①"必须百毫秒推理"——官方 Edge 端侧是1.53秒/块 vs 2.13秒覆盖时长，**时延小于块覆盖时长就能连续运动**，先重定义你们的"慢"；②"照抄官方配置就能训"——官方全量SFT是256张GB200×68小时的事，你们必须走 LoRA+缩 batch，同时抄它的两个便宜细节：动作头全新初始化+5×lr、视觉loss加权对齐动作loss量级。
+10. **两个被官方教程矫正的误区**（1.7节）：①"必须百毫秒推理"——官方 Edge 端侧是1.53秒/块 vs 2.13秒覆盖时长，**时延小于块覆盖时长就能连续运动**，先重定义你们的"慢"；②"照抄官方配置就能训"——官方全量SFT是256张GB200×68小时的事，你们必须走 LoRA+缩 batch，同时抄它的两个便宜细节：动作头全新初始化+5×lr、视觉loss加权对齐动作loss量级（出处见1.7节专栏：Cosmos 3报告§4.2.2+源码，官方带动作配方一律10/10）。
 11. **你们配置的头号嫌疑（1.8节实战拆解，已按最新配置文档校准）**：训练是**两阶段**（Full SFT 33帧画布 → RTC后训练65帧画布），chunk64 的开环时域其实合理（2.13s@30Hz=官方32@15Hz），真正的嫌疑是：**双任务混合（193条=93排列可乐+100拿杯子）但任务条件未验证**、**两阶段间画布从9→17个latent时间点的难度跳变**、vision权重1导致视频分支大概率欠训（视频崩是预期内）。已确认做对的：动作头5×分组lr（1e-5/5e-5）、RTC五档随机前缀、camera-anchor。**别再怀疑统一LR——分组已实现**；下一步先测任务条件与分阶段开环L1，再跑 chunk32+RTC 对照（大概率丝滑与视频负担同时解决）。
 12. **一版训练要多少步、怎么验证训到位（7.4节，公式+方案）**：步数与"仿真还是真机"无关，只看**样本访问量**——锚点1000万（ALOHA：batch 200×5万步）；你们阶段二1.4万步@batch16只有**2%预算**，一版应到 **≈15万优化步@有效batch64**（梯度累积拼出来；小数据下epoch显示几百是正常换算，不是过拟合信号）。验证走四道闸：**G1开环val L1→0.010~0.015 → G2 val曲线3~5K步平台 → G3官方loss分项（未来本体0.007/图像0.05~0.09）→ G4回归台SR**；顺序判、过闸才看下一道——**L1达标但SR低=部署/数据多样性问题，加步数无效**。两套可直接抄的配置单（真机193条/仿真500条）在7.4.3。
 
@@ -208,12 +208,57 @@ nvidia-cosmos/cosmos-cookbook (478★) ← 后训练脚本合集
 | 动作空间 | joint_pos **8维绝对关节位置**（7关节+夹爪） | 关节空间动作天然有界 |
 | 归一化 | **裸关节值，不归一化** | 用关节空间就别做归一化——**少一整类训推不一致风险**（对照你们：若天机用关节位置控制，这是最简路线；若用末端位姿才需要归一化） |
 | 动作头 | **全新初始化**：encoder+MLP+embedding tokens，**5×学习率** | 基座本来没有动作接口，后训练新建；动作头要单独给高学习率——你们若全网统一lr，动作头很可能欠训 |
-| 损失平衡 | **视觉 flow-matching loss 加权去对齐动作 loss 的量级** | 这就是8.5节角度4的官方答案：不是拍脑袋设权重，而是**让两个 loss 量级匹配**，防止单方主导——你们"联训就慢/视频抢戏"的病根药方 |
+| 损失平衡 | **视觉 flow-matching loss 加权去对齐动作 loss 的量级** | 这就是8.5节角度4的官方答案：不是拍脑袋设权重，而是**让两个 loss 量级匹配**，防止单方主导——你们"联训就慢/视频抢戏"的病根药方。**它出在哪篇论文/哪段源码、官方精确数值是多少，见下文"出处专栏"** |
 | 观测画布 | 腕部360×640 叠在两个外视180×320 上 → **540×640** | 画布几何官方口径：固定排布+固定分辨率，写进接口契约 |
 | 动作块 | **32步 @15Hz**（≈2.13秒运动） | 见下面的延迟哲学 |
 | 训练规模 | global batch 8192（HSDP 32×8=256 ranks）；官方验证 run **64节点×4=256张 GB200、约68小时**（~17.4K GB200时）；配置表为10K迭代（长余弦 cycle 100K，每1K存checkpoint） | **残酷的现实检查**：官方全量SFT是256张GB200级别的事。你们照抄配方必须配套改造：LoRA（so101 项目路线，~48h单机可跑）或大幅缩 global batch + 调 lr——**直接抄 batch 8192 是不存在的选项** |
 | 数据闸门 | Cosmos3-DROID：7.6万条**成功**轨迹、350小时、86任务、564场景；三步准备：**过滤空闲帧 → 只留成功演示 → 训练时随机裁剪/缩放/色彩抖动** | 与7.2节一致，补上"过滤空闲/非任务帧"这一具体闸门 |
 | 协议 | 服务端说 **OpenPI WebSocket 协议**（DROID 生态通用），客户端 `openpi_client` 直连 | 你们的客户端不用自己写协议——官方 `action_policy_server_robolab` + openpi_client 即插即用 |
+
+#### 出处专栏：损失平衡的加权计算出在哪篇论文（论文→源码→教程三级证据）
+
+直接回答你们的问题：**论文级出处是 Cosmos 3 技术报告（arXiv 2606.02800）§4.2.2 "Training objective"，不是 Cosmos Policy；完整的加权计算实现写在 cosmos-framework 源码里；上面表格那句"Vision flow-matching weighted to match action loss"是教程层的浓缩**。三级证据全部可点开核对：
+
+| 层级 | 出处 | 原文/证据 | 说了什么 |
+| --- | --- | --- | --- |
+| **论文层** | [Cosmos 3 报告](https://arxiv.org/abs/2606.02800) §4.2.2 | "The total loss in mid-training is the sum of per-modality velocity MSEs weighted by **modality-specific loss scales**, with **action losses scaled by 10×** to compensate for the smaller per-element MSE of normalized action vectors." | 总损失 = 各模态速度MSE × **各自模态损失系数** 之和；动作项×10，去补归一化动作向量更小的逐元素MSE——**"按模态分别加权"就是论文白纸黑字的方法** |
+| 论文层（衔接） | 同报告 §4.2.5 Robot Policy Post-Training | "We use a learning rate of 2×10⁻⁴ **with other hyperparameters following the mid-training setup**." | DROID 策略后训练**继承 mid-training 的损失系数**——论文的 loss scale 10 + action×10 就是官方策略配方的出身（§4.2.5 同段还写明动作参数 5×lr，与上表对应） |
+| **源码层①** | [model_config.py](https://github.com/NVIDIA/cosmos-framework/blob/main/cosmos_framework/configs/base/defaults/model_config.py) 默认值 | `action_loss_weight: float = 10.0` + 官方注释 "**please adjust this value according to loss_scale to balance the action loss with the video loss**" | 框架把调参指令直接写在配置默认值上：动作权重要**按视觉 loss_scale 配平** |
+| **源码层②** | [omni_mot_model.py 总损失拼装处](https://github.com/NVIDIA/cosmos-framework/blob/main/cosmos_framework/model/generator/omni_mot_model.py) | 开发者注释（Yihuai）："In case the **video loss is too large (1.5) and covers the action loss (0.05)**, we scale up the action loss to match the video loss to improve action precision." | 为什么需要这套加权的**原始数字**：video 1.5 vs action 0.05，差30倍，不加权动作头被视频项压死 |
+| **源码层③** | [action_policy_droid_nano.py](https://github.com/NVIDIA/cosmos-framework/blob/main/cosmos_framework/configs/base/experiment/action/posttrain_config/action_policy_droid_nano.py) DROID配方 | `loss_scale = 10.0` + 注释："loss_scale multiplies only the vision term, **balancing it against the action loss (action_loss_weight=10)** so both heads train at **comparable gradient magnitude**" | 官方验收标准写死在注释里：加权后两个头的**梯度量级可比**——"对齐量级"的准确含义 |
+| **教程层** | 本节 NVIDIA 博客 Table 1 | "**Loss balance:** Vision flow-matching weighted to match action loss" | 表格里那一行的原句出处 |
+
+**总损失公式（对着源码逐行核对）**：
+
+```text
+L_total = loss_scale        × L_v   (视觉 flow-matching: 视频走loss_scale,
+                                      图像项若image_loss_scale非None则单独覆盖)
+        + action_loss_weight × L_a   (动作 flow-matching)
+        + 各专属项        (sound/lidar/radar 有专属scale, 为None时回落到loss_scale)
+        + 辅助loss        (load balancing等, 不参与这套模态缩放)
+
+官方默认:  action_loss_weight = 10.0     (nano/Edge 一致)
+           视觉 loss_scale    = 1.0  (Nano纯视觉SFT) → 10.0 (Edge基座+全部动作后训练配方)
+验收标准:  加权后的两个模态项梯度量级可比 (源码注释原话 comparable gradient magnitude)
+```
+
+**官方数值谱系——所有带动作的配方清一色"10/10"，没有一家是"10/1"**：
+
+| 配置 | 视觉 loss_scale | action_loss_weight | 出处 |
+| --- | --- | --- | --- |
+| Cosmos3-Nano 基座默认（纯视觉SFT，无动作项） | 1.0 | 10.0 | `nano_model_config.py` |
+| Cosmos3-Edge 基座（Cosmos3-Edge.yaml） | **10.0**（image_loss_scale=None→图像继承10） | 10.0 | `edge_model_config.py` 注释"Edge delta (nano=1.0)" |
+| DROID policy SFT 配方（教程同款） | **10.0**（只覆盖视频项；图像项保留1.0） | 10.0 | `action_policy_droid_nano.py`，cookbook 称 "generator loss_scale 10" |
+| LIBERO / RoboCasa 配方 | **10.0**（image_loss_scale=None→图像也继承10） | 10.0 | `action_policy_libero*.py` / `action_policy_robocasa_nano.py` |
+| 论文 mid-training（§4.2.2） | "loss scale 10" | ×10（"compensate for smaller per-element MSE"） | Cosmos 3 报告 |
+
+**为什么必须对齐——模态量级不对称是论文记录在案的**：Cosmos Policy（[arXiv 2601.16163](https://arxiv.org/abs/2601.16163)）附录报了收敛时的原始指标：动作 L1 **0.010~0.016** vs 未来腕部图像 latent L1 **0.068~0.097**（差5~10倍），并明说 "The magnitudes of these losses imply that the model more quickly learns to predict actions, proprioception, and values than images"——**不同模态天然不在一个量级，共享主干的梯度会被大的那项牵着走**，这正是"平衡"要解决的问题（Yihuai 注释里 30 倍的 video/action 是更极端的实例）。
+
+**落到你们的配置（与1.8节的 r 判定法合起来用，三步）**：
+
+1. **对齐官方档位**：官方带动作配方 = loss_scale 10 / action_loss_weight 10；若你们沿用框架默认 action_loss_weight=10（1.8节按此推算），**你们基线的视觉系数1只有官方口径的 1/10**，曾试的 vision=5 也还没到官方档位——第一步把视觉 loss_scale 拉到与动作权重同档。
+2. **再按日志校准**：抄到"10/10"只是起点，验收标准是加权后梯度量级可比——拉~1000步原始loss算 `r=L_v/L_a`（判定公式见1.8节），画加权后的两条曲线确认同数量级、动作项不被压死。
+3. **改完看两个信号**：阶段二 vision loss 是否还在降（视觉欠训修复没有）、动作L1 是否不退化（没有反向被压）。
 
 **延迟哲学——对"太慢"症状的根本性矫正（本节最重要的一条）**：
 
@@ -232,7 +277,7 @@ nvidia-cosmos/cosmos-cookbook (478★) ← 后训练脚本合集
 **给天机项目的三条落地建议（从本节直接推出）**：
 
 1. **动作空间走关节位置+不归一化**（如果任务允许）——把训推不一致风险砍掉一大块，这是官方 DROID 口径。
-2. **损失权重抄官方做法**：视觉 loss 加权对齐动作 loss 量级，而不是拍一个固定系数。
+2. **损失权重抄官方做法**：视觉 loss 加权对齐动作 loss 量级，而不是拍一个固定系数——官方带动作配方一律 **loss_scale 10 / action_loss_weight 10**，出处与公式见上文"出处专栏"。
 3. **训练规模务实化**：全量 SFT 别想（256×GB200），走 LoRA + 小 global batch + 对照收敛损失表（1.1节）判断是否训到位；官方每1K存checkpoint的习惯照抄，方便挑早停点。
 
 **为什么官方 demo 视频效果好，而你们"100条 + chunk 64 + 全量微调"不行——差距分析**（结合本教程逐条对）：
@@ -326,7 +371,7 @@ nvidia-cosmos/cosmos-cookbook (478★) ← 后训练脚本合集
 
 #### "视觉loss加权去对齐动作loss量级"到底什么意思（你们直接问的）
 
-先把三个概念钉死，再给可执行的判定方法。
+先把三个概念钉死，再给可执行的判定方法。（**这个加权计算的完整出处——Cosmos 3 报告 §4.2.2、cosmos-framework 三段源码注释、官方数值谱系——见1.7节"出处专栏"，本节只讲怎么算。**）
 
 **① flow-matching loss 是什么**：训练时给 latent 加随机噪声（随机时间步 t），网络预测"速度场"（从噪声指向数据的方向），loss = MSE(预测速度, 真实速度)。动作分支和视觉分支**各算一个这样的MSE**，各自独立。
 
@@ -1021,7 +1066,7 @@ chunk 的正确评价维度有两个：①**开环时域 = chunk/控制频率**�
 **角度4：训练侧——联合模式的loss账本**
 
 - 查：三条loss曲线是否**分别记录**（动作L1 / 未来latent / 价值）？对照官方收敛值：动作L1 0.010~0.015、未来图像latent 0.05~0.09、价值~0.007。哪条没收敛，病就在哪条。
-- 修：batch配比对齐官方50/25/25（只训策略模式→未来/价值槽欠训练→先验劫持）；loss权重失衡时动作被视频带偏或视频全是先验——用8.6节的A0/A1/A2消融定权重。
+- 修：batch配比对齐官方50/25/25（只训策略模式→未来/价值槽欠训练→先验劫持）；loss权重失衡时动作被视频带偏或视频全是先验——**官方的加权系数与出处见1.7节"出处专栏"（loss_scale 10 / action_loss_weight 10）**，你们的具体档位用1.8节的 r 判定法 + 8.6节的A0/A1/A2消融定。
 - 一个残酷的事实：**价值头不是SFT顺带出来的**。官方规划用的 V(s') 是拿648条多策略混合rollout单独finetune的。你们若打算做best-of-N，价值数据要单独准备。
 
 **角度5：训推一致性flags——deploy.py整整一页纸不是白写的**
@@ -1149,6 +1194,7 @@ chunk 的正确评价维度有两个：①**开环时域 = chunk/控制频率**�
 **一手配方（按优先级）**：
 
 - [官方端到端教程：Post-Train Cosmos 3 Edge for On-Device Robot Control](https://developer.nvidia.com/blog/post-train-nvidia-cosmos-3-edge-for-on-device-robot-control/)（1.7节精读：训练规模现实、损失对齐、延迟哲学、OpenPI 服务端、Jetson 部署）
+- [Cosmos 3 技术报告 arXiv 2606.02800](https://arxiv.org/abs/2606.02800)（1.7节出处专栏的论文级来源：§4.2.2 模态损失系数 + action×10、§4.2.5 策略后训练继承mid-training超参）＋源码三连：[loss权重默认值与调参注释](https://github.com/NVIDIA/cosmos-framework/blob/main/cosmos_framework/configs/base/defaults/model_config.py) ｜ [总损失拼装处](https://github.com/NVIDIA/cosmos-framework/blob/main/cosmos_framework/model/generator/omni_mot_model.py) ｜ [DROID配方 loss_scale=10 注释](https://github.com/NVIDIA/cosmos-framework/blob/main/cosmos_framework/configs/base/experiment/action/posttrain_config/action_policy_droid_nano.py)
 
 - [Cosmos Policy Cookbook（latent frame injection 完整配方）](https://nvidia-cosmos.github.io/cosmos-cookbook/recipes/post_training/predict2/cosmos_policy/post_training.html) ｜ 论文 [arXiv 2601.16163](https://arxiv.org/abs/2601.16163) ｜ 代码 [NVlabs/cosmos-policy](https://github.com/NVlabs/cosmos-policy)
 - [NVIDIA/cosmos 的 Cosmos3 action SFT cookbooks](https://github.com/NVIDIA/cosmos/tree/main/cookbooks/cosmos3/generator/action/finetune)（DROID/LIBERO/RoboCasa 三配方 + policy server + RoboLab 客户端）
