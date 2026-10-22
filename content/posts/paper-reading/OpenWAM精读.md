@@ -10,6 +10,8 @@ weight: 93
 
 ![OPENWAM 总览：三阶段预训练管线、共享 MoT、四种可配置交互模式，以及可迁移的局部动力学组件（论文 Figure 1）](/images/openwam/fig1.png)
 
+**图 1 逐图讲解**：这是全文的四块拼图总览，按「左 / 右上 / 右中 / 右下」读。**左侧**是数据与预训练流水线：起点是通用视频模型 Wan2.2（带彩色播放器图标），中间绿色框写着「Causal Pretraining on Robot & Human-Interaction Video」——**不用任何动作标签**，只在机器人操作与人-物交互视频上做块因果续预训练；下方蓝色框是「Video–Action Training on Sim. & Real Robot Demos」——再用仿真与真机演示做视频-动作联合训练，两条演示流以摄像机小图标汇入。**右上**是共享 Mixture-of-Transformers：左支 Video Expert（5B）、右支 Action Expert（2B），中间粗线是「Joint Attention over Packed Video & Action Tokens」，任务文本 L 从左侧交叉注意力注入两支——时间上对齐的视频块与动作块在注意力层互通，但各自保留独立的 LayerNorm/投影/FFN。**右中**是四种可配置交互模式的示意：Joint（两流并发）、Video-then-Action（VTA，先视频后动作）、Action-then-Video（ATV，先动作后视频）、Decoupled（两流互不可见）——同一架构、同一掩码族，只改「谁先去噪、未来 token 能看谁」。**右下**是本文第二主角「局部上下文动力学」：左侧 LC-IDM（逆动力学）从「当前观察 + 本体感觉 + 给定未来视觉轨迹」译出动作，右侧 LC-FDM（前向动力学）从「当前观察 + 本体感觉 + 给定动作」画出未来视觉；中间虚线框标着「Counterfactual Transitions」——从同一起始状态分叉执行替代动作得到的反事实数据。底部一句总结全文用法：「A frozen IDM translates predictions from compatible task-adapted video models into actions, while an FDM predicts the visual consequences of candidate actions.」——**冻结的 IDM 负责翻译，FDM 负责预演**。
+
 **配图说明**：本文**收录论文全部 5 张插图（Figure 1 ~ Figure 5）**，放在站内 `/images/openwam/`，逐张讲解，文末附**图表总索引表**（另有 14 张表全部覆盖）。论文来自斯坦福大学（Heng Yu、David D. Yuan、Juze Zhang 共同一作；Li Fei-Fei、Jiajun Wu、Ehsan Adeli 等），arXiv 2610.07922v1（2026-10-06），项目页与代码早在 2026 年 6 月放出。一句话定位：**这不是提出第 5 种 WAM，而是把「世界模型和动作怎么耦合」这件事本身变成一个受控实验平台**——底座固定、接口固定、评测协议固定，只动两个变量：生成顺序和未来跨模态可见性。
 
 ---
@@ -47,6 +49,22 @@ weight: 93
 4. **Mixture-of-Transformers（MoT）**：视频专家（5B）和动作专家（2B）各管各的归一化、投影和 FFN，只在注意力层对「打包」后的视频+动作 token 做联合注意力；任务文本走单独的交叉注意力。动作专家由对应视频层做宽度适配初始化。
 5. **局部上下文动力学（local-context dynamics）**：IDM（逆动力学）只看「当前观察 + 本体感觉 + 未来视觉轨迹」预测动作；FDM（前向动力学）只看「当前观察 + 本体感觉 + 给定动作」预测未来视觉。**都不准看语言、过去动作和历史帧**——这是让组件可被单独冻结、跨任务搬运的条件边界。
 6. **反事实转移动作（counterfactual transitions）**：演示只覆盖「专家选的那一条」动作续行。从同一起始仿真状态分叉、执行替代动作序列（停住、缩放、反向、轴向脉冲、随机化、改夹爪时机……），就得到了「同一状态、不同动作、不同后果」的配对监督——不需要成功，也不需要成功标签。
+
+---
+
+## 🗺️ 先分清：哪些是仿真，哪些是真机
+
+| 实验/组件 | 环境 | 说明 |
+| --- | --- | --- |
+| 四模式 LIBERO 四套件（表 3） | **仿真** | Object / Goal / Spatial / Long-horizon，各 10 任务 × 50 回合 × 3 种子；四模式共享 50 个环境种子 |
+| 底座初始化消融 / MoT 消融（表 12/13） | **仿真** | LIBERO-Long 单套件 |
+| 组件迁移四目标（表 5、图 4 右） | **仿真** | LIBERO-90 中挑的 4 个目标任务，均不在源任务集内 |
+| FDM 结果识别（表 7） | **仿真** | LIBERO-Long 的 10 任务 × 160 上下文 × 16 分支 |
+| 反事实数据 LIBERO-Long-CF（表 9-11） | **仿真** | 仿真器特权状态分叉采集；**32,000 段、29.7× 控制记录** |
+| 与 UVA 对照、单 checkpoint 多目标（表 14） | **仿真** | 同一 LIBERO 协议 |
+| 双臂三任务：Toast / Rubik / Sort Cups（表 4、图 4 左、图 5） | **真机** | 双 Franka FR3 + Flexiv Grav 夹爪，GELLO 遥操作采集；每任务 200/200/180 条 30 秒演示；评测 50/50/36 回合 |
+
+一句话：**仿真侧覆盖模式对比、底座消融、组件复用与反事实数据全部主结论；真机侧只验证「四模式在真实双臂上也都站得住」（VTA 92.1% / Joint 91.9%）**——反事实组件复用本身尚未上真机。
 
 ---
 
