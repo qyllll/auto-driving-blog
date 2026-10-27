@@ -254,6 +254,7 @@ Open 维考「技能见过、任务规格没见过」的重组与语言接地；
 
 ## 📚 资源与延伸
 
+- **姊妹篇图鉴**：[14 个具身仿真 Benchmark 全精读](/posts/paper-reading/具身仿真Benchmark全精读/)（Meta-World/RLBench/CALVIN/RoboCasa/SimplerEnv/BEHAVIOR-1K/VLABench/ManiSkill3/RoboTwin2.0/RoboCasa365/MagicSim/XPolicyLab/HumanCLAW-Bench/RoboCurve 逐图全解）
 - 论文：arXiv [2607.04434](https://arxiv.org/abs/2607.04434)
 - 榜单与协议：[robodojo-benchmark.com](http://robodojo-benchmark.com/)（Leaderboard 持续更新）
 - 分数来源精读：[HexaShell 精读](/posts/paper-reading/HexaShell精读/)、[EmbodiedEvo 精读](/posts/paper-reading/EmbodiedEvo精读/)、[WorldScape 精读](/posts/paper-reading/WorldScape精读/)、[VPP2 精读](/posts/paper-reading/VPP2精读/)、[Flash-WAM 精读](/posts/paper-reading/Flash-WAM精读/)
