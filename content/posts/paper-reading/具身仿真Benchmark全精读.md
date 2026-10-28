@@ -1,20 +1,20 @@
 ---
-title: "精读 14 个具身仿真 Benchmark：任务是什么、仿真还是真机、怎么测——48 张插图逐张讲透（与 RoboDojo 串成评测全景）"
+title: "精读 19 个具身仿真 Benchmark：任务是什么、仿真还是真机、怎么测——55 张插图逐张讲透（含 OpenWAM 评测栈五榜补充，与 RoboDojo 串成评测全景）"
 date: 2026-10-27
 draft: false
 categories: ["论文精读", "具身智能"]
 tags: ["🔍 评测基准", "🌍 仿真", "🦾 机器人", "🛠️ 评测协议", "📖 论文精读"]
-summary: "一篇打包精读 14 个最常用具身仿真/Benchmark/评测基础设施：Meta-World（50 任务多任务与元 RL）、RLBench（100 任务+无限演示）、CALVIN（四房间 34 任务五步语言链）、RoboCasa（厨房 100+75 任务/2509 物体）、SimplerEnv/SIMPLER（真机策略的 real-to-sim 评测：视觉匹配 vs 变体聚合，MMRV/Pearson 相关）、BEHAVIOR-1K（1000 日常活动+OmniGibson）、VLABench（100 任务 60 原子+40 复合、2000+ 物体、四视角观测）、ManiSkill3（GPU 并行 3 万 FPS、16+ 机器人、real2sim 数字孪生）、RoboTwin 2.0（50 双臂任务+MLLM 代码生成+11k 纹理域随机化）、RoboCasa365（365 任务/2500 厨房场景/2200+ 小时数据/GR00T 预训练）、MagicSim（15 仿真家族确定性批式基础设施）、XPolicyLab（统一策略接口一次接入多榜）、HumanCLAW-Bench（1218 个人形全身寻找-导航-交互 episode，9 个前沿 VLM 最好仅 16.8%）、RoboCurve（真机独立评测：Inspect Robots 框架+RoboDojo-RC 榜）。每个 benchmark 独立成章：定位、任务清单、仿真还是真机、评测协议与指标、插图逐张讲解、生态位；文末附 14 榜总对比表与 RoboDojo 关系图谱。全部 48 张插图本地收录。"
+summary: "一篇打包精读 19 个最常用具身仿真/Benchmark/评测基础设施：Meta-World（50 任务多任务与元 RL）、RLBench（100 任务+无限演示）、CALVIN（四房间 34 任务五步语言链）、RoboCasa（厨房 100+75 任务/2509 物体）、SimplerEnv/SIMPLER（真机策略的 real-to-sim 评测：视觉匹配 vs 变体聚合，MMRV/Pearson 相关）、BEHAVIOR-1K（1000 日常活动+OmniGibson）、VLABench（100 任务 60 原子+40 复合、2000+ 物体、四视角观测）、ManiSkill3（GPU 并行 3 万 FPS、16+ 机器人、real2sim 数字孪生）、RoboTwin 2.0（50 双臂任务+MLLM 代码生成+11k 纹理域随机化）、RoboCasa365（365 任务/2500 厨房场景/2200+ 小时数据/GR00T 预训练）、MagicSim（15 仿真家族确定性批式基础设施）、XPolicyLab（统一策略接口一次接入多榜）、HumanCLAW-Bench（1218 个人形全身寻找-导航-交互 episode，9 个前沿 VLM 最好仅 16.8%）、RoboCurve（真机独立评测：Inspect Robots 框架+RoboDojo-RC 榜）。每个 benchmark 独立成章：定位、任务清单、仿真还是真机、评测协议与指标、插图逐张讲解、生态位；文末附总对比表与 RoboDojo 关系图谱。第二辑按 OpenWAM（2609.07398）评测栈补充五章：LIBERO、LIBERO-Plus、RoboCasa-GR1、EBench、RoboDojo，并为 RoboTwin2.0 注记 Full/Clean2Random 双轨、为 VLABench 与 RoboCasa365 补 OpenWAM 成绩。全部 55 张插图本地收录。"
 weight: 97
 ---
 
 ![Meta-World：50 个共享结构的操纵任务总览（论文 Figure 1，亦为本文头图）](/images/bench_metaworld/fig1.jpg)
 
-**配图说明**：本文**收录 14 个 benchmark 共 48 张插图**（按 `bench_*` 目录分放），每章独立逐图讲解，文末附**图表总索引**。写法沿用站内精读惯例：每个 benchmark 都回答四件事——**①是什么（论文出处）②任务是什么 ③仿真还是真机、怎么测（协议/指标/划分）④插图里画了什么**。本文与 [RoboDojo 精读](/posts/paper-reading/RoboDojo精读/) 互为姊妹篇：RoboDojo 是「统一仿真-真机评测场」的单篇深挖，本篇是**周边全部常用考场**的横向图鉴；14 章按时间线从 2019 经典排到 2026 基础设施。
+**配图说明**：本文**收录 19 个 benchmark 共 55 张插图**（前 14 章 + 第二辑 5 章）（按 `bench_*` 目录分放），每章独立逐图讲解，文末附**图表总索引**。写法沿用站内精读惯例：每个 benchmark 都回答四件事——**①是什么（论文出处）②任务是什么 ③仿真还是真机、怎么测（协议/指标/划分）④插图里画了什么**。本文与 [RoboDojo 精读](/posts/paper-reading/RoboDojo精读/) 互为姊妹篇：RoboDojo 是「统一仿真-真机评测场」的单篇深挖，本篇是**周边全部常用考场**的横向图鉴；前 14 章按时间线从 2019 经典排到 2026 基础设施，**第二辑（15–19 章）**按 OpenWAM 论文（2609.07398）的评测栈补齐 LIBERO 系与移动/灵巧赛道——两辑合读即 [OpenWAM-α 精读](/posts/paper-reading/OpenWAM-Alpha精读/) 九榜的完整背景。
 
 ---
 
-## 📖 导读：14 个 benchmark 一张表看懂
+## 📖 导读：19 个 benchmark 一张表看懂
 
 | # | Benchmark | 年份/出处 | 类型 | 规模一句话 | 核心指标 |
 | --- | --- | --- | --- | --- | --- |
@@ -32,6 +32,11 @@ weight: 97
 | 12 | XPolicyLab | 2026 | 评测生态 | 一次接入 → 多个官方榜 | 榜单排名 + 接入成本 |
 | 13 | HumanCLAW-Bench | 2026 | 仿真（人形全身） | 1,218 episode × 41 室内住宅 | Find→Nav→Interact 分级成功率 |
 | 14 | RoboCurve | 2026 | 真机独立评测 | Inspect Robots 框架 + 多个真机 bench | 真机得分/拒答率 |
+| 15 | LIBERO | 2023 · NeurIPS | 仿真（语言/终身学习） | 130 任务 × 4 套件 + LIBERO-90 预训练集 | 分套件成功率（迁移研究） |
+| 16 | LIBERO-Plus | 2025 · CVPR 2026 | 仿真（鲁棒性压测） | 10,030 任务 = 7 扰动因子 × 21 子维 | 扰动下成功率保持率 |
+| 17 | RoboCasa-GR1 | 2025–26（OpenWAM 评测栈） | 仿真（灵巧手赛道） | RoboCasa 任务系 + 灵巧手本体 | 成功率（α 榜 60.5） |
+| 18 | EBench | 2026 | 仿真（移动双臂诊断） | 26 任务 × 三族 × 五轴 | 分轴/分 split 成功率 |
+| 19 | RoboDojo | 2026 | 统一仿真+真机（详见专文） | 42 仿真 + 18 真机、五能力维 | 平均分/成功率双指标 |
 
 **先说两个容易混淆的点**：①05 SimplerEnv 不是「造新任务」，而是把**已存在的真机实验**搬进仿真去复测策略——real-to-sim；②11/12/14 不是任务集，而是**让别的 benchmark 能被公平跑起来的基础设施**（仿真运行时、策略接口、真机评测服务）。读每一章先看「类型」一行，就不会把它们和任务型 benchmark 混在一起。
 
@@ -313,6 +318,8 @@ weight: 97
 
 **生态位**：与 LIBERO 互补的「**语言+推理**」档；同时给 VLA 和「VLM+规划器」两种范式出题——这一点在别处少见。
 
+> **OpenWAM-α 视角（2609.07398）**：α 在本榜得 **58.9** 分（对照 π0 29.4、π0.5 48.1）——同为「语言+推理」难档，视频底座 WAM 的优势在长程与常识任务上兑现（见 [OpenWAM-α 精读](/posts/paper-reading/OpenWAM-Alpha精读/)）。
+
 ---
 
 ## 08 · ManiSkill3（2024 · GPU 并行仿真框架 + 通用基准）
@@ -372,6 +379,7 @@ Octo 与 RT-1X 在 4 个任务上的成功率（含与真机对应关系的标�
 **评测协议与指标（重点）**：
 - **clean vs randomized 双条件**：clean 干净渲染、randomized 加域随机化（Figure 4：场景杂乱/光照/桌高/背景+语言扰动 + **11k 纹理库**），主表报两列成功率；
 - 与 1.0 对照：同任务子集上 2.0 的训练数据让策略更强（Table 2/3/8「策略稳健性提升」实验）；
+- **两条评测轨道（OpenWAM 论文的命名口径，已成为通行引用格式）**：**RoboTwin2.0-Full** = 用 clean+randomized 混合全集训练（2,500 条 clean + 25,000 条强随机化演示），再分别在 clean/randomized 环境评测——考**域内上限**（OpenWAM-α 得 **93.60**，Qwen-RM 93.85 略高）；**RoboTwin2.0-Clean2Random（C2R）** = 只用 clean 演示训练、两环境都测——考**域外泛化**（α **69.0**，Fast-WAM 仅 4.7、π0.5 27.1——随机化鲁棒性是大淘汰赛）；
 - 榜单：官方 leaderboard 按任务均值排名（XPolicyLab 榜单亦收录，见第 12 章）；
 - 成功判定按任务脚本谓词；每任务多 episode 聚合。
 
@@ -448,6 +456,8 @@ Teaser 五板块：中央双臂数字孪生场景（RoboTwin 立体字 + 满桌�
 真实厨房里的 Panda 臂工作照（微波炉/咖啡机/烤面包机/水槽同框）。配合「140 条演示、Real Only vs Sim-and-Real」协议阅读：**小样本真机是预训练价值的试金石**——与 RoboCasa Figure 8 一脉相承但结论更进了一步。
 
 **生态位**：家庭操纵的「**预训练数据引擎**」新标杆；与 [RoboDojo](/posts/paper-reading/RoboDojo精读/) 分工：一个供训练+基准，一个专精评测治理。
+
+> **OpenWAM-α 视角**：本榜难度极高——α 平均分 **38.2**，对照 π0.5 仅 6.91、Fast-WAM 2.03（见 [OpenWAM-α 精读](/posts/paper-reading/OpenWAM-Alpha精读/) Fig. 11）——移动单臂 + 长程家务仍是集体洼地。
 
 ---
 
@@ -617,7 +627,115 @@ Teaser 五板块：中央双臂数字孪生场景（RoboTwin 立体字 + 满桌�
 
 ---
 
-## 🗺️ 14 榜横向总表：任务量、类型与「怎么测」
+---
+
+## 🧩 第二辑 · OpenWAM 评测栈补充（15–19 章）
+
+以下五章按 [OpenWAM-α 精读](/posts/paper-reading/OpenWAM-Alpha精读/)（arXiv 2609.07398）的评测栈补齐：该文把八个仿真基准、五类本体接入同一策略服务器，九条榜单（RoboTwin2.0 拆双轨）成为 2026 年 WAM/VLA 横评的通行口径——本辑把用户点名的 LIBERO、LIBERO-Plus、RoboCasa-GR1、EBench、RoboDojo 五章讲透（RoboTwin 双轨已并入第 09 章、VLABench/RoboCasa365 成绩已注入第 07/10 章）。
+
+## 15 · LIBERO（2023 · 终身学习四套件，VLA 时代的第一考场）
+
+**一句话定位**：NeurIPS 2023（arXiv 2306.03310）——130 个语言条件任务、四套件（Spatial/Object/Goal/Long）+ LIBERO-90/100 预训练集，最初为**终身知识迁移**设计，如今是 VLA 微调最常用的短程桌面考场（π0 系、OpenVLA 系、各家 WAM 全在此对表）。
+
+**任务与本体（仿真）**：Franka 桌面、程序化生成；四套件各 10 任务换措辞/物体/目标/长程结构，专测「换一种说法还会不会」。
+
+**评测协议与指标（重点）**：每任务多 episode 成功率、**分套件报告 + 四套平均**；终身学习场景另设五种迁移设定与任务顺序消融——论文著名反直觉结论：**顺序微调在正向迁移上胜过 EWC/ER** 等经典算法。
+
+### 插图逐张
+
+### Figure 1：LIBERO 总览（复用 LIBERO 专文图）
+
+![LIBERO 总览（论文 Figure 1）](/images/bench_libero/fig1.jpg)
+
+四套件与终身学习设定的总览图（同图另见 [LIBERO 精读](/posts/paper-reading/LIBERO精读/)）。读表须知：**97%+ 的平均分在 LIBERO 上已不稀奇**——OpenWAM 榜单显示头部六七个模型挤在 96.9–99.4 区间（α 99.3、ABot-M0.5 99.4），**区分度已让位给 LIBERO-Plus/RoboTwin-C2R 这类压测轨**。
+
+**生态位**：VLA 时代的「入场券考场」；短板是分布内过饱和——所以才有了下一章的鲁棒性加强版。
+
+---
+
+## 16 · LIBERO-Plus（2025 · 给 LIBERO 加 21 种「扰动刑具」）
+
+**一句话定位**：arXiv 2510.13626（Fei et al.，复旦/同济/NUS，CVPR 2026）——**10,030 个任务 = 7 大扰动因子 × 21 个子维**的鲁棒性压测基准：同一个任务，改光照、改相机、改初始位姿、改物体布局、换措辞……看模型还剩多少分。
+
+**任务与本体（仿真）**：LIBERO 任务系扩展；扰动覆盖物体布局、光照、指令/目标替换、背景纹理、机器人初始状态、传感器噪声等七族。
+
+**评测协议与指标（重点）**：**原条件成功率 vs 各扰动档成功率**（难度分级递进）；还做「配对扰动」热力图与**指令移除/目标篡改**的对照——头号发现令人倒吸凉气：**模型普遍「语言忽视」**——OpenVLA-OFT 原条件 97.1%，相机扰动掉到 59.7%、初始状态扰动只剩 37.2%，而语言怎么改都「不太影响」= 根本没听。
+
+### 插图逐张
+
+### Figure 6：基准架构——10,030 任务全景
+
+![LIBERO-Plus 架构（论文 Figure 6）](/images/bench_liberoplus/fig1.png)
+
+中央「10,030 tasks」徽标，七向扇出七个扰动因子，每因子再挂 21 个底层子组件；两侧标注数据流水线（扩展生成→过滤→分级）。读图抓手：**规模不在任务花样，而在「同一任务 × 扰动网格」的组合数**——这才能把 97% 的模型按到 40% 以下。
+
+**生态位**：VLA 鲁棒性体检套餐；OpenWAM-α 在此 **69.2**（对照 Qwen-RobotManip 89.0 更高、π0.5 84.4——**鲁棒榜是视频底座 WAM 的相对短板**）。
+
+---
+
+## 17 · RoboCasa-GR1（2025–26 · OpenWAM 评测栈的灵巧手赛道）
+
+**一句话定位**：OpenWAM 评测栈中 **Dexterous-hand** 赛道的仿真基准：任务系承接 **RoboCasa**（Nasiriany et al., 2024），本体/设定引用 NVIDIA et al., 2025 一脉的灵巧手方案；八基准里唯一考「多指手 + 日常家居任务」的组合。
+
+**任务与本体（仿真）**：RoboCasa 家居任务落到灵巧手本体（与第 04/10 章的夹爪厨房任务同域不同手）——24 维灵巧手槽位正来自 OpenWAM 的 80 维统一动作空间设计。
+
+**评测协议与指标（重点）**：与其他七基准同一策略服务器协议；成功率单指标；**这是跨本体统一动作空间的压力测试**——夹爪 1 维开合与 24 维手指关节共用槽位语义，映射表出错分数立刻塌。
+
+### 插图逐张
+
+### RoboCasa-GR1 榜单面板（OpenWAM Figure 13 局部）
+
+![RoboCasa-GR1 成绩面板](/images/bench_rcgr1/fig1.png)
+
+OpenWAM 九连板中本榜局部：**OpenWAM-α 60.5**，对照 π0 13.6、π0.5 37.0、StarVLA 48.8、Being-H0.7 49.2——**夹爪系模型换到灵巧手赛道全线腰斩**（π0 在普通桌面榜 94+，此处 13.6），再次验证「灵巧手是本体鸿沟不是任务鸿沟」。
+
+**生态位**：OpenWAM 栈内唯一灵巧手仿真榜；真机灵巧手对照见 [OpenWAM-α 精读](/posts/paper-reading/OpenWAM-Alpha精读/) Fig. 14（90.0 分、未见过的本体 + 四种 OOD）。
+
+---
+
+## 18 · EBench（2026 · 移动双臂的「元素级诊断」）
+
+**一句话定位**：arXiv 2606.18239（Gao et al.）*EBench: Elemental Diagnosis of Generalist Mobile Manipulation Policies*——**26 个任务**横跨 pick-and-place、长程、灵巧与精密三族，装在**移动双臂**本体上，主打**按能力元素拆分归因**的诊断式评测（OpenWAM 栈归为 Mobile bimanual 赛道）。
+
+**任务与本体（仿真）**：移动双臂（带底盘）——比桌面双臂多出「基座移动 × 双臂配合 × 精密」三重耦合；12 个预留动作槽里的底盘通道正是为它与 RoboCasa365 准备。
+
+**评测协议与指标（重点）**：**五轴能力分解**（操作模式/时间结构等任务级三轴 + 泛化轴）；数据切分 **Validation-Train / Validation-Unseen / Test** 三档——像切蛋糕一样看「练过但没见过」与「完全没见过」的差值；配 per-task 热力图定位病灶任务。
+
+### 插图逐张
+
+### Figure 1：总览——单套件覆盖多能力轴
+
+![EBench 总览（论文 Fig. 1）](/images/bench_ebench/fig1.jpg)
+
+单幅总览：三族任务（pick-and-place / 长程 / 灵巧精密）+ 能力轴分解示意，强调「**一个套件同时覆盖**」——与 RoboDojo 的五维哲学同款，但把镜头对准移动双臂。
+
+### Figure 2：端到端管线
+
+![EBench 管线（论文 Fig. 2）](/images/bench_ebench/fig2.png)
+
+左侧 **26 任务**三族实例化、右侧评测管线（数据切分→执行→分轴统计→热力图）。评测含义：任务少而**诊断颗粒细**——适合「模型为什么在长程上塌」这类问题，而不是刷总榜。
+
+**生态位**：移动双臂诊断首选；OpenWAM-α **49.4**（Being-H0.7 49.2 咬得很紧）——这条赛道尚未出现统治者。
+
+---
+
+## 19 · RoboDojo（2026 · 统一仿真-真机评测场，专文姊妹章）
+
+**一句话定位**：已在[专文](/posts/paper-reading/RoboDojo精读/)深挖的**旗舰评测场**——42 仿真任务五能力维（泛化/记忆/长程/精密/开放指令）+ 18 真机任务 × 三双臂本体（ARX X5/Piper/Piper X），非营利榜单治理 + 隐藏布局防刷 + XPolicyLab 统一接入；本章只补**作为 OpenWAM 九榜之一**的口径要点。
+
+**评测协议与指标（重点）**：**平均分（score，部分进度）+ 成功率（SR）双指标**；总分=五维均值；OpenWAM-α 的 **11.92** 是**分数制**口径（对照 π0.5 6.91、π0 29.4→注意方向与榜单时序），**不是成功率**——与 [RoboDojo 精读](/posts/paper-reading/RoboDojo精读/)的 7 月快照（最佳 13.07 分/8.80% SR）同一体系；真机侧 OpenWAM 报 37.6 分/24.4%（对照 π0.5 22.9/12.8）。
+
+### 插图逐张
+
+### Figure 2：42 仿真 + 18 真机任务总览（复用专文图）
+
+![RoboDojo 任务总览（论文 Figure 2）](/images/robodojo/fig2.png)
+
+左仿真五维任务地图、右三本体真机任务阵列（详解见[专文](/posts/paper-reading/RoboDojo精读/) Figure 2 逐图）。本章只强调读榜三件事：**①带指标名（score vs SR）②带日期（榜单持续更新，7 月 vs 10 月差一个量级）③治理条款（隐藏布局/开源工件）先于分数**。
+
+**生态位**：见专文总表；在 OpenWAM 语境里它是九榜中**唯一 score/SR 双报且含真机**的成员。
+
+## 🗺️ 19 榜横向总表：任务量、类型与「怎么测」
 
 | Benchmark | 类型 | 本体 | 任务/规模 | 评测怎么测（一句话） |
 | --- | --- | --- | --- | --- |
@@ -635,12 +753,17 @@ Teaser 五板块：中央双臂数字孪生场景（RoboTwin 立体字 + 满桌�
 | XPolicyLab | 策略接口生态 | 任意适配 | 榜单执行层 | 一次接入多榜；接入成本量化 |
 | HumanCLAW-Bench | 仿真·人形全身 | 人形 | 1,218 episode ×41 住宅 | Find→Nav→Interact 三段漏斗 + 失败根因规则 |
 | RoboCurve | 真机独立评测 | 双臂桌面等 | Stationery/Kitchen/RoboHarm | 固定工位 + 调用配额上限 + 审计日志；真机榜与拒答率 |
+| LIBERO | 仿真·语言/终身 | Franka | 130 任务×4 套件 | 分套件成功率 + 五种迁移设定 |
+| LIBERO-Plus | 仿真·鲁棒性 | Franka 系 | 10,030 任务（7 扰动×21 子维） | 扰动下成功率保持；查「语言忽视」等病灶 |
+| RoboCasa-GR1 | 仿真·灵巧手 | 灵巧手本体 | RoboCasa 任务系 | 成功率（OpenWAM 评测栈赛道） |
+| EBench | 仿真·移动双臂 | 移动双臂 | 26 任务×三族 | 五轴能力分解 + Train/Unseen/Test 三 split |
+| RoboDojo | 仿真+真机 | 三双臂本体 | 42 仿真 + 18 真机 | 五维平均分/成功率；隐藏布局防刷 |
 
 ---
 
 ## 🤝 与 RoboDojo 的关系：一张分工图
 
-把 [RoboDojo](/posts/paper-reading/RoboDojo精读/) 放回这 14 个名字中间，分工一目了然：
+把 [RoboDojo](/posts/paper-reading/RoboDojo精读/) 放回这 19 个名字中间，分工一目了然：
 
 - **任务供给层**：RoboCasa/RoboCasa365（厨房）、RoboTwin 2.0（双臂）、VLABench/CALVIN/RLBench/Meta-World（语言/技能/RL 经典）、BEHAVIOR-1K（活动级）——给「考题」；
 - **运行时层**：MagicSim（确定性批式仿真）、ManiSkill3（GPU 并行）、OmniGibson（状态物理）——给「考场引擎」；
@@ -673,7 +796,7 @@ Teaser 五板块：中央双臂数字孪生场景（RoboTwin 立体字 + 满桌�
 
 ---
 
-## 📊 图表总索引（48 张插图）
+## 📊 图表总索引（55 张插图）
 
 | 章 | 图 | 内容 |
 | --- | --- | --- |
@@ -691,8 +814,13 @@ Teaser 五板块：中央双臂数字孪生场景（RoboTwin 立体字 + 满桌�
 | 12 | Fig. 1 / 2(SVG) / 3 | 标题页 / 架构 / 跨平台评测 |
 | 13 | Figure 1 / 2 / 7 / 8 | 三种体制 / 闭环框架 / 难度分布 / 失败漏斗 |
 | 14 | 实拍 1 / 2 | StationeryBench 橡皮入盒 / 尺子交接 |
+| 15 | LIBERO Figure 1 | 终身学习/四套件总览（复用 `/images/bench_libero/`） |
+| 16 | LIBERO-Plus Figure 6 | 10,030 任务 ×7 扰动 ×21 子维架构 |
+| 17 | RoboCasa-GR1 榜单面板 | α 60.5 对照 π0/π0.5/StarVLA/Being |
+| 18 | EBench Fig. 1 / Fig. 2 | 总览 / 26 任务端到端管线 |
+| 19 | RoboDojo Figure 2（复用专文图） | 42+18 任务总览 |
 
-（各章指标表、榜单快照与消融表已在正文以文字表格复现；48 张图片文件位于站内 `/images/bench_*/`。）
+（各章指标表、榜单快照与消融表已在正文以文字表格复现；55 张图片文件位于站内 `/images/bench_*/`、`/images/paper/libero/`、`/images/robodojo/`（复用）。）
 
 ---
 
