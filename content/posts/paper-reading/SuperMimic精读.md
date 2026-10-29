@@ -4,7 +4,7 @@ date: 2026-10-29
 draft: false
 categories: ["论文精读", "具身智能"]
 tags: ["🦾 人形机器人", "🎯 强化学习", "🌍 世界模型", "🛠️ 开源生态", "📖 论文精读"]
-summary: "UC Berkeley《SuperMimic: Scaling Humanoid Whole-Body Control with One Differentiable World Model》（arXiv 2610.28480，CoRL 2026 Oral，Qiayuan Liao / Yiyang Shao / Junfeng Long…Pieter Abbeel、Koushil Sreenath）精读：与 [具身 RL 调研](/posts/paper-reading/具身智能强化学习调研精读/)里的 SONIC 同赛道（大规模动捕跟踪），但把「模型免费 PPO 碾算力」换成「一个可微世界模型摊销全部动作」。核心洞察：千差万别的动作共享同一套人形混合刚体动力学——用一个从仿真日志拟合的可微世界模型学这份共享结构，短视野想象 rollout + 穿模反传（BPTT）给策略解析梯度；世界模型比 MuJoCo Warp 批量快 10×+，8 步预测误差在 1→264 小时数据上保持稳定。结果：1×H100 3 小时超过 SONIC 发布 checkpoint 的 0.90 归一化回报（>50× 墙钟、>1000× GPU 时：3 vs 21k）；129,514 条基准动作失败 25 条 vs SONIC 179 条（含其全部翻转与侧滚），双卡 9.8 小时清零；真机 Unitree G1 全动作库零逐动作调参；速度编码器下游接口 RL 训练胜过蒸馏基线。官网 supermimic.github.io 给出完整算力账本与 FAQ。GitHub 侧：官方代码未挂链接，社区一周内井喷复现——重点讲解 Motphys/Uni-SuperMimic（195★，UniLab+mjwarp/MuJoCo/Motrix 三后端，LAFAN1 40 条 norm_return 0.827、BONES-SEED 12.9 万条 0.9243/失败 0.27%）与 CuboiLeo/SuperMimic-Reproduced（论文逐条转录文档+RTX5090 1.66h 复现 0.82）及 SuperMimicCarnival 复现索引。逐图讲解全部 9 张插图（论文 7 + 官网 2）。"
+summary: "UC Berkeley《SuperMimic: Scaling Humanoid Whole-Body Control with One Differentiable World Model》（arXiv 2610.28480，CoRL 2026 Oral，Qiayuan Liao / Yiyang Shao / Junfeng Long…Pieter Abbeel、Koushil Sreenath）精读：与 [具身 RL 调研](/posts/paper-reading/具身智能强化学习调研精读/)里的 SONIC 同赛道（大规模动捕跟踪），但把「模型免费 PPO 碾算力」换成「一个可微世界模型摊销全部动作」。核心洞察：千差万别的动作共享同一套人形混合刚体动力学——用一个从仿真日志拟合的可微世界模型学这份共享结构，短视野想象 rollout + 穿模反传（BPTT）给策略解析梯度；世界模型比 MuJoCo Warp 批量快 10×+，8 步预测误差在 1→264 小时数据上保持稳定。结果：1×H100 3 小时超过 SONIC 发布 checkpoint 的 0.90 归一化回报（>50× 墙钟、>1000× GPU 时：3 vs 21k）；129,514 条基准动作失败 25 条 vs SONIC 179 条（含其全部翻转与侧滚），双卡 9.8 小时清零；真机 Unitree G1 全动作库零逐动作调参；速度编码器下游接口 RL 训练胜过蒸馏基线。官网 supermimic.github.io 给出完整算力账本与 FAQ。GitHub 侧（重点讲解）：官方代码确认未放出，但论文 10-20 投稿、次日即现复现潮——事实标准 `supermimic_vibed`（706★，ETH 非官方、自述 1 小时 vibe-code、Isaac Lab 3+MuJoCo-Warp、LAFAN1 单卡 1.47h 达 0.829/0 失败）领跑，另有 awesome-supermimic 目录（312★）、Motphys/Uni-SuperMimic（195★，UniLab 三后端，LAFAN1 0.827、BONES-SEED 12.9 万条 0.9243/失败 0.27%）、CuboiLeo/SuperMimic-Reproduced（308★，论文逐条转录+5090 1.66h 复现 0.82）与向灵巧手/四足/机械臂外溢的改造潮。逐图讲解全部 9 张插图（论文 7 + 官网 2）。"
 weight: 88
 ---
 
@@ -172,13 +172,22 @@ SuperMimic 的一句话暴击：**「所有动作长得不一样，但动力学�
 
 ---
 
-## 🧰 GitHub 生态：官方未挂代码，社区复现井喷
+## 🧰 GitHub 生态：官方未挂代码，`supermimic_vibed` 领跑的复现潮
 
-**官方状态**：论文与官网**均未挂出代码仓库链接**（截至本文写作；官网提供 PDF、影片、算力账本与 BibTeX）。论文实现被社区复现仓库称为参考 `supermimic_vibed`。
+**先回答两个常见疑问**：①**这是刚出的文章吗？**——是：arXiv **2026-10-20** 提交、CoRL 2026 Oral，本文写作时刚满一周；②**官方有 GitHub 吗？**——**没有**：论文、官网、arXiv 页面均未挂代码链接，社区 README 亦明言 *"no official code is released"*；官网只给 PDF、影片、算力账本与 BibTeX。但「没挂官方链接」≠「没人能跑」——论文上线**次日**起 GitHub 就进入复现潮，两天内形成事实标准。
 
-**社区反应**：论文上线一周内 GitHub 出现**数十个复现/移植仓库**，形成罕见的「复现潮」。代表性三个：
+### 0）zita-ch/supermimic_vibed（**706★**，MIT）——事实上的参考实现
 
-### 1）Motphys/Uni-SuperMimic（195★，Apache-2.0）——最完整独立复现
+- **身份**：**非官方**复现（README 首行即声明 Unofficial），作者 **Chong Zhang（ETH Zurich）**，论文发布次日（10-21）建库；**自称 1 小时 AI 辅助 vibe-code 完成**，并特意说明「不挂任何实验室 org，因为代码太 slop、未经审查，自担风险」——这份坦诚反而成了它的招牌；
+- **技术栈**：Isaac Lab 3（kit-less Docker，main@46d6cc3）+ **Newton + MuJoCo-Warp 求解器**（无 Kit/PhysX），50Hz 控制、4×5ms 子步；数据脚本拉取 LAFAN1 G1 retarget（HF）并生成 `g1_29dof.xml`/USD；
+- **结果**：论文受控 LAFAN1 对比（Fig. 4a）设定——**单卡 1.47h（RTX PRO 6000）评测回报 0.829、0/40 失败**（论文目标 1.2h 达 0.82；PPO 基线 18h、最多 8 卡都到不了 0.82）；
+- **地位**：[Uni-SuperMimic](https://github.com/Motphys/Uni-SuperMimic) 等后续仓库 README 直接写「参考 `supermimic_vibed`」——**它就是这条生态线的事实标准**，尽管作者自己叫它 slop。
+
+### 1）miao-org/awesome-supermimic（312★）——复现目录
+
+持续整理的实现/扩展/演示合集（awesome 体例）：把 80+ 个仓库按主线复现、硬件移植、下游改造分类收录——「看全生态从这进」。
+
+### 2）Motphys/Uni-SuperMimic（195★，Apache-2.0）——最完整独立复现
 
 - **定位**：在 **UniLab** 上对 SuperMimic 的独立下游复现——Unitree G1 全身跟踪 **LAFAN1** 动作库，**mjwarp / MuJoCo / Motrix 三后端**；
 - **结构**（README 目录树）：`src/unisupermimic/rl/algos/supermimic/`（世界模型、策略、critic、replay、learner）+ `tasks/motion_tracking/g1/supermimic/`（Manager 环境、可微 MDP、确定性全片评测、对比视频导出、G1 注册）+ Hydra 配置 + G1 MJCF/LAFAN1 CSV 资产下载脚本 + **sim2sim 一致性校验**（策略 I/O、网络形状、动作库、MJCF 同一性）；
@@ -186,20 +195,20 @@ SuperMimic 的一句话暴击：**「所有动作长得不一样，但动力学�
 - **结果（README）**：
   - **LAFAN1 40 条**：ckpt 12000，mjwarp+4096 环境，**norm_return 0.827，失败 0/40**；
   - **BONES-SEED 全保留库 129,487 条**（47.3M 帧）：单张 RTX 4090 **1.69h** 训练，**norm_return 0.9243，失败 350/129,487（0.27%）**；分布中位 0.9528、P10 0.8337、P90 0.9841；RTX 5090 独立复跑 0.9262（差 <0.002）；
-  - 与论文口径差异透明：独立实现、评测从第一帧确定性全片滚动；
 - **许可**：代码 Apache-2.0，并保留参考实现的 MIT 声明——合规细节可当模板。
 
-### 2）CuboiLeo/SuperMimic-Reproduced——「论文转录 + 从零实现」派
+### 3）CuboiLeo/SuperMimic-Reproduced（308★）——「论文转录 + 从零实现」派
 
 - 从零复现（mjlab/MuJoCo Warp 底座）：LAFAN1/BONES-SEED 数据管线、可微 FK 与解析奖励头、世界模型与想象训练器、torchrun 数据并行、附录 F 基准、交互回放器；
 - **文档即资产**：`docs/PAPER_SPEC.md`（论文全部数值/公式/协议逐条转录 + 「未指明」清单 U1–U20）、`REPRODUCTION_PLAN.md`（设计决策 D1–D20）、`EXPERIMENTS.md`（逐实验日志与踩坑）——中文文档，适合当「论文精读的配套注释」读；
 - **结果**：LAFAN1 上 **RTX 5090 单卡 1.66h 达论文 0.82**（锚点相对观测；作者明确说明与论文 93 维纯本体观测口径的偏离及其导致的回报上限差异）。
 
-### 3）QinnyuLan/SuperMimicCarnival——复现索引
+### 4）索引与改造潮
 
-持续更新的 SuperMimic 开源复现与改造索引（仓库名单、进度追踪）——复现潮的「目录页」。另有 yued2013-hash、YHFone/supermimic-mjlab、RaraAlu/SuperMimic 等数十个小仓库（LAFAN1 复现、RL 算法拆解、RP1 硬件移植等）。
+除 awesome-supermimic 外还有 [QinnyuLan/SuperMimicCarnival](https://github.com/QinnyuLan/SuperMimicCarnival)（复现进度追踪）；改造方向两天内已外溢出人形跟踪本体：**灵巧手**（CumulusAlpha/Dex-Supermimic 67★）、**四足**（go2-supermimic 66★）、**机械臂状态跟踪**（supermimic_manipulation 38★）、**G1 仿真到真机**（南大组 SuperMimic-Repro-Sim2Real 33★）、**肌肉驱动人形**（muscle-supermimic 30★）、高动态动作特化（Baojch 前空翻/侧翻套件 21★）等数十个——「一个可微世界模型」正被当成**通用训练器模板**往外复用。
 
-**怎么用这节**：想**跑起来** → Uni-SuperMimic（三后端+全库评测+清晰许可）；想**抠论文细节** → CuboiLeo 的 PAPER_SPEC/实验日志；想**看谁在做** → Carnival 索引。官方代码一旦放出，以上均可作为对照实现。
+**怎么用这节**：想**快速跑通** → `supermimic_vibed`（最流行、LAFAN1 1.5 GPU 时 0.829，但作者自认 slop）；想**工程化落地** → Uni-SuperMimic（三后端+全库评测+清晰许可）；想**抠论文细节** → CuboiLeo 的 PAPER_SPEC/实验日志；想**看全名单** → awesome-supermimic / Carnival。官方代码一旦放出，以上均可作为对照实现。
+
 
 ---
 
@@ -241,6 +250,6 @@ SuperMimic 的一句话暴击：**「所有动作长得不一样，但动力学�
 ## 📚 资源与延伸
 
 - 论文：arXiv [2610.28480](https://arxiv.org/abs/2610.28480)；官网 [supermimic.github.io](https://supermimic.github.io/)（含 [/demo](https://supermimic.github.io/demo/) 与算力 FAQ）
-- **GitHub 生态**：[Motphys/Uni-SuperMimic](https://github.com/Motphys/Uni-SuperMimic)（195★）· [CuboiLeo/SuperMimic-Reproduced](https://github.com/CuboiLeo/SuperMimic-Reproduced) · [QinnyuLan/SuperMimicCarnival](https://github.com/QinnyuLan/SuperMimicCarnival)（索引）
+- **GitHub 生态**：[zita-ch/supermimic_vibed](https://github.com/zita-ch/supermimic_vibed)（706★，事实标准参考实现）· [miao-org/awesome-supermimic](https://github.com/miao-org/awesome-supermimic)（312★ 目录）· [Motphys/Uni-SuperMimic](https://github.com/Motphys/Uni-SuperMimic)（195★）· [CuboiLeo/SuperMimic-Reproduced](https://github.com/CuboiLeo/SuperMimic-Reproduced)（308★）· [SuperMimicCarnival](https://github.com/QinnyuLan/SuperMimicCarnival)（进度索引）
 - 同赛道精读：[具身智能强化学习调研精读](/posts/paper-reading/具身智能强化学习调研精读/)（SONIC 章 + VLA-RL 谱系）· [GR00T-N1.7 精读](/posts/paper-reading/GR00T-N1.7精读/)（N1.7 亦接 SONIC 全身控制）
 - 知识铺垫：[PPO 强化学习方法详解](/posts/knowledge/PPO强化学习方法详解/)、[GRPO 强化学习方法详解](/posts/knowledge/GRPO强化学习方法详解/)
